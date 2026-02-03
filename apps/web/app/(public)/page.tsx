@@ -1,9 +1,12 @@
-import { prisma } from '@/lib/db';
 import { ListingCard } from '@/components/listing-card';
 import { Button } from '@/components/ui/button';
 import { SearchForm } from '@/components/search-form';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function HomePage() {
+  const { prisma } = await import('@/lib/db');
   const listings = await prisma.listing.findMany({
     where: { status: 'ACTIVE' },
     take: 4,

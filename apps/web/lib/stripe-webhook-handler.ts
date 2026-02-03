@@ -14,7 +14,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
       });
       await prisma.reservation.update({
         where: { id: reservationId },
-        data: { status: ReservationStatus.CONFIRMED }
+        data: { status: ReservationStatus.CONFIRMED, holdExpiresAt: null }
       });
 
       const reservation = await prisma.reservation.findUnique({
@@ -69,6 +69,36 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
       await prisma.reservation.update({
         where: { id: payment.reservationId },
         data: { status: ReservationStatus.REFUNDED }
+      });
+    }
+  }
+
+  if (event.type === 'checkout.session.expired') {
+    const session = event.data.object as any;
+    const reservationId = session.metadata?.reservationId;
+    if (reservationId) {
+      await prisma.payment.updateMany({
+        where: { reservationId },
+        data: { status: PaymentStatus.FAILED }
+      });
+      await prisma.reservation.update({
+        where: { id: reservationId },
+        data: { status: ReservationStatus.CANCELED, holdExpiresAt: null }
+      });
+    }
+  }
+
+  if (event.type === 'payment_intent.payment_failed' || event.type === 'payment_intent.canceled') {
+    const intent = event.data.object as any;
+    const payment = await prisma.payment.findFirst({ where: { stripePaymentIntentId: intent.id } });
+    if (payment) {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: PaymentStatus.FAILED }
+      });
+      await prisma.reservation.update({
+        where: { id: payment.reservationId },
+        data: { status: ReservationStatus.CANCELED, holdExpiresAt: null }
       });
     }
   }

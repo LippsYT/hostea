@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { calculatePrice } from '@/lib/pricing';
 
 const schema = z.object({
   checkIn: z.string().min(1),
@@ -21,7 +22,19 @@ type GuestCounts = {
   pets: number;
 };
 
-export const BookingForm = ({ listingId }: { listingId: string }) => {
+export const BookingForm = ({
+  listingId,
+  pricePerNight,
+  cleaningFee,
+  serviceFee,
+  taxRate
+}: {
+  listingId: string;
+  pricePerNight: number;
+  cleaningFee: number;
+  serviceFee: number;
+  taxRate: number;
+}) => {
   const [csrfToken, setCsrfToken] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [guestOpen, setGuestOpen] = useState(false);
@@ -32,7 +45,21 @@ export const BookingForm = ({ listingId }: { listingId: string }) => {
     infants: 0,
     pets: 0
   });
-  const { register, handleSubmit } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  const { register, handleSubmit, watch } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  const checkIn = watch('checkIn');
+  const checkOut = watch('checkOut');
+
+  const pricing =
+    checkIn && checkOut
+      ? calculatePrice({
+          checkIn: new Date(checkIn),
+          checkOut: new Date(checkOut),
+          pricePerNight,
+          cleaningFee,
+          serviceFee,
+          taxRate
+        })
+      : null;
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
@@ -141,6 +168,23 @@ export const BookingForm = ({ listingId }: { listingId: string }) => {
       </div>
 
       {guestError && <p className="text-xs text-red-600">{guestError}</p>}
+
+      {pricing && !Number.isNaN(pricing.total) && (
+        <div className="space-y-2 text-sm text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>{pricing.nights} noches</span>
+            <span>USD {pricing.subtotal.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Impuestos</span>
+            <span>USD {pricing.taxes.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between font-semibold text-slate-900">
+            <span>Total estimado</span>
+            <span>USD {pricing.total.toFixed(2)}</span>
+          </div>
+        </div>
+      )}
 
       <Button type="submit" size="lg" disabled={loading}>
         {loading ? 'Procesando...' : 'Reservar ahora'}

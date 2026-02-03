@@ -2,7 +2,6 @@
 import { prisma } from '@/lib/db';
 import { BookingForm } from '@/components/booking-form';
 import { Badge } from '@/components/ui/badge';
-import { calculatePrice } from '@/lib/pricing';
 import { Ban, Clock, Home, MapPin, PawPrint, ShieldCheck, Sparkles } from 'lucide-react';
 import { ListingHeader } from '@/components/listing-header';
 
@@ -27,15 +26,6 @@ export default async function ListingDetail({ params }: { params: { id: string }
   const rating = listing.reviews.length
     ? (listing.reviews.reduce((acc, r) => acc + r.rating, 0) / listing.reviews.length).toFixed(1)
     : 'Nuevo';
-
-  const samplePricing = calculatePrice({
-    checkIn: new Date(),
-    checkOut: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-    pricePerNight: Number(listing.pricePerNight),
-    cleaningFee: Number(listing.cleaningFee),
-    serviceFee: Number(listing.serviceFee),
-    taxRate: Number(listing.taxRate)
-  });
 
   const hasAmenity = (name: string) => listing.amenities.some((a) => a.amenity.name.toLowerCase().includes(name.toLowerCase()));
 
@@ -200,21 +190,13 @@ export default async function ListingDetail({ params }: { params: { id: string }
                   <span className="text-sm text-slate-500">por noche</span>
                 </div>
                 <div className="mt-5">
-                  <BookingForm listingId={listing.id} />
-                </div>
-                <div className="mt-5 space-y-2 text-sm text-slate-600">
-                  <div className="flex items-center justify-between">
-                    <span>{samplePricing.nights} noches</span>
-                    <span>USD {samplePricing.subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Impuestos</span>
-                    <span>USD {samplePricing.taxes.toFixed(2)}</span>
-                  </div>
-                  <div className="flex items-center justify-between font-semibold text-slate-900">
-                    <span>Total estimado</span>
-                    <span>USD {samplePricing.total.toFixed(2)}</span>
-                  </div>
+                  <BookingForm
+                    listingId={listing.id}
+                    pricePerNight={Number(listing.pricePerNight)}
+                    cleaningFee={Number(listing.cleaningFee)}
+                    serviceFee={Number(listing.serviceFee)}
+                    taxRate={Number(listing.taxRate)}
+                  />
                 </div>
                 <p className="mt-4 text-xs text-slate-500">
                   Cancelacion segun politica {listing.cancelPolicy}.

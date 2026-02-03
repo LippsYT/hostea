@@ -1,0 +1,6 @@
+﻿node_modules/
+.env
+apps/web/.env
+.next/
+.vercel/
+.DS_Store

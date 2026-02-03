@@ -1,0 +1,586 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary: #003580;
+    --primary-dark: #002456;
+    --secondary: #FEBB02;
+    --text: #333;
+    --text-light: #6b6b6b;
+    --border: #e0e0e0;
+    --bg-light: #f5f5f5;
+    --white: #ffffff;
+    --success: #28a745;
+    --danger: #dc3545;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    color: var(--text);
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Navbar */
+.navbar {
+    background: var(--primary);
+    color: var(--white);
+    padding: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.nav-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-size: 2rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+.logo a {
+    color: var(--white);
+    text-decoration: none;
+}
+
+.nav-links a {
+    color: var(--white);
+    text-decoration: none;
+    margin-left: 2rem;
+    font-weight: 500;
+    transition: opacity 0.3s;
+}
+
+.nav-links a:hover {
+    opacity: 0.8;
+}
+
+/* Hero Section */
+.hero {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: var(--white);
+    padding: 4rem 0;
+}
+
+.hero-title {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.hero-subtitle {
+    text-align: center;
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+    opacity: 0.9;
+}
+
+/* Search Box */
+.search-box {
+    background: var(--white);
+    border-radius: 8px;
+    padding: 2rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    align-items: end;
+}
+
+.search-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.search-field label {
+    color: var(--text);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.search-field input,
+.search-field select {
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 1rem;
+    font-family: inherit;
+}
+
+.search-btn {
+    background: var(--secondary);
+    color: var(--text);
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 4px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.search-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Properties Section */
+.properties-section {
+    padding: 4rem 0;
+}
+
+.section-title {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    color: var(--text);
+}
+
+.properties-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.property-card {
+    background: var(--white);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.3s, box-shadow 0.3s;
+    cursor: pointer;
+}
+
+.property-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.property-image {
+    width: 100%;
+    height: 200px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.property-content {
+    padding: 1.5rem;
+}
+
+.property-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+}
+
+.property-address {
+    color: var(--text-light);
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.property-zone {
+    color: var(--primary);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.property-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+.property-price {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--primary);
+}
+
+.price-label {
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.btn-secondary {
+    background: var(--primary);
+    color: var(--white);
+    border: none;
+    padding: 0.5rem 1.5rem;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background 0.3s;
+}
+
+.btn-secondary:hover {
+    background: var(--primary-dark);
+}
+
+/* Property Detail Page */
+.property-page {
+    padding: 2rem 0;
+}
+
+.property-detail {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 2rem;
+}
+
+.property-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.property-gallery {
+    background: var(--white);
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.gallery-main {
+    margin-bottom: 1rem;
+}
+
+.placeholder-image {
+    width: 100%;
+    height: 400px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.placeholder-image.small {
+    height: 100px;
+}
+
+.gallery-thumbs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+}
+
+.property-info {
+    background: var(--white);
+    border-radius: 8px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.property-title {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.property-info h2 {
+    font-size: 1.5rem;
+    margin: 2rem 0 1rem 0;
+    color: var(--primary);
+}
+
+.property-amenities ul {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+}
+
+.property-amenities li::before {
+    content: "✓ ";
+    color: var(--success);
+    font-weight: bold;
+}
+
+.property-calendar {
+    margin-top: 2rem;
+}
+
+.calendar-placeholder {
+    background: var(--bg-light);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.calendar-note {
+    text-align: center;
+    color: var(--text-light);
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}
+
+.cancellation-policy {
+    background: var(--bg-light);
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-top: 2rem;
+}
+
+.cancellation-policy p {
+    margin: 0.5rem 0;
+}
+
+/* Booking Widget */
+.booking-widget {
+    position: sticky;
+    top: 20px;
+}
+
+.booking-card {
+    background: var(--white);
+    border-radius: 8px;
+    padding: 2rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    border: 1px solid var(--border);
+}
+
+.price-display {
+    text-align: center;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+}
+
+.price {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--primary);
+    display: block;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 1rem;
+    font-family: inherit;
+}
+
+.booking-summary {
+    background: var(--bg-light);
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.summary-row.estimate {
+    color: var(--text-light);
+    font-size: 0.9rem;
+}
+
+.total-price {
+    font-weight: bold;
+    color: var(--primary);
+    font-size: 1.2rem;
+}
+
+.btn-primary {
+    width: 100%;
+    background: var(--primary);
+    color: var(--white);
+    border: none;
+    padding: 1rem;
+    border-radius: 4px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--primary-dark);
+}
+
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.payment-note {
+    text-align: center;
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+/* Success/Cancel Pages */
+.success-page,
+.cancel-page {
+    max-width: 600px;
+    margin: 4rem auto;
+    text-align: center;
+    padding: 3rem;
+    background: var(--white);
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+}
+
+.success-icon {
+    width: 80px;
+    height: 80px;
+    background: var(--success);
+    color: var(--white);
+    font-size: 3rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 2rem;
+}
+
+.cancel-icon {
+    width: 80px;
+    height: 80px;
+    background: var(--danger);
+    color: var(--white);
+    font-size: 3rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 2rem;
+}
+
+.success-message,
+.cancel-message {
+    font-size: 1.2rem;
+    color: var(--text-light);
+    margin-bottom: 2rem;
+}
+
+.confirmation-box,
+.info-box {
+    background: var(--bg-light);
+    padding: 2rem;
+    border-radius: 8px;
+    margin: 2rem 0;
+    text-align: left;
+}
+
+.confirmation-box h2,
+.info-box h2 {
+    margin-bottom: 1rem;
+    color: var(--primary);
+}
+
+.session-id {
+    font-family: monospace;
+    color: var(--text-light);
+    font-size: 0.85rem;
+}
+
+.next-steps {
+    text-align: left;
+    margin: 2rem 0;
+}
+
+.next-steps h3 {
+    color: var(--primary);
+    margin-bottom: 1rem;
+}
+
+.next-steps ul {
+    list-style-position: inside;
+}
+
+.next-steps li {
+    margin: 0.5rem 0;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.action-buttons .btn-primary,
+.action-buttons .btn-secondary {
+    display: inline-block;
+    padding: 0.75rem 2rem;
+    text-decoration: none;
+}
+
+/* Footer */
+.footer {
+    background: var(--text);
+    color: var(--white);
+    padding: 2rem 0;
+    margin-top: 4rem;
+    text-align: center;
+}
+
+.footer p {
+    margin: 0.5rem 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .hero-title {
+        font-size: 1.8rem;
+    }
+    
+    .search-box {
+        grid-template-columns: 1fr;
+    }
+    
+    .property-detail {
+        grid-template-columns: 1fr;
+    }
+    
+    .booking-widget {
+        position: static;
+    }
+    
+    .properties-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
+}

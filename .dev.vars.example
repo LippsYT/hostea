@@ -1,0 +1,6 @@
+SITE_URL=http://127.0.0.1:8788
+STRIPE_SECRET_KEY=sk_test_change_me
+STRIPE_WEBHOOK_SECRET=whsec_change_me
+WHATSAPP_TOKEN=your_token
+WHATSAPP_PHONE_NUMBER_ID=your_phone_id
+WHATSAPP_TO=your_destination_number

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Propiedad - HOSTEA</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-content">
+                <h1 class="logo"><a href="/">HOSTEA</a></h1>
+                <div class="nav-links">
+                    <a href="/">Inicio</a>
+                    <a href="/#properties">Propiedades</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container property-page">
+        <div class="property-detail">
+            <div class="property-main">
+                <div class="property-gallery">
+                    <!-- Gallery placeholder -->
+                    <div class="gallery-main">
+                        <div class="placeholder-image">Imagen Principal</div>
+                    </div>
+                    <div class="gallery-thumbs">
+                        <div class="placeholder-image small">Imagen 2</div>
+                        <div class="placeholder-image small">Imagen 3</div>
+                        <div class="placeholder-image small">Imagen 4</div>
+                        <div class="placeholder-image small">Imagen 5</div>
+                    </div>
+                </div>
+
+                <div class="property-info">
+                    <h1 id="propertyName" class="property-title"></h1>
+                    <p id="propertyAddress" class="property-address"></p>
+                    <p id="propertyZone" class="property-zone"></p>
+
+                    <div class="property-description">
+                        <h2>Descripción</h2>
+                        <p id="propertyDescription"></p>
+                    </div>
+
+                    <div class="property-amenities">
+                        <h2>Amenidades</h2>
+                        <ul id="amenitiesList"></ul>
+                    </div>
+
+                    <div class="property-calendar">
+                        <h2>Disponibilidad</h2>
+                        <div class="calendar-placeholder">
+                            <!-- Google Calendar iframe placeholder -->
+                            <iframe src="about:blank" style="border:0; width:100%; height:400px;" frameborder="0" scrolling="no"></iframe>
+                            <p class="calendar-note">Calendario de disponibilidad (integración con Google Calendar)</p>
+                        </div>
+                    </div>
+
+                    <div class="cancellation-policy">
+                        <h2>Política de Cancelación</h2>
+                        <p>✓ Reembolso hasta 48 hs antes del check-in.</p>
+                        <p>✓ Pago completo al momento de la reserva.</p>
+                        <p>✓ Todos los costos están incluidos en el precio mostrado.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="booking-widget">
+                <div class="booking-card">
+                    <div class="price-display">
+                        <span class="price" id="pricePerNight"></span>
+                        <span class="price-label">por noche</span>
+                    </div>
+
+                    <div class="booking-form">
+                        <div class="form-group">
+                            <label>Check-in</label>
+                            <input type="date" id="bookingCheckIn" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Check-out</label>
+                            <input type="date" id="bookingCheckOut" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Huéspedes</label>
+                            <input type="number" id="bookingGuests" min="1" max="10" value="2" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="customerEmail" placeholder="tu@email.com" required>
+                        </div>
+
+                        <div class="booking-summary" id="bookingSummary" style="display:none;">
+                            <div class="summary-row">
+                                <span>Noches:</span>
+                                <span id="nightsCount"></span>
+                            </div>
+                            <div class="summary-row">
+                                <span>Total USD:</span>
+                                <span id="totalUsd" class="total-price"></span>
+                            </div>
+                            <div class="summary-row estimate">
+                                <span>Estimado en ARS:</span>
+                                <span id="totalArs"></span>
+                            </div>
+                        </div>
+
+                        <button class="btn-primary" id="payNowBtn" onclick="handlePayment()">
+                            Pagar ahora
+                        </button>
+
+                        <p class="payment-note">Pago 100% seguro con Stripe</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 HOSTEA. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <script src="/assets/properties.js"></script>
+    <script>
+        let currentProperty = null;
+
+        // Load property details from URL
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const propertyId = params.get('id');
+            
+            if (!propertyId) {
+                window.location.href = '/';
+                return;
+            }
+
+            currentProperty = properties.find(p => p.id == propertyId);
+            
+            if (!currentProperty) {
+                window.location.href = '/';
+                return;
+            }
+
+            loadPropertyDetails();
+            setupDateInputs();
+            setupPriceCalculation();
+        });
+
+        function loadPropertyDetails() {
+            document.getElementById('propertyName').textContent = currentProperty.name;
+            document.getElementById('propertyAddress').textContent = currentProperty.address;
+            document.getElementById('propertyZone').textContent = `📍 ${currentProperty.zone}`;
+            document.getElementById('propertyDescription').textContent = currentProperty.description;
+            document.getElementById('pricePerNight').textContent = `USD ${currentProperty.pricePerNight}`;
+
+            const amenitiesList = document.getElementById('amenitiesList');
+            currentProperty.amenities.forEach(amenity => {
+                const li = document.createElement('li');
+                li.textContent = amenity;
+                amenitiesList.appendChild(li);
+            });
+        }
+
+        function setupDateInputs() {
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            const checkInInput = document.getElementById('bookingCheckIn');
+            const checkOutInput = document.getElementById('bookingCheckOut');
+            
+            checkInInput.min = today.toISOString().split('T')[0];
+            checkInInput.value = today.toISOString().split('T')[0];
+            
+            checkOutInput.min = tomorrow.toISOString().split('T')[0];
+            checkOutInput.value = tomorrow.toISOString().split('T')[0];
+        }
+
+        function setupPriceCalculation() {
+            const checkInInput = document.getElementById('bookingCheckIn');
+            const checkOutInput = document.getElementById('bookingCheckOut');
+            const guestsInput = document.getElementById('bookingGuests');
+
+            [checkInInput, checkOutInput, guestsInput].forEach(input => {
+                input.addEventListener('change', calculatePrice);
+            });
+
+            calculatePrice();
+        }
+
+        function calculatePrice() {
+            const checkIn = new Date(document.getElementById('bookingCheckIn').value);
+            const checkOut = new Date(document.getElementById('bookingCheckOut').value);
+            
+            if (!checkIn || !checkOut || checkOut <= checkIn) {
+                document.getElementById('bookingSummary').style.display = 'none';
+                return;
+            }
+
+            const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+            const totalUsd = nights * currentProperty.pricePerNight;
+            const totalArs = totalUsd * adminConfig.exchangeRateARS;
+
+            document.getElementById('nightsCount').textContent = nights;
+            document.getElementById('totalUsd').textContent = `USD ${totalUsd}`;
+            document.getElementById('totalArs').textContent = `ARS ${totalArs.toLocaleString('es-AR')}`;
+            document.getElementById('bookingSummary').style.display = 'block';
+        }
+
+        async function handlePayment() {
+            const checkIn = document.getElementById('bookingCheckIn').value;
+            const checkOut = document.getElementById('bookingCheckOut').value;
+            const guests = document.getElementById('bookingGuests').value;
+            const email = document.getElementById('customerEmail').value;
+
+            if (!checkIn || !checkOut || !guests || !email) {
+                alert('Por favor completa todos los campos');
+                return;
+            }
+
+            const checkInDate = new Date(checkIn);
+            const checkOutDate = new Date(checkOut);
+            
+            if (checkOutDate <= checkInDate) {
+                alert('La fecha de check-out debe ser posterior al check-in');
+                return;
+            }
+
+            const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+            const totalUsd = nights * currentProperty.pricePerNight;
+
+            const payBtn = document.getElementById('payNowBtn');
+            payBtn.disabled = true;
+            payBtn.textContent = 'Procesando...';
+
+            try {
+                const response = await fetch('/api/create-checkout-session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        propertyId: currentProperty.id,
+                        propertyName: currentProperty.name,
+                        checkIn,
+                        checkOut,
+                        guests: parseInt(guests),
+                        customerEmail: email,
+                        totalUsd,
+                        nights
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.url) {
+                    // Redirect to Stripe Checkout
+                    window.location.href = data.url;
+                } else {
+                    throw new Error(data.error || 'Error al crear la sesión de pago');
+                }
+            } catch (error) {
+                console.error('Payment error:', error);
+                alert('Error al procesar el pago. Por favor intenta nuevamente.');
+                payBtn.disabled = false;
+                payBtn.textContent = 'Pagar ahora';
+            }
+        }
+    </script>
+</body>
+</html>

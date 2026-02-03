@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOSTEA - Alojamientos Premium en Buenos Aires</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-content">
+                <h1 class="logo">HOSTEA</h1>
+                <div class="nav-links">
+                    <a href="/">Inicio</a>
+                    <a href="#properties">Propiedades</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <h2 class="hero-title">Encuentra tu alojamiento perfecto en Buenos Aires</h2>
+            <p class="hero-subtitle">Propiedades premium en las mejores zonas de la ciudad</p>
+            
+            <div class="search-box">
+                <div class="search-field">
+                    <label>Zona</label>
+                    <select id="zoneFilter">
+                        <option value="">Todas las zonas</option>
+                        <option value="Palermo/Cañitas">Palermo/Cañitas</option>
+                        <option value="Cañitas">Cañitas</option>
+                    </select>
+                </div>
+                
+                <div class="search-field">
+                    <label>Check-in</label>
+                    <input type="date" id="checkInDate">
+                </div>
+                
+                <div class="search-field">
+                    <label>Check-out</label>
+                    <input type="date" id="checkOutDate">
+                </div>
+                
+                <div class="search-field">
+                    <label>Huéspedes</label>
+                    <input type="number" id="guestsInput" min="1" max="10" value="2">
+                </div>
+                
+                <button class="search-btn" onclick="filterProperties()">Buscar</button>
+            </div>
+        </div>
+    </section>
+
+    <section id="properties" class="properties-section">
+        <div class="container">
+            <h2 class="section-title">Nuestras Propiedades</h2>
+            <div id="propertiesGrid" class="properties-grid">
+                <!-- Properties will be loaded here by JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 HOSTEA. Todos los derechos reservados.</p>
+            <p>Política de cancelación: Reembolso hasta 48 hs antes del check-in.</p>
+        </div>
+    </footer>
+
+    <script src="/assets/properties.js"></script>
+    <script src="/assets/app.js"></script>
+</body>
+</html>

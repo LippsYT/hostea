@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 30 35% 98%;
+  --foreground: 222 47% 11%;
+  --muted: 210 20% 96%;
+  --accent: 15 85% 58%;
+  --primary: 222 47% 11%;
+  --card: 0 0% 100%;
+}
+
+body {
+  @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))] antialiased;
+}
+
+.gradient-hero {
+  background: radial-gradient(1200px 500px at 20% 10%, rgba(255, 173, 120, 0.35), transparent),
+    radial-gradient(800px 400px at 80% 20%, rgba(108, 171, 255, 0.2), transparent),
+    linear-gradient(180deg, #fff8f2 0%, #ffffff 65%);
+}
+
+.card-glass {
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+@layer components {
+  .surface-card {
+    @apply rounded-3xl border border-slate-200/70 bg-white/85 p-6 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.6)] backdrop-blur;
+  }
+
+  .surface-muted {
+    @apply rounded-2xl border border-slate-200/70 bg-slate-50/80 p-4;
+  }
+
+  .pill-link {
+    @apply rounded-full border border-slate-200/70 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:bg-slate-100 hover:text-slate-900;
+  }
+
+  .stat-card {
+    @apply rounded-3xl border border-slate-200/70 bg-white/90 p-5 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.6)];
+  }
+
+  .section-title {
+    @apply text-2xl font-semibold text-slate-900;
+  }
+
+  .section-subtitle {
+    @apply text-sm text-slate-500;
+  }
+}
+
+.rdp-day_blocked {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #b91c1c;
+  text-decoration: line-through;
+}
+
+.rdp-day_maintenance {
+  background-color: rgba(148, 163, 184, 0.25);
+  color: #475569;
+  text-decoration: line-through;
+}
+
+.rdp-day_reserved {
+  background-color: rgba(59, 130, 246, 0.18);
+  color: #1d4ed8;
+}
+
+.typing-dots span {
+  animation: typingBlink 1.4s infinite;
+  display: inline-block;
+  margin-left: 1px;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typingBlink {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}

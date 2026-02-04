@@ -12,7 +12,7 @@ const navItems: NavItem[] = [
   { href: '/dashboard/host/reservations', label: 'Reservas', roles: ['HOST', 'ADMIN'] },
   { href: '/dashboard/host/calendar', label: 'Calendario', roles: ['HOST', 'ADMIN'] },
   { href: '/dashboard/host/finance', label: 'Finanzas', roles: ['HOST', 'ADMIN'] },
-  { href: '/dashboard/client', label: 'Cliente', roles: ['CLIENT', 'ADMIN'] },
+  { href: '/dashboard/client', label: 'Reservar', roles: ['CLIENT', 'ADMIN'] },
   { href: '/dashboard/client/messages', label: 'Mensajes', roles: ['CLIENT', 'HOST', 'ADMIN'] },
   { href: '/dashboard/client/profile', label: 'Perfil y KYC', roles: ['CLIENT', 'HOST', 'ADMIN'] },
   { href: '/dashboard/support', label: 'Soporte', roles: ['SUPPORT', 'MODERATOR', 'ADMIN'] },

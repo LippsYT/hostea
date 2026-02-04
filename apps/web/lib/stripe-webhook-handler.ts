@@ -1,4 +1,5 @@
-import { PaymentStatus, ReservationStatus, ThreadType } from '@prisma/client';
+import { PaymentStatus, ReservationStatus } from '@prisma/client';
+import { sendAutoMessagesOnConfirm } from '@/lib/auto-messages';
 
 export const handleStripeWebhook = async (event: any, prisma: any) => {
   if (event.type === 'checkout.session.completed') {
@@ -31,29 +32,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
             createdBy: reservation.userId
           }
         });
-
-        const thread = await prisma.messageThread.create({
-          data: {
-            type: ThreadType.RESERVATION,
-            status: 'RESERVATION',
-            reservationId: reservation.id,
-            createdById: reservation.userId,
-            participants: {
-              create: [
-                { userId: reservation.userId },
-                { userId: reservation.listing.hostId }
-              ]
-            }
-          }
-        });
-
-        await prisma.message.create({
-          data: {
-            threadId: thread.id,
-            senderId: reservation.listing.hostId,
-            body: '¡Gracias por reservar! Estoy disponible para coordinar tu llegada.'
-          }
-        });
+        await sendAutoMessagesOnConfirm(reservation.id);
       }
     }
   }

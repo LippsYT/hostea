@@ -2,8 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { ReservationStatus } from '@prisma/client';
 
-export const HostMessageActions = ({ threadId }: { threadId?: string }) => {
+export const HostMessageActions = ({
+  threadId,
+  reservationStatus,
+  guestPhone
+}: {
+  threadId?: string;
+  reservationStatus?: ReservationStatus | string | null;
+  guestPhone?: string | null;
+}) => {
   const [csrf, setCsrf] = useState('');
   const [offerTotal, setOfferTotal] = useState('');
   const [offerExpiresAt, setOfferExpiresAt] = useState('');
@@ -36,6 +45,23 @@ export const HostMessageActions = ({ threadId }: { threadId?: string }) => {
     }
     window.location.reload();
   };
+
+  if (reservationStatus === ReservationStatus.CONFIRMED) {
+    return (
+      <div className="mt-3 space-y-2">
+        <Button className="w-full" variant="outline" onClick={() => alert('Funcionalidad en camino: enviar/solicitar dinero.')}>
+          Enviar o solicitar dinero
+        </Button>
+        {guestPhone ? (
+          <a className="block" href={`tel:${guestPhone}`}>
+            <Button className="w-full" variant="outline">Llamar</Button>
+          </a>
+        ) : (
+          <p className="text-xs text-slate-400">Teléfono no disponible</p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="mt-3 space-y-2">

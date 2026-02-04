@@ -5,7 +5,7 @@ import { HostDashboard } from '@/components/host-dashboard';
 import { Card } from '@/components/ui/card';
 import { StripeConnectButton } from '@/components/stripe-connect-button';
 import { redirect } from 'next/navigation';
-import { getSetting } from '@/lib/settings';
+import { ReservationStatus } from '@prisma/client';
 
 export default async function HostPage() {
   const session = await getServerSession(authOptions);
@@ -16,8 +16,9 @@ export default async function HostPage() {
   }
 
   const listings = await prisma.listing.findMany({ where: { hostId: userId } });
-  const reservations = await prisma.reservation.findMany({ where: { listing: { hostId: userId } } });
-  const usdToArsRate = await getSetting<number>('usdToArsRate', 980);
+  const reservations = await prisma.reservation.findMany({
+    where: { listing: { hostId: userId }, status: ReservationStatus.CONFIRMED }
+  });
   const connectEnabled = process.env.ENABLE_STRIPE_CONNECT === 'true';
 
   const data = [
@@ -58,11 +59,6 @@ export default async function HostPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ocupacion</p>
           <p className="mt-2 text-3xl font-semibold text-slate-900">78%</p>
           <p className="mt-1 text-xs text-slate-500">Promedio mensual</p>
-        </Card>
-        <Card className="stat-card">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">USD a ARS</p>
-          <p className="mt-2 text-3xl font-semibold text-slate-900">{usdToArsRate}</p>
-          <p className="mt-1 text-xs text-slate-500">Tipo de cambio manual</p>
         </Card>
       </div>
 

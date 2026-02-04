@@ -4,6 +4,7 @@ import { requireSession } from '@/lib/permissions';
 import { assertCsrf } from '@/lib/csrf';
 import { z } from 'zod';
 import { ReservationStatus } from '@prisma/client';
+import { sendAutoMessagesOnConfirm } from '@/lib/auto-messages';
 
 const schema = z.object({
   status: z.nativeEnum(ReservationStatus)
@@ -29,5 +30,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     where: { id: reservation.id },
     data: { status: parsed.data.status }
   });
+  if (parsed.data.status === ReservationStatus.CONFIRMED) {
+    await sendAutoMessagesOnConfirm(reservation.id);
+  }
   return NextResponse.json({ reservation: updated });
 }

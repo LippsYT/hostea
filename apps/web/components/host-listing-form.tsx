@@ -8,7 +8,7 @@ export const HostListingForm = () => {
   const [csrf, setCsrf] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [saving, setSaving] = useState(false);
-  const [hostFeePercent, setHostFeePercent] = useState(0.15);
+  const [commissionPercent, setCommissionPercent] = useState(0.15);
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -28,10 +28,17 @@ export const HostListingForm = () => {
       const data = await res.json();
       setCsrf(data.token);
     });
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then((data) => {
+        const value = Number(data?.settings?.commissionPercent);
+        if (Number.isFinite(value)) setCommissionPercent(value);
+      })
+      .catch(() => undefined);
   }, []);
 
-  const hostFee = Math.round(form.pricePerNight * hostFeePercent * 100) / 100;
-  const hostEarnings = Math.round((form.pricePerNight - hostFee) * 100) / 100;
+  const platformFee = Math.round(form.pricePerNight * commissionPercent * 100) / 100;
+  const hostEarnings = Math.round((form.pricePerNight - platformFee) * 100) / 100;
 
   const onSubmit = async () => {
     setErrorMsg('');
@@ -128,14 +135,8 @@ export const HostListingForm = () => {
       <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm font-semibold text-slate-900">Posibles ganancias</p>
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span>Fee host (%)</span>
-            <input
-              type="number"
-              className="h-8 w-16 rounded-xl border border-slate-200 px-2 text-right text-xs"
-              value={Math.round(hostFeePercent * 100)}
-              onChange={(e) => setHostFeePercent(Math.max(0, Math.min(0.3, Number(e.target.value) / 100)))}
-            />
+          <div className="text-xs text-slate-500">
+            Comisión plataforma: {Math.round(commissionPercent * 100)}%
           </div>
         </div>
         <div className="mt-3 space-y-1 text-sm text-slate-600">
@@ -144,11 +145,11 @@ export const HostListingForm = () => {
             <span>USD {form.pricePerNight || 0}</span>
           </div>
           <div className="flex items-center justify-between text-slate-500">
-            <span>Tarifa de servicio (anfitrion)</span>
-            <span>-USD {hostFee.toFixed(2)}</span>
+            <span>Comisión plataforma</span>
+            <span>-USD {platformFee.toFixed(2)}</span>
           </div>
           <div className="flex items-center justify-between font-semibold text-slate-900">
-            <span>Total (USD)</span>
+            <span>Total a recibir (USD)</span>
             <span>USD {hostEarnings.toFixed(2)}</span>
           </div>
         </div>

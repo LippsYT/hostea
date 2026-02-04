@@ -5,10 +5,13 @@ import { redirect } from 'next/navigation';
 import { ChatClient } from '@/components/chat-client';
 import { HostMessageActions } from '@/components/host-message-actions';
 import Link from 'next/link';
+import { reservationStatusBadgeClass, reservationStatusLabel } from '@/lib/reservation-status';
+import { Badge } from '@/components/ui/badge';
+import { HostMessageTemplates } from '@/components/host-message-templates';
 
 const statusLabel = (thread: any) => {
   if (thread.reservation) {
-    return `Reserva · ${thread.reservation.status}`;
+    return `Reserva · ${reservationStatusLabel(thread.reservation.status)}`;
   }
   if (thread.status === 'OFFER') return 'Oferta enviada';
   if (thread.status === 'PREAPPROVED') return 'Preaprobado';
@@ -38,6 +41,8 @@ export default async function HostMessagesPage({ searchParams }: { searchParams:
 
   const guest = selectedThread?.participants.find((p) => p.userId !== userId);
   const guestName = guest?.user.profile?.name || guest?.user.email || 'Huesped';
+  const guestPhone = guest?.user.profile?.phone || null;
+  const reservationStatus = selectedThread?.reservation?.status;
 
   return (
     <div className="space-y-6">
@@ -54,8 +59,8 @@ export default async function HostMessagesPage({ searchParams }: { searchParams:
               const otherName = other?.user.profile?.name || other?.user.email || 'Huesped';
               return (
                 <Link key={thread.id} href={`?threadId=${thread.id}`} className="block rounded-2xl border border-slate-200/70 bg-slate-50/80 p-3 text-sm text-slate-700 hover:bg-slate-100">
-                  <p className="font-semibold text-slate-900">{thread.reservation?.listing.title || otherName}</p>
-                  <p className="text-xs text-slate-500">{statusLabel(thread)}</p>
+                  <p className="font-semibold text-slate-900">{otherName}</p>
+                  <p className="text-xs text-slate-500">{statusLabel(thread)} · {thread.reservation?.listing.title || 'Consulta'}</p>
                 </Link>
               );
             })}
@@ -78,18 +83,26 @@ export default async function HostMessagesPage({ searchParams }: { searchParams:
 
           <div>
             <h3 className="text-base font-semibold text-slate-900">Acciones</h3>
-            <HostMessageActions threadId={selected} />
+            <HostMessageActions threadId={selected} reservationStatus={reservationStatus} guestPhone={guestPhone} />
           </div>
 
           <div>
             <h3 className="text-base font-semibold text-slate-900">Reserva</h3>
             {selectedThread?.reservation ? (
               <div className="mt-3 space-y-2 text-sm text-slate-600">
-                <p className="font-semibold text-slate-900">{selectedThread.reservation.listing.title}</p>
+                <p className="font-semibold text-slate-900">{guestName}</p>
+                <p className="text-xs text-slate-500">{selectedThread.reservation.listing.title}</p>
                 <p>{selectedThread.reservation.checkIn.toISOString().slice(0, 10)} - {selectedThread.reservation.checkOut.toISOString().slice(0, 10)}</p>
                 <p>{selectedThread.reservation.guestsCount} huespedes</p>
-                <p>Estado: {selectedThread.reservation.status}</p>
+                <Badge className={reservationStatusBadgeClass(selectedThread.reservation.status)}>
+                  {reservationStatusLabel(selectedThread.reservation.status)}
+                </Badge>
                 <p>Total: USD {Number(selectedThread.reservation.total).toFixed(2)}</p>
+                {guestPhone ? (
+                  <p className="text-xs text-slate-500">Teléfono: {guestPhone}</p>
+                ) : (
+                  <p className="text-xs text-slate-400">Teléfono no disponible</p>
+                )}
               </div>
             ) : (
               <div className="mt-3 text-sm text-slate-500">
@@ -97,6 +110,7 @@ export default async function HostMessagesPage({ searchParams }: { searchParams:
               </div>
             )}
           </div>
+          <HostMessageTemplates />
         </aside>
       </div>
     </div>

@@ -56,6 +56,8 @@ export default async function ListingDetail({ params }: { params: { id: string }
   const fullAddress = `${listing.address}, ${listing.neighborhood}, ${listing.city}`;
   const mapQuery = encodeURIComponent(fullAddress);
   const mapUrl = `https://maps.google.com/maps?q=${mapQuery}&output=embed`;
+  const normalizedTaxRate =
+    Number(listing.taxRate) > 1 ? Number(listing.taxRate) / 100 : Number(listing.taxRate);
 
   return (
     <div className="bg-white">
@@ -194,8 +196,8 @@ export default async function ListingDetail({ params }: { params: { id: string }
                     listingId={listing.id}
                     pricePerNight={Number(listing.pricePerNight)}
                     cleaningFee={Number(listing.cleaningFee)}
-                    serviceFee={Number(listing.serviceFee)}
-                    taxRate={Number(listing.taxRate)}
+                    serviceFee={0}
+                    taxRate={normalizedTaxRate}
                   />
                 </div>
                 <p className="mt-4 text-xs text-slate-500">

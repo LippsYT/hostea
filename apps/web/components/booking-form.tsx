@@ -193,10 +193,12 @@ export const BookingForm = ({
             <span>Limpieza</span>
             <span>USD {cleaningFee.toFixed(2)}</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span>Tarifa de servicio</span>
-            <span>USD {serviceFee.toFixed(2)}</span>
-          </div>
+          {serviceFee > 0 && (
+            <div className="flex items-center justify-between">
+              <span>Tarifa de servicio</span>
+              <span>USD {serviceFee.toFixed(2)}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span>Impuestos</span>
             <span>USD {pricing.taxes.toFixed(2)}</span>

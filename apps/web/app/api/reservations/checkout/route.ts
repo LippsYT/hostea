@@ -93,13 +93,14 @@ export async function POST(req: Request) {
       })
       .filter(Boolean) as { startDate: Date; endDate: Date; price: number }[];
 
+    const normalizedTaxRate = Number(listing.taxRate) > 1 ? Number(listing.taxRate) / 100 : Number(listing.taxRate);
     const pricing = calculatePrice({
       checkIn: checkInDate,
       checkOut: checkOutDate,
       pricePerNight: Number(listing.pricePerNight),
       cleaningFee: Number(listing.cleaningFee),
-      serviceFee: Number(listing.serviceFee),
-      taxRate: Number(listing.taxRate),
+      serviceFee: 0,
+      taxRate: normalizedTaxRate,
       overrides
     });
 

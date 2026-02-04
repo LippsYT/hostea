@@ -1,10 +1,11 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DayPicker, DateRange } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
+import { addDays, format } from 'date-fns';
 
 type ListingOption = { id: string; title: string };
 
@@ -42,15 +43,17 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
   }, [listingId]);
 
   const createBlock = async () => {
-    if (!range?.from || !range?.to) return;
+    if (!range?.from) return;
+    const start = range.from;
+    const end = range.to ?? range.from;
     if (mode === 'PRICE' && (!priceOverride || priceOverride <= 0)) return;
     await fetch('/api/host/calendar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
       body: JSON.stringify({
         listingId,
-        startDate: range.from.toISOString(),
-        endDate: range.to.toISOString(),
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
         reason: mode === 'PRICE' ? undefined : reason,
         price: mode === 'PRICE' ? priceOverride : undefined
       })
@@ -76,6 +79,19 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
 
   const maintenanceBlocks = blockOnly.filter((b) => (b.reason || '').toLowerCase().includes('mantenimiento'));
   const manualBlocks = blockOnly.filter((b) => !maintenanceBlocks.includes(b));
+  const priceMap = useMemo(() => {
+    const map = new Map<string, number>();
+    priceBlocks.forEach((b) => {
+      const price = Number((b.reason || '').replace('PRICE:', ''));
+      if (!Number.isFinite(price)) return;
+      const start = new Date(b.startDate);
+      const end = new Date(b.endDate);
+      for (let d = start; d <= end; d = addDays(d, 1)) {
+        map.set(format(d, 'yyyy-MM-dd'), price);
+      }
+    });
+    return map;
+  }, [priceBlocks]);
 
   return (
     <div className="space-y-4">
@@ -83,10 +99,12 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-slate-900">Calendario real</h2>
-            <p className="text-sm text-slate-500">Selecciona un rango para bloquear fechas.</p>
+            <p className="text-sm text-slate-500">
+              Selecciona un rango (o un día) para bloquear o cambiar el precio.
+            </p>
           </div>
-          <Button size="sm" onClick={createBlock} disabled={!range?.from || !range?.to}>
-            Bloquear fechas
+          <Button size="sm" onClick={createBlock} disabled={!range?.from}>
+            {mode === 'PRICE' ? 'Aplicar precio' : 'Bloquear fechas'}
           </Button>
         </div>
         <div className="mt-6 grid gap-4 lg:grid-cols-[320px_1fr]">
@@ -115,12 +133,15 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
               <option value="PRICE">Precio personalizado</option>
             </select>
             {mode === 'PRICE' ? (
-              <Input
-                type="number"
-                placeholder="Precio USD"
-                value={priceOverride || ''}
-                onChange={(e) => setPriceOverride(Number(e.target.value))}
-              />
+              <div className="space-y-2">
+                <Input
+                  type="number"
+                  placeholder="Precio USD"
+                  value={priceOverride || ''}
+                  onChange={(e) => setPriceOverride(Number(e.target.value))}
+                />
+                <p className="text-xs text-slate-500">Tip: selecciona un solo día para cambiar ese precio.</p>
+              </div>
             ) : (
               <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-3 text-xs text-slate-500">
                 Reservas confirmadas y bloqueos se muestran deshabilitados.
@@ -133,6 +154,20 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
               selected={range}
               onSelect={setRange}
               disabled={disabledRanges}
+              components={{
+                DayContent: ({ date }) => {
+                  const key = format(date, 'yyyy-MM-dd');
+                  const price = priceMap.get(key);
+                  return (
+                    <div className="rdp-day-content">
+                      <span className="rdp-day-number">{date.getDate()}</span>
+                      {price !== undefined && (
+                        <span className="rdp-day-price">USD {price}</span>
+                      )}
+                    </div>
+                  );
+                }
+              }}
               modifiers={{
                 blocked: manualBlocks.map((b) => ({ from: new Date(b.startDate), to: new Date(b.endDate) })),
                 maintenance: maintenanceBlocks.map((b) => ({ from: new Date(b.startDate), to: new Date(b.endDate) })),

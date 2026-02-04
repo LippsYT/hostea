@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -33,6 +33,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [commissionPercent, setCommissionPercent] = useState(0.15);
   const [photos, setPhotos] = useState<Photo[]>(listing.photos || []);
   const [form, setForm] = useState({
     title: listing.title,
@@ -43,7 +44,6 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
     neighborhood: listing.neighborhood,
     pricePerNight: listing.pricePerNight,
     cleaningFee: listing.cleaningFee,
-    serviceFee: listing.serviceFee,
     taxRate: listing.taxRate,
     capacity: listing.capacity,
     beds: listing.beds,
@@ -57,6 +57,13 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
       const data = await res.json();
       setCsrf(data.token);
     });
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then((data) => {
+        const value = Number(data?.settings?.commissionPercent);
+        if (Number.isFinite(value)) setCommissionPercent(value);
+      })
+      .catch(() => undefined);
   }, []);
 
   const save = async () => {
@@ -69,6 +76,16 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
     setSaving(false);
     alert('Listing actualizado');
   };
+
+  const commissionPreview = useMemo(() => {
+    const base = Number(form.pricePerNight) || 0;
+    const fee = Math.round(base * commissionPercent * 100) / 100;
+    return {
+      base,
+      fee,
+      host: Math.round((base - fee) * 100) / 100
+    };
+  }, [form.pricePerNight, commissionPercent]);
 
   const uploadFile = async (file: File) => {
     setUploadError('');
@@ -177,12 +194,15 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
             <Input type="number" placeholder="Limpieza" value={form.cleaningFee} onChange={(e) => setForm((f) => ({ ...f, cleaningFee: Number(e.target.value) }))} />
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tarifa de servicio (USD)</p>
-            <Input type="number" placeholder="Service fee" value={form.serviceFee} onChange={(e) => setForm((f) => ({ ...f, serviceFee: Number(e.target.value) }))} />
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Impuestos (0.1 = 10%)</p>
-            <Input type="number" step="0.01" placeholder="Tax rate" value={form.taxRate} onChange={(e) => setForm((f) => ({ ...f, taxRate: Number(e.target.value) }))} />
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Impuestos (%)</p>
+            <Input
+              type="number"
+              step="0.1"
+              placeholder="Ej: 10"
+              value={Math.round(form.taxRate * 100 * 100) / 100}
+              onChange={(e) => setForm((f) => ({ ...f, taxRate: Number(e.target.value) / 100 }))}
+            />
+            <p className="mt-1 text-[11px] text-slate-500">Se calcula sobre el subtotal.</p>
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Capacidad</p>
@@ -221,6 +241,28 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
             />
             Reserva inmediata
           </label>
+        </div>
+        <div className="mt-6 rounded-2xl border border-slate-200/70 bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-slate-900">Posibles ganancias</p>
+            <div className="text-xs text-slate-500">
+              Comisión plataforma: {Math.round(commissionPercent * 100)}%
+            </div>
+          </div>
+          <div className="mt-3 space-y-1 text-sm text-slate-600">
+            <div className="flex items-center justify-between">
+              <span>1 noche por USD {commissionPreview.base.toFixed(2)}</span>
+              <span>USD {commissionPreview.base.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between text-slate-500">
+              <span>Comisión plataforma</span>
+              <span>-USD {commissionPreview.fee.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between font-semibold text-slate-900">
+              <span>Total a recibir (USD)</span>
+              <span>USD {commissionPreview.host.toFixed(2)}</span>
+            </div>
+          </div>
         </div>
       </div>
 

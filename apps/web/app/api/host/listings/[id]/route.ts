@@ -14,7 +14,6 @@ const schema = z.object({
   neighborhood: z.string(),
   pricePerNight: z.coerce.number(),
   cleaningFee: z.coerce.number(),
-  serviceFee: z.coerce.number(),
   taxRate: z.coerce.number(),
   capacity: z.coerce.number(),
   beds: z.coerce.number(),
@@ -48,6 +47,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
   const data = parsed.data;
+  const normalizedTaxRate = data.taxRate > 1 ? data.taxRate / 100 : data.taxRate;
   const updated = await prisma.listing.update({
     where: { id: params.id },
     data: {
@@ -59,8 +59,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       neighborhood: data.neighborhood,
       pricePerNight: data.pricePerNight,
       cleaningFee: data.cleaningFee,
-      serviceFee: data.serviceFee,
-      taxRate: data.taxRate,
+      serviceFee: 0,
+      taxRate: normalizedTaxRate,
       capacity: data.capacity,
       beds: data.beds,
       baths: data.baths,

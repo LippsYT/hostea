@@ -36,9 +36,13 @@ body {
     @apply rounded-2xl border border-slate-200/70 bg-slate-50/80 p-4;
   }
 
-  .pill-link {
-    @apply rounded-full border border-slate-200/70 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:bg-slate-100 hover:text-slate-900;
-  }
+    .pill-link {
+      @apply rounded-full border border-slate-200/70 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:bg-slate-100 hover:text-slate-900;
+    }
+
+    .pill-link-active {
+      @apply border-slate-900 bg-slate-900 text-white hover:bg-slate-900 hover:text-white;
+    }
 
   .stat-card {
     @apply rounded-3xl border border-slate-200/70 bg-white/90 p-5 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.6)];
@@ -74,6 +78,24 @@ body {
   background-color: rgba(16, 185, 129, 0.18);
   color: #047857;
   border: 1px dashed rgba(16, 185, 129, 0.6);
+}
+
+.rdp-day-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.rdp-day-number {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.rdp-day-price {
+  font-size: 10px;
+  line-height: 1;
+  color: #047857;
 }
 
 .typing-dots span {

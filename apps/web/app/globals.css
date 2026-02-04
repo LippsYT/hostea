@@ -93,3 +93,33 @@ body {
     opacity: 1;
   }
 }
+
+@keyframes floatUp {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes floatSide {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(6px);
+  }
+}
+
+.float-slow {
+  animation: floatUp 5s ease-in-out infinite;
+}
+
+.float-mid {
+  animation: floatUp 3.5s ease-in-out infinite;
+}
+
+.float-fast {
+  animation: floatSide 2.6s ease-in-out infinite;
+}

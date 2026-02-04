@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Search, User, ArrowLeft, Home, Sparkles, Briefcase, Users } from 'lucide-react';
 
 type GuestCounts = {
@@ -14,6 +15,7 @@ type GuestCounts = {
 
 export const ListingHeader = () => {
   const router = useRouter();
+  const { data: session } = useSession();
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<'homes' | 'experiences' | 'services'>('homes');
   const [guests, setGuests] = useState<GuestCounts>({ adults: 1, children: 0, infants: 0, pets: 0 });
@@ -71,7 +73,7 @@ export const ListingHeader = () => {
               onClick={() => setTab(item.key as typeof tab)}
               className={`flex items-center gap-2 rounded-full px-3 py-1 transition ${tab === item.key ? 'bg-slate-900 text-white' : 'hover:text-slate-900'}`}
             >
-              <item.icon className="h-4 w-4" />
+              <item.icon className={`h-4 w-4 ${tab === item.key ? '' : 'float-slow'}`} />
               {item.label}
             </button>
           ))}
@@ -84,13 +86,30 @@ export const ListingHeader = () => {
           >
             Panel
           </Link>
-          <Link
-            href="/auth/sign-in"
-            className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50"
-          >
-            <User className="h-4 w-4" />
-            Perfil
-          </Link>
+          {session ? (
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50"
+            >
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-[10px] font-semibold text-white">
+                {(session.user?.name || session.user?.email || 'U')
+                  .split(' ')
+                  .map((part) => part[0])
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase()}
+              </span>
+              Perfil
+            </Link>
+          ) : (
+            <Link
+              href="/auth/sign-in"
+              className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50"
+            >
+              <User className="h-4 w-4" />
+              Perfil
+            </Link>
+          )}
         </div>
       </div>
 

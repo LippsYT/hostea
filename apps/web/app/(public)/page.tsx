@@ -1,6 +1,7 @@
 import { ListingCard } from '@/components/listing-card';
 import { Button } from '@/components/ui/button';
 import { SearchForm } from '@/components/search-form';
+import { PricePopout } from '@/components/price-popout';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -16,6 +17,7 @@ export default async function HomePage() {
 
   return (
     <div className="gradient-hero">
+      <PricePopout />
       <section className="px-8 pb-16 pt-10">
         <div className="mx-auto max-w-6xl">
           <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">

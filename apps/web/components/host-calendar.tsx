@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { DayPicker, DateRange } from 'react-day-picker';
+import { DayPicker, DateRange, type DayButtonProps } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import { addDays, format } from 'date-fns';
 
@@ -155,16 +155,19 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
               onSelect={setRange}
               disabled={disabledRanges}
               components={{
-                DayContent: ({ date }) => {
-                  const key = format(date, 'yyyy-MM-dd');
+                DayButton: (props: DayButtonProps) => {
+                  const key = format(props.day.date, 'yyyy-MM-dd');
                   const price = priceMap.get(key);
+                  const { children, ...buttonProps } = props;
                   return (
-                    <div className="rdp-day-content">
-                      <span className="rdp-day-number">{date.getDate()}</span>
-                      {price !== undefined && (
-                        <span className="rdp-day-price">USD {price}</span>
-                      )}
-                    </div>
+                    <button {...buttonProps}>
+                      <div className="rdp-day-content">
+                        <span className="rdp-day-number">{children}</span>
+                        {price !== undefined && (
+                          <span className="rdp-day-price">USD {price}</span>
+                        )}
+                      </div>
+                    </button>
                   );
                 }
               }}

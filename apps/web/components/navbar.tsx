@@ -51,7 +51,9 @@ export const Navbar = async () => {
             Ingresar
           </Link>
         )}
-        <Button size="sm">Publicar</Button>
+        <Button size="sm" asChild>
+          <Link href="/host/onboarding">Publicar</Link>
+        </Button>
       </div>
     </header>
   );

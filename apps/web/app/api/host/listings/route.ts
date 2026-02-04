@@ -6,19 +6,22 @@ import { assertCsrf } from '@/lib/csrf';
 import { rateLimit } from '@/lib/rate-limit';
 import { ListingType, CancelPolicy } from '@prisma/client';
 
+const emptyToUndefined = (value: unknown) =>
+  typeof value === 'string' && value.trim().length === 0 ? undefined : value;
+
 const schema = z
   .object({
-    title: z.string().min(3).optional(),
-    description: z.string().min(10).optional(),
-    type: z.nativeEnum(ListingType).optional(),
-    address: z.string().optional(),
-    city: z.string().optional(),
-    neighborhood: z.string().optional(),
-    pricePerNight: z.coerce.number().optional(),
-    capacity: z.coerce.number().optional(),
-    beds: z.coerce.number().optional(),
-    baths: z.coerce.number().optional(),
-    cancelPolicy: z.nativeEnum(CancelPolicy).optional()
+    title: z.preprocess(emptyToUndefined, z.string().min(3).optional()),
+    description: z.preprocess(emptyToUndefined, z.string().min(10).optional()),
+    type: z.preprocess(emptyToUndefined, z.nativeEnum(ListingType).optional()),
+    address: z.preprocess(emptyToUndefined, z.string().optional()),
+    city: z.preprocess(emptyToUndefined, z.string().optional()),
+    neighborhood: z.preprocess(emptyToUndefined, z.string().optional()),
+    pricePerNight: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
+    capacity: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
+    beds: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
+    baths: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
+    cancelPolicy: z.preprocess(emptyToUndefined, z.nativeEnum(CancelPolicy).optional())
   })
   .passthrough();
 

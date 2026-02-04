@@ -148,18 +148,54 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
           </Button>
         </div>
         <div className="mt-6 grid gap-3 md:grid-cols-2">
-          <Input placeholder="Titulo" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-          <Input placeholder="Descripcion" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
-          <Input placeholder="Direccion" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
-          <Input placeholder="Ciudad" value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} />
-          <Input placeholder="Barrio" value={form.neighborhood} onChange={(e) => setForm((f) => ({ ...f, neighborhood: e.target.value }))} />
-          <Input type="number" placeholder="Precio por noche" value={form.pricePerNight} onChange={(e) => setForm((f) => ({ ...f, pricePerNight: Number(e.target.value) }))} />
-          <Input type="number" placeholder="Limpieza" value={form.cleaningFee} onChange={(e) => setForm((f) => ({ ...f, cleaningFee: Number(e.target.value) }))} />
-          <Input type="number" placeholder="Service fee" value={form.serviceFee} onChange={(e) => setForm((f) => ({ ...f, serviceFee: Number(e.target.value) }))} />
-          <Input type="number" placeholder="Tax rate (0.1)" value={form.taxRate} onChange={(e) => setForm((f) => ({ ...f, taxRate: Number(e.target.value) }))} />
-          <Input type="number" placeholder="Capacidad" value={form.capacity} onChange={(e) => setForm((f) => ({ ...f, capacity: Number(e.target.value) }))} />
-          <Input type="number" placeholder="Camas" value={form.beds} onChange={(e) => setForm((f) => ({ ...f, beds: Number(e.target.value) }))} />
-          <Input type="number" placeholder="Banos" value={form.baths} onChange={(e) => setForm((f) => ({ ...f, baths: Number(e.target.value) }))} />
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Titulo</p>
+            <Input placeholder="Titulo" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Descripcion</p>
+            <Input placeholder="Descripcion" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Direccion</p>
+            <Input placeholder="Direccion" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ciudad</p>
+            <Input placeholder="Ciudad" value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Barrio</p>
+            <Input placeholder="Barrio" value={form.neighborhood} onChange={(e) => setForm((f) => ({ ...f, neighborhood: e.target.value }))} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Precio por noche (USD)</p>
+            <Input type="number" placeholder="Precio por noche" value={form.pricePerNight} onChange={(e) => setForm((f) => ({ ...f, pricePerNight: Number(e.target.value) }))} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Limpieza (USD)</p>
+            <Input type="number" placeholder="Limpieza" value={form.cleaningFee} onChange={(e) => setForm((f) => ({ ...f, cleaningFee: Number(e.target.value) }))} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tarifa de servicio (USD)</p>
+            <Input type="number" placeholder="Service fee" value={form.serviceFee} onChange={(e) => setForm((f) => ({ ...f, serviceFee: Number(e.target.value) }))} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Impuestos (0.1 = 10%)</p>
+            <Input type="number" step="0.01" placeholder="Tax rate" value={form.taxRate} onChange={(e) => setForm((f) => ({ ...f, taxRate: Number(e.target.value) }))} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Capacidad</p>
+            <Input type="number" placeholder="Capacidad" value={form.capacity} onChange={(e) => setForm((f) => ({ ...f, capacity: Number(e.target.value) }))} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Camas</p>
+            <Input type="number" placeholder="Camas" value={form.beds} onChange={(e) => setForm((f) => ({ ...f, beds: Number(e.target.value) }))} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Baños</p>
+            <Input type="number" placeholder="Banos" value={form.baths} onChange={(e) => setForm((f) => ({ ...f, baths: Number(e.target.value) }))} />
+          </div>
           <select
             className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold uppercase tracking-wide"
             value={form.type}

@@ -70,6 +70,12 @@ body {
   color: #1d4ed8;
 }
 
+.rdp-day_price {
+  background-color: rgba(16, 185, 129, 0.18);
+  color: #047857;
+  border: 1px dashed rgba(16, 185, 129, 0.6);
+}
+
 .typing-dots span {
   animation: typingBlink 1.4s infinite;
   display: inline-block;

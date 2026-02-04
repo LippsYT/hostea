@@ -8,7 +8,8 @@ const schema = z.object({
   listingId: z.string(),
   startDate: z.string(),
   endDate: z.string(),
-  reason: z.string().optional()
+  reason: z.string().optional(),
+  price: z.coerce.number().optional()
 });
 
 export async function GET(req: Request) {
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
       listingId: parsed.data.listingId,
       startDate: new Date(parsed.data.startDate),
       endDate: new Date(parsed.data.endDate),
-      reason: parsed.data.reason,
+      reason: parsed.data.price ? `PRICE:${parsed.data.price}` : parsed.data.reason,
       createdBy: (session.user as any).id
     }
   });

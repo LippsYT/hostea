@@ -39,6 +39,7 @@ export const BookingForm = ({
   const [loading, setLoading] = useState(false);
   const [guestOpen, setGuestOpen] = useState(false);
   const [guestError, setGuestError] = useState('');
+  const [priceOverrides, setPriceOverrides] = useState<{ startDate: string; endDate: string; price: number }[]>([]);
   const [guests, setGuests] = useState<GuestCounts>({
     adults: 1,
     children: 0,
@@ -49,6 +50,14 @@ export const BookingForm = ({
   const checkIn = watch('checkIn');
   const checkOut = watch('checkOut');
 
+  useEffect(() => {
+    if (!checkIn || !checkOut) return;
+    fetch(`/api/listings/${listingId}/calendar?from=${checkIn}&to=${checkOut}`)
+      .then((res) => res.json())
+      .then((data) => setPriceOverrides(data.overrides || []))
+      .catch(() => setPriceOverrides([]));
+  }, [checkIn, checkOut, listingId]);
+
   const pricing =
     checkIn && checkOut
       ? calculatePrice({
@@ -57,7 +66,12 @@ export const BookingForm = ({
           pricePerNight,
           cleaningFee,
           serviceFee,
-          taxRate
+          taxRate,
+          overrides: priceOverrides.map((o) => ({
+            startDate: new Date(o.startDate),
+            endDate: new Date(o.endDate),
+            price: o.price
+          }))
         })
       : null;
 
@@ -173,7 +187,15 @@ export const BookingForm = ({
         <div className="space-y-2 text-sm text-slate-600">
           <div className="flex items-center justify-between">
             <span>{pricing.nights} noches</span>
-            <span>USD {pricing.subtotal.toFixed(2)}</span>
+            <span>USD {pricing.nightlySubtotal.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Limpieza</span>
+            <span>USD {cleaningFee.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Tarifa de servicio</span>
+            <span>USD {serviceFee.toFixed(2)}</span>
           </div>
           <div className="flex items-center justify-between">
             <span>Impuestos</span>

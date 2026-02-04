@@ -76,13 +76,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Fechas no disponibles' }, { status: 409 });
     }
 
+    const priceBlocks = await prisma.calendarBlock.findMany({
+      where: {
+        listingId,
+        reason: { startsWith: 'PRICE:' },
+        startDate: { lte: checkOutDate },
+        endDate: { gte: checkInDate }
+      }
+    });
+    const overrides = priceBlocks
+      .map((b) => {
+        const raw = (b.reason || '').replace('PRICE:', '');
+        const value = Number(raw);
+        if (!Number.isFinite(value)) return null;
+        return { startDate: b.startDate, endDate: b.endDate, price: value };
+      })
+      .filter(Boolean) as { startDate: Date; endDate: Date; price: number }[];
+
     const pricing = calculatePrice({
       checkIn: checkInDate,
       checkOut: checkOutDate,
       pricePerNight: Number(listing.pricePerNight),
       cleaningFee: Number(listing.cleaningFee),
       serviceFee: Number(listing.serviceFee),
-      taxRate: Number(listing.taxRate)
+      taxRate: Number(listing.taxRate),
+      overrides
     });
 
     const reservation = await prisma.reservation.create({

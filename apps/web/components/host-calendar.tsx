@@ -16,7 +16,9 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
   const [csrf, setCsrf] = useState('');
   const [listingId, setListingId] = useState(listings[0]?.id || '');
   const [range, setRange] = useState<DateRange | undefined>();
+  const [mode, setMode] = useState<'BLOCK' | 'MAINTENANCE' | 'PRICE'>('BLOCK');
   const [reason, setReason] = useState('Bloqueo manual');
+  const [priceOverride, setPriceOverride] = useState(0);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
 
@@ -41,6 +43,7 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
 
   const createBlock = async () => {
     if (!range?.from || !range?.to) return;
+    if (mode === 'PRICE' && (!priceOverride || priceOverride <= 0)) return;
     await fetch('/api/host/calendar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
@@ -48,7 +51,8 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
         listingId,
         startDate: range.from.toISOString(),
         endDate: range.to.toISOString(),
-        reason
+        reason: mode === 'PRICE' ? undefined : reason,
+        price: mode === 'PRICE' ? priceOverride : undefined
       })
     });
     setRange(undefined);
@@ -63,13 +67,15 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
     loadBlocks(listingId);
   };
 
+  const priceBlocks = blocks.filter((b) => (b.reason || '').startsWith('PRICE:'));
+  const blockOnly = blocks.filter((b) => !priceBlocks.includes(b));
   const disabledRanges = [
-    ...blocks.map((b) => ({ from: new Date(b.startDate), to: new Date(b.endDate) })),
+    ...blockOnly.map((b) => ({ from: new Date(b.startDate), to: new Date(b.endDate) })),
     ...reservations.map((r) => ({ from: new Date(r.checkIn), to: new Date(r.checkOut) }))
   ];
 
-  const maintenanceBlocks = blocks.filter((b) => (b.reason || '').toLowerCase().includes('mantenimiento'));
-  const manualBlocks = blocks.filter((b) => !maintenanceBlocks.includes(b));
+  const maintenanceBlocks = blockOnly.filter((b) => (b.reason || '').toLowerCase().includes('mantenimiento'));
+  const manualBlocks = blockOnly.filter((b) => !maintenanceBlocks.includes(b));
 
   return (
     <div className="space-y-4">
@@ -96,15 +102,30 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
             </select>
             <select
               className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold uppercase tracking-wide"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
+              value={mode}
+              onChange={(e) => {
+                const next = e.target.value as 'BLOCK' | 'MAINTENANCE' | 'PRICE';
+                setMode(next);
+                if (next === 'MAINTENANCE') setReason('Mantenimiento');
+                if (next === 'BLOCK') setReason('Bloqueo manual');
+              }}
             >
-              <option value="Bloqueo manual">Bloqueo manual</option>
-              <option value="Mantenimiento">Mantenimiento</option>
+              <option value="BLOCK">Bloqueo manual</option>
+              <option value="MAINTENANCE">Mantenimiento</option>
+              <option value="PRICE">Precio personalizado</option>
             </select>
-            <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-3 text-xs text-slate-500">
-              Reservas confirmadas y bloqueos se muestran deshabilitados.
-            </div>
+            {mode === 'PRICE' ? (
+              <Input
+                type="number"
+                placeholder="Precio USD"
+                value={priceOverride || ''}
+                onChange={(e) => setPriceOverride(Number(e.target.value))}
+              />
+            ) : (
+              <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-3 text-xs text-slate-500">
+                Reservas confirmadas y bloqueos se muestran deshabilitados.
+              </div>
+            )}
           </div>
           <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-3">
             <DayPicker
@@ -115,12 +136,14 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
               modifiers={{
                 blocked: manualBlocks.map((b) => ({ from: new Date(b.startDate), to: new Date(b.endDate) })),
                 maintenance: maintenanceBlocks.map((b) => ({ from: new Date(b.startDate), to: new Date(b.endDate) })),
-                reserved: reservations.map((r) => ({ from: new Date(r.checkIn), to: new Date(r.checkOut) }))
+                reserved: reservations.map((r) => ({ from: new Date(r.checkIn), to: new Date(r.checkOut) })),
+                price: priceBlocks.map((b) => ({ from: new Date(b.startDate), to: new Date(b.endDate) }))
               }}
               modifiersClassNames={{
                 blocked: 'rdp-day_blocked',
                 maintenance: 'rdp-day_maintenance',
-                reserved: 'rdp-day_reserved'
+                reserved: 'rdp-day_reserved',
+                price: 'rdp-day_price'
               }}
             />
             <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-600">
@@ -133,6 +156,9 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
               <span className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-full bg-blue-500" /> Reservado
               </span>
+              <span className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full bg-emerald-500" /> Precio personalizado
+              </span>
             </div>
           </div>
         </div>
@@ -141,13 +167,28 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
       <div className="surface-card">
         <h2 className="text-xl font-semibold text-slate-900">Bloqueos existentes</h2>
         <div className="mt-5 space-y-2 text-sm">
-          {blocks.map((b) => (
+          {blockOnly.map((b) => (
             <div key={b.id} className="surface-muted flex items-center justify-between gap-3">
               <span>{b.startDate.slice(0, 10)} - {b.endDate.slice(0, 10)} - {b.reason || 'Bloqueo'}</span>
               <button className="text-red-600" onClick={() => removeBlock(b.id)}>Eliminar</button>
             </div>
           ))}
-          {blocks.length === 0 && <p className="text-sm text-slate-500">Sin bloqueos.</p>}
+          {blockOnly.length === 0 && <p className="text-sm text-slate-500">Sin bloqueos.</p>}
+        </div>
+      </div>
+
+      <div className="surface-card">
+        <h2 className="text-xl font-semibold text-slate-900">Precios personalizados</h2>
+        <div className="mt-5 space-y-2 text-sm">
+          {priceBlocks.map((b) => (
+            <div key={b.id} className="surface-muted flex items-center justify-between gap-3">
+              <span>
+                {b.startDate.slice(0, 10)} - {b.endDate.slice(0, 10)} - USD {(b.reason || '').replace('PRICE:', '')}
+              </span>
+              <button className="text-red-600" onClick={() => removeBlock(b.id)}>Eliminar</button>
+            </div>
+          ))}
+          {priceBlocks.length === 0 && <p className="text-sm text-slate-500">Sin precios personalizados.</p>}
         </div>
       </div>
 

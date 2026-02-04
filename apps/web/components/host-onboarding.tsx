@@ -69,6 +69,7 @@ export const HostOnboarding = () => {
     pricePerNight: 70,
     cancelPolicy: 'FLEXIBLE'
   });
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
@@ -88,18 +89,16 @@ export const HostOnboarding = () => {
     return { base, serviceFee, cleaningFee, guestPrice, total };
   }, [pricing.pricePerNight]);
 
-  const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
   const mapQuery = encodeURIComponent(
     [address.address, address.neighborhood, address.city].filter(Boolean).join(', ')
   );
-  const mapSrc = mapsKey
-    ? `https://www.google.com/maps/embed/v1/place?key=${mapsKey}&q=${mapQuery || 'Buenos Aires'}`
-    : '';
+  const mapSrc = `https://maps.google.com/maps?q=${mapQuery || 'Buenos Aires'}&output=embed`;
 
   const toggleList = (list: string[], value: string) =>
     list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 
   const createListing = async () => {
+    setErrorMsg('');
     setLoading(true);
     try {
       const payload = {
@@ -127,9 +126,11 @@ export const HostOnboarding = () => {
         body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (data.listing?.id) {
-        router.push(`/dashboard/host/listings/${data.listing.id}`);
+      if (!res.ok) {
+        setErrorMsg(data?.error || 'No se pudo crear el anuncio.');
+        return;
       }
+      if (data.listing?.id) router.push(`/dashboard/host/listings/${data.listing.id}`);
     } finally {
       setLoading(false);
     }
@@ -307,19 +308,13 @@ export const HostOnboarding = () => {
                     Confirma el marcador
                   </div>
                   <div className="mt-4 h-60 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-                    {mapSrc ? (
-                      <iframe
-                        title="map"
-                        src={mapSrc}
-                        className="h-full w-full"
-                        loading="lazy"
-                        referrerPolicy="no-referrer-when-downgrade"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-xs text-slate-500">
-                        Agrega NEXT_PUBLIC_GOOGLE_MAPS_API_KEY para ver el mapa.
-                      </div>
-                    )}
+                    <iframe
+                      title="map"
+                      src={mapSrc}
+                      className="h-full w-full"
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
                   </div>
                   <div className="mt-4 flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-xs text-slate-600">
                     <span>Mostrar ubicacion exacta al confirmar la reserva</span>
@@ -484,6 +479,7 @@ export const HostOnboarding = () => {
         </div>
 
         <div className="mt-10 flex items-center justify-between">
+          {errorMsg ? <p className="text-sm text-red-600">{errorMsg}</p> : <span />}
           <Button variant="outline" onClick={() => setStep((prev) => Math.max(0, prev - 1))}>
             Atras
           </Button>

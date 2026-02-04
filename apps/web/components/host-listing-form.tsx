@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 
 export const HostListingForm = () => {
   const [csrf, setCsrf] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -28,6 +30,8 @@ export const HostListingForm = () => {
   }, []);
 
   const onSubmit = async () => {
+    setErrorMsg('');
+    setSaving(true);
     const res = await fetch('/api/host/listings', {
       method: 'POST',
       headers: {
@@ -37,11 +41,17 @@ export const HostListingForm = () => {
       body: JSON.stringify(form)
     });
     const data = await res.json();
+    if (!res.ok) {
+      const issues = Array.isArray(data?.issues) ? ` (${data.issues.map((i: any) => i.path?.join('.') || 'campo').join(', ')})` : '';
+      setErrorMsg((data?.error || 'No se pudo crear el listing.') + issues);
+      setSaving(false);
+      return;
+    }
     if (data.listing?.id) {
       window.location.href = `/dashboard/host/listings/${data.listing.id}`;
       return;
     }
-    window.location.reload();
+    setSaving(false);
   };
 
   return (
@@ -51,8 +61,11 @@ export const HostListingForm = () => {
           <h2 className="text-xl font-semibold text-slate-900">Nuevo listing</h2>
           <p className="text-sm text-slate-500">Completa los datos principales para publicar.</p>
         </div>
-        <Button size="sm" onClick={onSubmit}>Crear listing</Button>
+        <Button size="sm" onClick={onSubmit} disabled={saving}>
+          {saving ? 'Creando...' : 'Crear listing'}
+        </Button>
       </div>
+      {errorMsg && <p className="mt-3 text-sm text-red-600">{errorMsg}</p>}
       <div className="mt-6 grid gap-3 md:grid-cols-2">
         <Input placeholder="Titulo" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
         <Input placeholder="Descripcion" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />

@@ -20,6 +20,14 @@ export default async function HostListingsPage() {
         <p className="section-subtitle">Panel Host</p>
         <h1 className="section-title">Mis propiedades</h1>
       </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm text-slate-500">
+          Gestiona tus anuncios y publica nuevos alojamientos.
+        </div>
+        <Link href="/host/onboarding" className="pill-link">
+          Publicar avanzado
+        </Link>
+      </div>
       <HostListingForm />
       <div className="grid gap-3">
         {listings.map((listing) => (

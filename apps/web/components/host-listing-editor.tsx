@@ -32,6 +32,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
   const [csrf, setCsrf] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
   const [photos, setPhotos] = useState<Photo[]>(listing.photos || []);
   const [form, setForm] = useState({
     title: listing.title,
@@ -70,6 +71,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
   };
 
   const uploadFile = async (file: File) => {
+    setUploadError('');
     const key = `listings/${listing.id}/${Date.now()}-${file.name}`;
     const signRes = await fetch('/api/uploads/presign', {
       method: 'POST',
@@ -77,15 +79,19 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
       body: JSON.stringify({ key })
     });
     const signed = await signRes.json();
-    if (!signed.signedUrl) {
-      alert('No se pudo firmar la subida');
+    if (!signRes.ok || !signed.signedUrl) {
+      setUploadError(signed?.error || 'No se pudo firmar la subida');
       return;
     }
-    await fetch(signed.signedUrl, {
+    const putRes = await fetch(signed.signedUrl, {
       method: 'PUT',
       headers: { 'Content-Type': file.type },
       body: file
     });
+    if (!putRes.ok) {
+      setUploadError('No se pudo subir la imagen (PUT).');
+      return;
+    }
     const photoRes = await fetch(`/api/host/listings/${listing.id}/photos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
@@ -94,7 +100,9 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
     const data = await photoRes.json();
     if (data.photo) {
       setPhotos((prev) => [...prev, data.photo]);
+      return;
     }
+    setUploadError(data?.error || 'No se pudo guardar la foto.');
   };
 
   const onFiles = async (files: FileList | null) => {
@@ -191,6 +199,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
             <input type="file" className="hidden" accept="image/*" multiple onChange={(e) => onFiles(e.target.files)} />
           </label>
         </div>
+        {uploadError && <p className="mt-3 text-sm text-red-600">{uploadError}</p>}
         <div className="mt-6 grid gap-3 md:grid-cols-3">
           {photos.map((photo) => (
             <div key={photo.id} className="rounded-2xl border border-slate-200/70 bg-white p-2">

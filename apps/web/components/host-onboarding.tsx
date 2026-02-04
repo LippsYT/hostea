@@ -60,6 +60,7 @@ export const HostOnboarding = () => {
     city: 'Buenos Aires',
     neighborhood: ''
   });
+  const [showExact, setShowExact] = useState(false);
   const [details, setDetails] = useState({
     title: '',
     description: ''
@@ -86,6 +87,14 @@ export const HostOnboarding = () => {
     const total = base + serviceFee + cleaningFee;
     return { base, serviceFee, cleaningFee, guestPrice, total };
   }, [pricing.pricePerNight]);
+
+  const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+  const mapQuery = encodeURIComponent(
+    [address.address, address.neighborhood, address.city].filter(Boolean).join(', ')
+  );
+  const mapSrc = mapsKey
+    ? `https://www.google.com/maps/embed/v1/place?key=${mapsKey}&q=${mapQuery || 'Buenos Aires'}`
+    : '';
 
   const toggleList = (list: string[], value: string) =>
     list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
@@ -295,9 +304,35 @@ export const HostOnboarding = () => {
                 <div className="mt-6 rounded-3xl border border-slate-200 p-6">
                   <div className="flex items-center gap-2 text-sm text-slate-500">
                     <MapPin className="h-4 w-4" />
-                    Mapa interactivo (se agrega en la siguiente iteracion)
+                    Confirma el marcador
                   </div>
-                  <div className="mt-4 h-60 rounded-2xl bg-slate-100" />
+                  <div className="mt-4 h-60 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                    {mapSrc ? (
+                      <iframe
+                        title="map"
+                        src={mapSrc}
+                        className="h-full w-full"
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-xs text-slate-500">
+                        Agrega NEXT_PUBLIC_GOOGLE_MAPS_API_KEY para ver el mapa.
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-4 flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-xs text-slate-600">
+                    <span>Mostrar ubicacion exacta al confirmar la reserva</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowExact((prev) => !prev)}
+                      className={`h-6 w-11 rounded-full border transition ${showExact ? 'bg-slate-900' : 'bg-slate-200'}`}
+                    >
+                      <span
+                        className={`block h-5 w-5 rounded-full bg-white transition ${showExact ? 'translate-x-5' : 'translate-x-0'}`}
+                      />
+                    </button>
+                  </div>
                 </div>
               </section>
             )}

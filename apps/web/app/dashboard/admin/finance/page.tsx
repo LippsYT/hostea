@@ -36,7 +36,7 @@ export default async function AdminFinancePage() {
       id: r.id,
       listingTitle: r.listing.title,
       hostId: r.listing.host.id,
-      hostName: r.listing.host.name || r.listing.host.email,
+      hostName: r.listing.host.email,
       hostEmail: r.listing.host.email,
       total,
       hostAmount: split.host,

@@ -19,8 +19,7 @@ export default async function ClientPage() {
     if (res.status === ReservationStatus.COMPLETED) status = 'completed';
     if (
       res.status === ReservationStatus.CANCELED ||
-      res.status === ReservationStatus.REFUNDED ||
-      res.status === ReservationStatus.REJECTED
+      res.status === ReservationStatus.REFUNDED
     ) {
       status = 'cancelled';
     }

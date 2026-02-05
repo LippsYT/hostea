@@ -6,7 +6,9 @@ import type { Listing, ListingPhoto } from '@prisma/client';
 type ListingWithPhotos = Listing & { photos: ListingPhoto[] };
 
 export const ListingCard = ({ listing }: { listing: ListingWithPhotos }) => {
-  const photo = listing.photos[0]?.url || 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?q=80&w=1200&auto=format&fit=crop';
+  const coverPhoto = [...(listing.photos || [])]
+    .sort((a, b) => a.sortOrder - b.sortOrder)[0];
+  const photo = coverPhoto?.url || 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?q=80&w=1200&auto=format&fit=crop';
   return (
     <Link href={`/listings/${listing.id}`} className="group">
       <div className="overflow-hidden rounded-3xl border border-neutral-100 bg-white shadow-soft transition hover:-translate-y-1">

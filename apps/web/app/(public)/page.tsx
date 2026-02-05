@@ -11,7 +11,7 @@ export default async function HomePage() {
   const listings = await prisma.listing.findMany({
     where: { status: 'ACTIVE' },
     take: 4,
-    include: { photos: true },
+    include: { photos: { orderBy: { sortOrder: 'asc' } } },
     orderBy: { createdAt: 'desc' }
   });
 

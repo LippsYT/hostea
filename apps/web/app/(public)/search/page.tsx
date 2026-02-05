@@ -17,7 +17,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Recor
         lte: max || undefined
       }
     },
-    include: { photos: true },
+    include: { photos: { orderBy: { sortOrder: 'asc' } } },
     orderBy: { createdAt: 'desc' }
   });
 

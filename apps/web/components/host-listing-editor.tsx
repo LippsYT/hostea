@@ -286,9 +286,13 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
                 <img src={photo.url} alt="Foto" className="h-full w-full object-cover" />
               </div>
               <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-                <button onClick={() => setPrimary(photo.id)} className="font-semibold text-slate-700">
-                  Principal
-                </button>
+                {photo.sortOrder === 0 ? (
+                  <span className="font-semibold text-emerald-600">Foto principal</span>
+                ) : (
+                  <button onClick={() => setPrimary(photo.id)} className="font-semibold text-slate-700">
+                    Marcar principal
+                  </button>
+                )}
                 <button onClick={() => removePhoto(photo.id)} className="text-red-600">
                   Eliminar
                 </button>

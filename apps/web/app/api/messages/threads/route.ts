@@ -42,6 +42,25 @@ export async function POST(req: Request) {
       participants.push({ userId: hostId });
     }
 
+    if (reservationId) {
+      const existing = await prisma.messageThread.findUnique({
+        where: { reservationId }
+      });
+
+      if (existing) {
+        const userId = (session.user as any).id;
+        const participant = await prisma.messageThreadParticipant.findUnique({
+          where: { threadId_userId: { threadId: existing.id, userId } }
+        });
+        if (!participant) {
+          await prisma.messageThreadParticipant.create({
+            data: { threadId: existing.id, userId }
+          });
+        }
+        return NextResponse.json({ thread: existing });
+      }
+    }
+
     const thread = await prisma.messageThread.create({
       data: {
         reservationId,

@@ -2,6 +2,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { HostListingForm } from '@/components/host-listing-form';
 import { HostListingList } from '@/components/host-listing-list';
 

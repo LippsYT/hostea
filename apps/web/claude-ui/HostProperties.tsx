@@ -198,7 +198,7 @@ function PropertyCard({ property }: { property: Property }) {
                     {property.location}
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" className="rounded-xl hover:bg-slate-100">
+                <Button variant="ghost" size="sm" className="h-9 w-9 rounded-xl p-0 hover:bg-slate-100">
                   <MoreVertical className="w-4 h-4" />
                 </Button>
               </div>

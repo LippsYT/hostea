@@ -48,7 +48,9 @@ export default async function ClientPage() {
   const upcomingCount = reservations.filter((r) => upcomingStatuses.has(r.status)).length;
   const totalSpent = reservations
     .filter((r) =>
-      [ReservationStatus.CONFIRMED, ReservationStatus.CHECKED_IN, ReservationStatus.COMPLETED].includes(r.status)
+      r.status === ReservationStatus.CONFIRMED ||
+      r.status === ReservationStatus.CHECKED_IN ||
+      r.status === ReservationStatus.COMPLETED
     )
     .reduce((sum, r) => sum + Number(r.total), 0);
 

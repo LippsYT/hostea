@@ -119,7 +119,7 @@ export const AdminDashboard = ({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold text-slate-900">Listings</h2>
-            <p className="text-sm text-slate-500">Revision de publicaciones y estado.</p>
+            <p className="text-sm text-slate-500">Revisión de publicaciones y estado.</p>
           </div>
           <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
             {listings.length} activos
@@ -138,8 +138,9 @@ export const AdminDashboard = ({
                   value={statusMap[l.id]}
                   onChange={(e) => setStatusMap((prev) => ({ ...prev, [l.id]: e.target.value }))}
                 >
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="INACTIVE">INACTIVE</option>
+                  <option value="ACTIVE">ACTIVO</option>
+                  <option value="PAUSED">PAUSADO</option>
+                  <option value="DELETED">ELIMINADO</option>
                 </select>
                 <Button size="sm" onClick={() => updateListing(l.id)}>Actualizar</Button>
               </div>

@@ -158,7 +158,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-slate-900">Datos principales</h2>
-            <p className="text-sm text-slate-500">Edita la informacion y precios.</p>
+            <p className="text-sm text-slate-500">Edita la informaci?n y precios.</p>
           </div>
           <Button size="sm" onClick={save} disabled={saving}>
             {saving ? 'Guardando...' : 'Guardar cambios'}
@@ -214,7 +214,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Baños</p>
-            <Input type="number" placeholder="Banos" value={form.baths} onChange={(e) => setForm((f) => ({ ...f, baths: Number(e.target.value) }))} />
+            <Input type="number" placeholder="Ba?os" value={form.baths} onChange={(e) => setForm((f) => ({ ...f, baths: Number(e.target.value) }))} />
           </div>
           <select
             className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold uppercase tracking-wide"
@@ -270,7 +270,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-slate-900">Fotos</h2>
-            <p className="text-sm text-slate-500">Subi imagenes reales del alojamiento.</p>
+            <p className="text-sm text-slate-500">Sub? im?genes reales del alojamiento.</p>
           </div>
           <label className="pill-link cursor-pointer">
             {uploading ? 'Subiendo...' : 'Agregar fotos'}

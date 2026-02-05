@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 const schema = z.object({
   listingId: z.string(),
-  status: z.string()
+  status: z.enum(['ACTIVE', 'PAUSED', 'DELETED'])
 });
 
 export async function GET() {

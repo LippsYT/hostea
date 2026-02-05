@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 export type FinanceReservationRow = {
   id: string;
   listingTitle: string;
+  hostId: string;
+  hostName: string;
   hostEmail: string;
   total: number;
   hostAmount: number;
@@ -14,10 +16,20 @@ export type FinanceReservationRow = {
 };
 
 export type FinanceHostRow = {
+  hostId: string;
+  hostName: string;
   hostEmail: string;
   total: number;
   paid: number;
   due: number;
+  bankAccount?: {
+    holderName?: string;
+    documentId?: string;
+    bankName?: string;
+    accountType?: string;
+    cbuOrAlias?: string;
+    currency?: string;
+  } | null;
 };
 
 export const AdminFinance = ({
@@ -53,8 +65,41 @@ export const AdminFinance = ({
           {hosts.map((h) => (
             <div key={h.hostEmail} className="surface-muted flex items-center justify-between">
               <div>
-                <p className="font-semibold text-slate-900">{h.hostEmail}</p>
+                <p className="font-semibold text-slate-900">{h.hostName}</p>
+                <p className="text-xs text-slate-500">{h.hostEmail}</p>
                 <p className="text-slate-500">Pagado USD {h.paid.toFixed(2)}</p>
+                <div className="mt-2 text-xs text-slate-600">
+                  {h.bankAccount ? (
+                    <div className="space-y-1">
+                      <p>
+                        <span className="font-semibold text-slate-700">Titular:</span>{' '}
+                        {h.bankAccount.holderName || 'No informado'}
+                      </p>
+                      <p>
+                        <span className="font-semibold text-slate-700">Documento:</span>{' '}
+                        {h.bankAccount.documentId || 'No informado'}
+                      </p>
+                      <p>
+                        <span className="font-semibold text-slate-700">Banco:</span>{' '}
+                        {h.bankAccount.bankName || 'No informado'}
+                      </p>
+                      <p>
+                        <span className="font-semibold text-slate-700">Cuenta:</span>{' '}
+                        {h.bankAccount.accountType || 'No informado'}
+                      </p>
+                      <p>
+                        <span className="font-semibold text-slate-700">CBU/Alias:</span>{' '}
+                        {h.bankAccount.cbuOrAlias || 'No informado'}
+                      </p>
+                      <p>
+                        <span className="font-semibold text-slate-700">Moneda:</span>{' '}
+                        {h.bankAccount.currency || 'No informado'}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-amber-700">No tiene datos bancarios cargados.</p>
+                  )}
+                </div>
               </div>
               <div className="text-right">
                 <p>Total USD {h.total.toFixed(2)}</p>
@@ -73,7 +118,9 @@ export const AdminFinance = ({
             <div key={r.id} className="surface-muted flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-slate-900">{r.listingTitle}</p>
-                <p className="text-slate-500">Host: {r.hostEmail}</p>
+                <p className="text-slate-500">
+                  Host: {r.hostName} · {r.hostEmail}
+                </p>
               </div>
               <div className="text-right text-slate-600">
                 <p>Total USD {r.total.toFixed(2)}</p>

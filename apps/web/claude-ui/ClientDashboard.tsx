@@ -4,7 +4,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useState } from 'react';
 import {
   Calendar,
   MapPin,
@@ -43,6 +43,7 @@ interface ClientDashboardProps {
 }
 
 export default function ClientDashboard({ reservations, stats }: ClientDashboardProps) {
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'active' | 'past'>('upcoming');
   const upcomingReservations = reservations.filter((r) => r.status === 'upcoming');
   const activeReservations = reservations.filter((r) => r.status === 'active');
   const pastReservations = reservations.filter((r) => r.status === 'completed');
@@ -111,32 +112,44 @@ export default function ClientDashboard({ reservations, stats }: ClientDashboard
           </Card>
         </div>
 
-        <Tabs defaultValue="upcoming" className="space-y-6">
-          <TabsList className="h-auto rounded-2xl border border-slate-200 bg-slate-100/80 p-1.5 shadow-sm">
-            <TabsTrigger
-              value="upcoming"
-              className="rounded-xl px-6 py-2.5 font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
-            >
-              <Clock className="mr-2 h-4 w-4" />
-              Próximas ({upcomingReservations.length})
-            </TabsTrigger>
-            <TabsTrigger
-              value="active"
-              className="rounded-xl px-6 py-2.5 font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
-            >
-              <Home className="mr-2 h-4 w-4" />
-              En curso ({activeReservations.length})
-            </TabsTrigger>
-            <TabsTrigger
-              value="past"
-              className="rounded-xl px-6 py-2.5 font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
-            >
-              <Calendar className="mr-2 h-4 w-4" />
-              Pasadas ({pastReservations.length})
-            </TabsTrigger>
-          </TabsList>
+        <div className="space-y-6">
+          <div className="h-auto rounded-2xl border border-slate-200 bg-slate-100/80 p-1.5 shadow-sm">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab('upcoming')}
+                className={`flex items-center rounded-xl px-6 py-2.5 text-sm font-medium transition ${
+                  activeTab === 'upcoming' ? 'bg-white shadow-sm' : 'text-slate-600 hover:bg-white/70'
+                }`}
+              >
+                <Clock className="mr-2 h-4 w-4" />
+                Próximas ({upcomingReservations.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('active')}
+                className={`flex items-center rounded-xl px-6 py-2.5 text-sm font-medium transition ${
+                  activeTab === 'active' ? 'bg-white shadow-sm' : 'text-slate-600 hover:bg-white/70'
+                }`}
+              >
+                <Home className="mr-2 h-4 w-4" />
+                En curso ({activeReservations.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('past')}
+                className={`flex items-center rounded-xl px-6 py-2.5 text-sm font-medium transition ${
+                  activeTab === 'past' ? 'bg-white shadow-sm' : 'text-slate-600 hover:bg-white/70'
+                }`}
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                Pasadas ({pastReservations.length})
+              </button>
+            </div>
+          </div>
 
-          <TabsContent value="upcoming" className="mt-6 space-y-4">
+          {activeTab === 'upcoming' && (
+            <div className="mt-6 space-y-4">
             {upcomingReservations.length === 0 ? (
               <EmptyState
                 icon={<Clock className="h-12 w-12" />}
@@ -151,9 +164,11 @@ export default function ClientDashboard({ reservations, stats }: ClientDashboard
                 ))}
               </div>
             )}
-          </TabsContent>
+            </div>
+          )}
 
-          <TabsContent value="active" className="mt-6 space-y-4">
+          {activeTab === 'active' && (
+            <div className="mt-6 space-y-4">
             {activeReservations.length === 0 ? (
               <EmptyState
                 icon={<Home className="h-12 w-12" />}
@@ -167,9 +182,11 @@ export default function ClientDashboard({ reservations, stats }: ClientDashboard
                 ))}
               </div>
             )}
-          </TabsContent>
+            </div>
+          )}
 
-          <TabsContent value="past" className="mt-6 space-y-4">
+          {activeTab === 'past' && (
+            <div className="mt-6 space-y-4">
             {pastReservations.length === 0 ? (
               <EmptyState
                 icon={<Calendar className="h-12 w-12" />}
@@ -183,8 +200,9 @@ export default function ClientDashboard({ reservations, stats }: ClientDashboard
                 ))}
               </div>
             )}
-          </TabsContent>
-        </Tabs>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

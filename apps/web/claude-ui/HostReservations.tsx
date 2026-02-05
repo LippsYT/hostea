@@ -315,10 +315,10 @@ function ReservationCard({
               )}
               {!isPending && !isCancelled && (
                 <>
-                  <Button variant="outline" size="icon" className="rounded-xl border-slate-200 hover:bg-slate-50">
+                  <Button variant="outline" size="sm" className="h-9 w-9 rounded-xl border-slate-200 p-0 hover:bg-slate-50">
                     <Phone className="w-4 h-4" />
                   </Button>
-                  <Button variant="outline" size="icon" className="rounded-xl border-slate-200 hover:bg-slate-50">
+                  <Button variant="outline" size="sm" className="h-9 w-9 rounded-xl border-slate-200 p-0 hover:bg-slate-50">
                     <Mail className="w-4 h-4" />
                   </Button>
                   <Button variant="outline" size="sm" className="rounded-xl border-slate-200 hover:bg-slate-50">

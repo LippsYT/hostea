@@ -109,9 +109,7 @@ export default function HostFinances({ stats, transactions, monthlyData }: HostF
                 <div className="rounded-xl bg-blue-50 p-2.5">
                   <CreditCard className="h-5 w-5 text-blue-600" />
                 </div>
-                <Badge variant="secondary" className="border-blue-200 bg-blue-50 text-blue-700">
-                  Disponible
-                </Badge>
+                <Badge className="border-blue-200 bg-blue-50 text-blue-700">Disponible</Badge>
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-600">Balance actual</p>
@@ -130,9 +128,7 @@ export default function HostFinances({ stats, transactions, monthlyData }: HostF
                 <div className="rounded-xl bg-violet-50 p-2.5">
                   <Clock className="h-5 w-5 text-violet-600" />
                 </div>
-                <Badge variant="secondary" className="border-violet-200 bg-violet-50 text-violet-700">
-                  Próximo
-                </Badge>
+                <Badge className="border-violet-200 bg-violet-50 text-violet-700">Próximo</Badge>
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-600">Pago programado</p>
@@ -151,9 +147,7 @@ export default function HostFinances({ stats, transactions, monthlyData }: HostF
                 <div className="rounded-xl bg-amber-50 p-2.5">
                   <CheckCircle2 className="h-5 w-5 text-amber-600" />
                 </div>
-                <Badge variant="secondary" className="border-amber-200 bg-amber-50 text-amber-700">
-                  Total
-                </Badge>
+                <Badge className="border-amber-200 bg-amber-50 text-amber-700">Total</Badge>
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-600">Pagos realizados</p>

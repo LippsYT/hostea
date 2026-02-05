@@ -216,7 +216,7 @@ export default function HostOverview({ stats, recentActivity }: HostOverviewProp
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button variant="secondary" className="rounded-xl bg-white text-slate-900 hover:bg-slate-100">
+              <Button className="rounded-xl bg-white text-slate-900 hover:bg-slate-100">
                 <Percent className="mr-2 h-4 w-4" />
                 Ajustar precios
               </Button>

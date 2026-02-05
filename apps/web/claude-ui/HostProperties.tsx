@@ -1,9 +1,9 @@
-'use client';
+﻿'use client';
 
+import { useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Home,
   MapPin,
@@ -50,16 +50,26 @@ interface HostPropertiesProps {
   properties: Property[];
 }
 
+type TabKey = 'active' | 'paused' | 'draft';
+
 export default function HostProperties({ properties }: HostPropertiesProps) {
-  const activeProperties = properties.filter(p => p.status === 'active');
-  const pausedProperties = properties.filter(p => p.status === 'paused');
-  const draftProperties = properties.filter(p => p.status === 'draft');
+  const [tab, setTab] = useState<TabKey>('active');
+
+  const grouped = useMemo(() => ({
+    active: properties.filter((p) => p.status === 'active'),
+    paused: properties.filter((p) => p.status === 'paused'),
+    draft: properties.filter((p) => p.status === 'draft')
+  }), [properties]);
+
+  const tabs: { key: TabKey; label: string; icon: React.ReactNode; count: number }[] = [
+    { key: 'active', label: 'Activas', icon: <PlayCircle className="w-4 h-4" />, count: grouped.active.length },
+    { key: 'paused', label: 'Pausadas', icon: <PauseCircle className="w-4 h-4" />, count: grouped.paused.length },
+    { key: 'draft', label: 'Borradores', icon: <Edit className="w-4 h-4" />, count: grouped.draft.length }
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        
-        {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-2">
             <h1 className="text-4xl font-semibold tracking-tight text-slate-900">
@@ -75,34 +85,27 @@ export default function HostProperties({ properties }: HostPropertiesProps) {
           </Button>
         </div>
 
-        {/* Tabs */}
-        <Tabs defaultValue="active" className="space-y-6">
-          <TabsList className="bg-slate-100/80 p-1.5 h-auto rounded-2xl border border-slate-200 shadow-sm">
-            <TabsTrigger 
-              value="active" 
-              className="rounded-xl px-6 py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm font-medium"
+        <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-slate-100/80 p-1.5 shadow-sm">
+          {tabs.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setTab(item.key)}
+              className={`inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-medium transition-all ${
+                tab === item.key
+                  ? 'bg-white shadow-sm text-slate-900'
+                  : 'text-slate-600 hover:bg-white/60'
+              }`}
             >
-              <PlayCircle className="w-4 h-4 mr-2" />
-              Activas ({activeProperties.length})
-            </TabsTrigger>
-            <TabsTrigger 
-              value="paused" 
-              className="rounded-xl px-6 py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm font-medium"
-            >
-              <PauseCircle className="w-4 h-4 mr-2" />
-              Pausadas ({pausedProperties.length})
-            </TabsTrigger>
-            <TabsTrigger 
-              value="draft" 
-              className="rounded-xl px-6 py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm font-medium"
-            >
-              <Edit className="w-4 h-4 mr-2" />
-              Borradores ({draftProperties.length})
-            </TabsTrigger>
-          </TabsList>
+              {item.icon}
+              {item.label} ({item.count})
+            </button>
+          ))}
+        </div>
 
-          <TabsContent value="active" className="space-y-4 mt-6">
-            {activeProperties.length === 0 ? (
+        <div className="space-y-4">
+          {tab === 'active' && (
+            grouped.active.length === 0 ? (
               <EmptyState 
                 icon={<PlayCircle className="w-12 h-12" />}
                 title="No tienes propiedades activas"
@@ -110,15 +113,15 @@ export default function HostProperties({ properties }: HostPropertiesProps) {
               />
             ) : (
               <div className="grid gap-4">
-                {activeProperties.map((property) => (
+                {grouped.active.map((property) => (
                   <PropertyCard key={property.id} property={property} />
                 ))}
               </div>
-            )}
-          </TabsContent>
+            )
+          )}
 
-          <TabsContent value="paused" className="space-y-4 mt-6">
-            {pausedProperties.length === 0 ? (
+          {tab === 'paused' && (
+            grouped.paused.length === 0 ? (
               <EmptyState 
                 icon={<PauseCircle className="w-12 h-12" />}
                 title="No tienes propiedades pausadas"
@@ -126,15 +129,15 @@ export default function HostProperties({ properties }: HostPropertiesProps) {
               />
             ) : (
               <div className="grid gap-4">
-                {pausedProperties.map((property) => (
+                {grouped.paused.map((property) => (
                   <PropertyCard key={property.id} property={property} />
                 ))}
               </div>
-            )}
-          </TabsContent>
+            )
+          )}
 
-          <TabsContent value="draft" className="space-y-4 mt-6">
-            {draftProperties.length === 0 ? (
+          {tab === 'draft' && (
+            grouped.draft.length === 0 ? (
               <EmptyState 
                 icon={<Edit className="w-12 h-12" />}
                 title="No tienes borradores"
@@ -142,13 +145,13 @@ export default function HostProperties({ properties }: HostPropertiesProps) {
               />
             ) : (
               <div className="grid gap-4">
-                {draftProperties.map((property) => (
+                {grouped.draft.map((property) => (
                   <PropertyCard key={property.id} property={property} />
                 ))}
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
+            )
+          )}
+        </div>
       </div>
     </div>
   );
@@ -164,7 +167,6 @@ function PropertyCard({ property }: { property: Property }) {
   return (
     <Card className="overflow-hidden border-slate-200 hover:shadow-xl transition-all duration-300 bg-white group">
       <div className="flex flex-col lg:flex-row">
-        {/* Image */}
         <div className="lg:w-80 h-56 lg:h-auto relative overflow-hidden bg-slate-100">
           <img 
             src={property.image} 
@@ -183,10 +185,8 @@ function PropertyCard({ property }: { property: Property }) {
           )}
         </div>
 
-        {/* Content */}
         <div className="flex-1 p-6 flex flex-col justify-between">
           <div className="space-y-4">
-            {/* Header */}
             <div>
               <div className="flex items-start justify-between gap-4 mb-2">
                 <div className="flex-1">
@@ -202,12 +202,11 @@ function PropertyCard({ property }: { property: Property }) {
                   <MoreVertical className="w-4 h-4" />
                 </Button>
               </div>
-              <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
+              <Badge className="bg-blue-50 text-blue-700 border-blue-200">
                 {property.type}
               </Badge>
             </div>
 
-            {/* Amenities */}
             <div className="flex items-center gap-6 pt-2 border-t border-slate-100">
               <div className="flex items-center gap-2 text-sm text-slate-600">
                 <Bed className="w-4 h-4 text-slate-400" />
@@ -226,7 +225,6 @@ function PropertyCard({ property }: { property: Property }) {
               </div>
             </div>
 
-            {/* Stats */}
             <div className="grid grid-cols-3 gap-4 pt-2">
               <div className="space-y-1">
                 <p className="text-xs font-medium text-slate-500">Precio/noche</p>
@@ -251,7 +249,6 @@ function PropertyCard({ property }: { property: Property }) {
               </div>
             </div>
 
-            {/* Next Reservation */}
             {property.nextReservation && (
               <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-xl border border-blue-100">
                 <Calendar className="w-4 h-4 text-blue-600" />
@@ -262,7 +259,6 @@ function PropertyCard({ property }: { property: Property }) {
             )}
           </div>
 
-          {/* Actions */}
           <div className="flex flex-wrap items-center gap-2 mt-6 pt-4 border-t border-slate-100">
             <Button variant="outline" size="sm" className="rounded-xl border-slate-200 hover:bg-slate-50">
               <Eye className="w-4 h-4 mr-1.5" />

@@ -2,7 +2,7 @@
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { ReservationStatus } from '@prisma/client';
-import ClientDashboard from '@/claude-ui/ClientDashboard';
+import ClientDashboard from '../../../claude-ui/ClientDashboard';
 
 export default async function ClientPage() {
   const session = await getServerSession(authOptions);

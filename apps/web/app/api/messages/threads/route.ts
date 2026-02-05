@@ -61,15 +61,27 @@ export async function POST(req: Request) {
       }
     }
 
-    const thread = await prisma.messageThread.create({
-      data: {
-        reservationId,
-        status: reservationId ? 'RESERVATION' : 'INQUIRY',
-        createdById: (session.user as any).id,
-        participants: { create: participants }
+    try {
+      const thread = await prisma.messageThread.create({
+        data: {
+          reservationId,
+          status: reservationId ? 'RESERVATION' : 'INQUIRY',
+          createdById: (session.user as any).id,
+          participants: { create: participants }
+        }
+      });
+      return NextResponse.json({ thread });
+    } catch (error: any) {
+      if (error?.code === 'P2002' && reservationId) {
+        const existing = await prisma.messageThread.findUnique({
+          where: { reservationId }
+        });
+        if (existing) {
+          return NextResponse.json({ thread: existing });
+        }
       }
-    });
-    return NextResponse.json({ thread });
+      throw error;
+    }
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Error' }, { status: 500 });
   }

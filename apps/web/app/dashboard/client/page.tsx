@@ -46,12 +46,13 @@ export default async function ClientPage() {
     ReservationStatus.CONFIRMED
   ]);
   const upcomingCount = reservations.filter((r) => upcomingStatuses.has(r.status)).length;
+  const revenueStatuses = new Set<ReservationStatus>([
+    ReservationStatus.CONFIRMED,
+    ReservationStatus.CHECKED_IN,
+    ReservationStatus.COMPLETED
+  ]);
   const totalSpent = reservations
-    .filter((r) =>
-      r.status === ReservationStatus.CONFIRMED ||
-      r.status === ReservationStatus.CHECKED_IN ||
-      r.status === ReservationStatus.COMPLETED
-    )
+    .filter((r) => revenueStatuses.has(r.status))
     .reduce((sum, r) => sum + Number(r.total), 0);
 
   return (

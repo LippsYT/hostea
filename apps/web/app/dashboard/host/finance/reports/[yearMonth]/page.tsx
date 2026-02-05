@@ -1,22 +1,25 @@
-﻿import { getServerSession } from 'next-auth';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { getSetting } from '@/lib/settings';
 import { calculateHostSplit } from '@/lib/finance';
-import { HostFinanceDashboard } from '@/components/host-finance-dashboard';
+import { differenceInCalendarDays } from 'date-fns';
 import {
   ADJUSTMENT_STATUSES,
   FinanceRow,
   REVENUE_STATUSES,
+  buildPeriodTotals,
   getPeriodKey,
+  getPeriodLabel,
   isPaymentCaptured
 } from '@/lib/finance-report';
+import { FinanceReportView, FinanceListingSummary, FinanceReportRow } from '@/components/finance-report-view';
 
-export default async function HostFinancePage({
-  searchParams
+export default async function HostFinanceReportPage({
+  params
 }: {
-  searchParams?: { period?: string; view?: string };
+  params: { yearMonth: string };
 }) {
   const session = await getServerSession(authOptions);
   const roles = (session?.user as any)?.roles || [];
@@ -25,6 +28,7 @@ export default async function HostFinancePage({
   }
   const userId = (session?.user as any)?.id as string;
   const commissionPercent = await getSetting<number>('commissionPercent', 0.15);
+  const period = params.yearMonth;
 
   const reservations = await prisma.reservation.findMany({
     where: {
@@ -34,12 +38,6 @@ export default async function HostFinancePage({
     include: { payment: true, listing: true, user: { include: { profile: true } } },
     orderBy: { createdAt: 'desc' }
   });
-
-  const payouts = await prisma.payout.findMany({ where: { hostId: userId } });
-  const payoutMap = payouts.reduce<Record<string, number>>((acc, p) => {
-    acc[p.reservationId] = (acc[p.reservationId] || 0) + Number(p.amount);
-    return acc;
-  }, {});
 
   const rows: FinanceRow[] = reservations
     .filter((r) => isPaymentCaptured(r.payment?.status))
@@ -70,54 +68,56 @@ export default async function HostFinancePage({
     })
     .filter(Boolean) as FinanceRow[];
 
-  const scheduled = reservations
-    .filter((r) => isPaymentCaptured(r.payment?.status))
-    .filter((r) => REVENUE_STATUSES.has(r.status))
-    .map((r) => {
-      const total = Number(r.total);
-      const split = calculateHostSplit(total, commissionPercent);
-      const paid = payoutMap[r.id] || 0;
-      const due = Math.max(split.host - paid, 0);
-      const eta = new Date(r.checkOut);
-      eta.setDate(eta.getDate() + 2);
-      return {
-        id: r.id,
-        listingTitle: r.listing.title,
-        guestName: r.user.profile?.name || r.user.email || 'Huesped',
-        amount: due,
-        currency: r.currency,
-        eta: eta.toISOString().slice(0, 10),
-        period: getPeriodKey(r.payment?.createdAt || r.createdAt)
-      };
-    })
-    .filter((item) => item.amount > 0);
+  const periodRows = rows.filter((r) => r.period === period);
+  const totals = buildPeriodTotals(periodRows, [period])[0];
 
-  const paid = payouts.map((p) => ({
-    id: p.id,
-    reservationId: p.reservationId,
-    amount: Number(p.amount),
-    currency: p.currency,
-    createdAt: p.createdAt.toISOString().slice(0, 10)
+  const nights = reservations
+    .filter((r) => getPeriodKey(r.payment?.createdAt || r.createdAt) === period)
+    .reduce((acc, r) => acc + Math.max(differenceInCalendarDays(r.checkOut, r.checkIn), 1), 0);
+  const stays = periodRows.length;
+  const avgNights = stays > 0 ? nights / stays : 0;
+
+  const listingSummaryMap = new Map<string, FinanceListingSummary>();
+  periodRows.forEach((row) => {
+    const entry = listingSummaryMap.get(row.listingTitle) || {
+      listingTitle: row.listingTitle,
+      gross: 0,
+      adjustments: 0,
+      commission: 0,
+      hostNet: 0,
+      currency: row.currency
+    };
+    if (row.impact === 'revenue') {
+      entry.gross += row.total;
+    } else {
+      entry.adjustments += row.total;
+    }
+    entry.commission += row.commission;
+    entry.hostNet += row.hostNet;
+    listingSummaryMap.set(row.listingTitle, entry);
+  });
+
+  const reportRows: FinanceReportRow[] = periodRows.map((row) => ({
+    id: row.id,
+    reservationId: row.id,
+    guestName: row.guestName,
+    listingTitle: row.listingTitle,
+    status: row.status,
+    date: row.date,
+    total: row.total,
+    commission: row.commission,
+    hostNet: row.hostNet,
+    currency: row.currency
   }));
 
-  const bankSettings = await prisma.settings.findUnique({
-    where: { key: `hostBankAccount:${userId}` }
-  });
-
-  const archiveSettings = await prisma.settings.findUnique({
-    where: { key: `financeArchive:${userId}` }
-  });
-
-  const archiveMonths = (archiveSettings?.value as any)?.months || [];
-
   return (
-    <HostFinanceDashboard
-      rows={rows}
-      scheduled={scheduled}
-      paid={paid}
-      bankAccount={bankSettings?.value || null}
-      archiveMonths={archiveMonths}
-      selectedPeriod={searchParams?.period}
+    <FinanceReportView
+      title="Informe mensual"
+      periodLabel={getPeriodLabel(period)}
+      totals={{ ...totals, currency: periodRows[0]?.currency || 'USD' }}
+      stats={{ nights, stays, avgNights }}
+      rows={reportRows}
+      listings={Array.from(listingSummaryMap.values())}
     />
   );
 }

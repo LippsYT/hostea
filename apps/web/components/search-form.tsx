@@ -26,10 +26,31 @@ export const SearchForm = () => {
     <form onSubmit={onSubmit} className="mt-4 grid gap-3">
       <Input placeholder="Destino o zona" value={city} onChange={(e) => setCity(e.target.value)} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
-        <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
+        <Input
+          type="date"
+          value={checkIn}
+          onChange={(e) => {
+            const next = e.target.value;
+            setCheckIn(next);
+            if (checkOut && next && checkOut < next) {
+              setCheckOut('');
+            }
+          }}
+        />
+        {checkIn ? (
+          <Input
+            type="date"
+            min={checkIn}
+            value={checkOut}
+            onChange={(e) => setCheckOut(e.target.value)}
+          />
+        ) : (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 px-4 py-3 text-sm text-slate-500">
+            Elegí check-in para seleccionar check-out
+          </div>
+        )}
       </div>
-      <Input placeholder="Huespedes" value={guests} onChange={(e) => setGuests(e.target.value)} />
+      <Input placeholder="Huéspedes" value={guests} onChange={(e) => setGuests(e.target.value)} />
       <Button type="submit" className="w-full">Buscar</Button>
     </form>
   );

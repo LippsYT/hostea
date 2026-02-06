@@ -126,8 +126,34 @@ export const BookingForm = ({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <Input type="date" {...register('checkIn')} />
-      <Input type="date" {...register('checkOut')} />
+      <div className="space-y-2">
+        <div className="relative">
+          <Input
+            type="date"
+            aria-label="Check-in"
+            className="relative z-10 w-full bg-transparent text-slate-900"
+            {...register('checkIn')}
+          />
+          {!checkIn && (
+            <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-xs text-slate-400">
+              dd/mm/aaaa
+            </span>
+          )}
+        </div>
+        <div className="relative">
+          <Input
+            type="date"
+            aria-label="Check-out"
+            className="relative z-10 w-full bg-transparent text-slate-900"
+            {...register('checkOut')}
+          />
+          {!checkOut && (
+            <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-xs text-slate-400">
+              dd/mm/aaaa
+            </span>
+          )}
+        </div>
+      </div>
 
       <div className="relative">
         <button

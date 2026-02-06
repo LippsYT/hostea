@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -10,6 +10,7 @@ export const SearchForm = () => {
   const [city, setCity] = useState('');
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
+  const checkOutRef = useRef<HTMLInputElement | null>(null);
   const [guests, setGuests] = useState('2');
 
   const onSubmit = (e: React.FormEvent) => {
@@ -35,20 +36,24 @@ export const SearchForm = () => {
             if (checkOut && next && checkOut < next) {
               setCheckOut('');
             }
+            if (next) {
+              const target = checkOutRef.current;
+              if (target) {
+                target.focus();
+                if (typeof (target as any).showPicker === 'function') {
+                  (target as any).showPicker();
+                }
+              }
+            }
           }}
         />
-        {checkIn ? (
-          <Input
-            type="date"
-            min={checkIn}
-            value={checkOut}
-            onChange={(e) => setCheckOut(e.target.value)}
-          />
-        ) : (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 px-4 py-3 text-sm text-slate-500">
-            Elegí check-in para seleccionar check-out
-          </div>
-        )}
+        <Input
+          ref={checkOutRef}
+          type="date"
+          min={checkIn || undefined}
+          value={checkOut}
+          onChange={(e) => setCheckOut(e.target.value)}
+        />
       </div>
       <Input placeholder="Huéspedes" value={guests} onChange={(e) => setGuests(e.target.value)} />
       <Button type="submit" className="w-full">Buscar</Button>

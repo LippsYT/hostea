@@ -25,12 +25,12 @@ export const SearchForm = () => {
   return (
     <form onSubmit={onSubmit} className="mt-4 grid gap-3">
       <Input placeholder="Destino o zona" value={city} onChange={(e) => setCity(e.target.value)} />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
         <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
       </div>
       <Input placeholder="Huespedes" value={guests} onChange={(e) => setGuests(e.target.value)} />
-      <Button type="submit">Buscar</Button>
+      <Button type="submit" className="w-full">Buscar</Button>
     </form>
   );
 };

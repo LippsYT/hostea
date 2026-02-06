@@ -10,6 +10,13 @@ const schema = z.object({
   status: z.nativeEnum(ReservationStatus)
 });
 
+const HOST_ALLOWED_STATUSES = new Set<ReservationStatus>([
+  ReservationStatus.CONFIRMED,
+  ReservationStatus.CHECKED_IN,
+  ReservationStatus.COMPLETED,
+  ReservationStatus.CANCELED
+]);
+
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   assertCsrf(req);
   const session = await requireSession();
@@ -23,6 +30,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   });
   if (!reservation) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
   if (reservation.listing.hostId !== (session.user as any).id) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  }
+
+  if (!HOST_ALLOWED_STATUSES.has(parsed.data.status)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
 

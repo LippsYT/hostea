@@ -1,6 +1,7 @@
 ﻿import Link from 'next/link';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { ReservationAlerts } from '@/components/reservation-alerts';
 
 type NavItem = { href: string; label: string; roles?: string[] };
 
@@ -34,6 +35,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen bg-slate-950/5">
+      <ReservationAlerts roles={roles} />
       <div className="grid min-h-screen lg:grid-cols-[260px_1fr]">
         <aside className="hidden border-r border-slate-200/70 bg-white/80 p-6 backdrop-blur lg:block">
           <div className="flex items-center justify-between">
@@ -65,21 +67,21 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
         <div className="min-h-screen">
           <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/80 backdrop-blur">
-            <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 lg:px-10">
+            <div className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-10">
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-500">Panel</p>
                 <h1 className="text-xl font-semibold text-slate-900">HOSTEA Studio</h1>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
                 <Link
                   href="/"
-                  className="rounded-full border border-slate-200/70 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50"
+                  className="flex-1 rounded-full border border-slate-200/70 px-4 py-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 sm:flex-none"
                 >
                   Ir al sitio
                 </Link>
                 <Link
                   href="/auth/sign-in"
-                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-slate-800"
+                  className="flex-1 rounded-full bg-slate-900 px-4 py-2 text-center text-xs font-semibold uppercase tracking-wide text-white hover:bg-slate-800 sm:flex-none"
                 >
                   Cambiar cuenta
                 </Link>

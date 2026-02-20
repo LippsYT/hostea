@@ -39,8 +39,8 @@ export const BookingForm = ({
   const [loading, setLoading] = useState(false);
   const [guestOpen, setGuestOpen] = useState(false);
   const [guestError, setGuestError] = useState('');
-  const [checkInActive, setCheckInActive] = useState(false);
-  const [checkOutActive, setCheckOutActive] = useState(false);
+  const [checkInFocused, setCheckInFocused] = useState(false);
+  const [checkOutFocused, setCheckOutFocused] = useState(false);
   const [priceOverrides, setPriceOverrides] = useState<{ startDate: string; endDate: string; price: number }[]>([]);
   const [guests, setGuests] = useState<GuestCounts>({
     adults: 1,
@@ -49,7 +49,6 @@ export const BookingForm = ({
     pets: 0
   });
   const { register, handleSubmit, setValue, watch } = useForm<FormValues>({ resolver: zodResolver(schema) });
-  const checkInRef = useRef<HTMLInputElement | null>(null);
   const checkOutRef = useRef<HTMLInputElement | null>(null);
   const checkInField = register('checkIn');
   const checkOutField = register('checkOut');
@@ -133,8 +132,6 @@ export const BookingForm = ({
   const openCheckoutPicker = () => {
     const target = checkOutRef.current;
     if (!target) return;
-
-    setCheckOutActive(true);
     target.focus();
 
     try {
@@ -149,76 +146,54 @@ export const BookingForm = ({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-2 min-w-0">
-        <Input
-          type={checkInActive || Boolean(checkIn) ? 'date' : 'text'}
-          lang="es-AR"
-          aria-label="Check-in"
-          placeholder="dd/mm/aaaa"
-          className="date-input min-w-0 w-full text-slate-900"
-          {...checkInField}
-          ref={(node) => {
-            checkInField.ref(node);
-            checkInRef.current = node;
-          }}
-          onFocus={() => {
-            setCheckInActive(true);
-            window.requestAnimationFrame(() => {
-              const target = checkInRef.current;
-              if (!target) return;
-              try {
-                if (typeof (target as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
-                  (target as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
-                }
-              } catch {
-                // iOS Safari can block programmatic picker opening.
+        <div className="relative">
+          {!checkIn && !checkInFocused && (
+            <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm text-slate-400">
+              dd/mm/aaaa
+            </span>
+          )}
+          <Input
+            type="date"
+            lang="es-AR"
+            aria-label="Check-in"
+            className="date-input min-w-0 w-full text-slate-900"
+            {...checkInField}
+            onFocus={() => setCheckInFocused(true)}
+            onBlur={() => setCheckInFocused(false)}
+            onChange={(e) => {
+              checkInField.onChange(e);
+              const next = e.target.value;
+              if (checkOut && next && checkOut < next) {
+                setValue('checkOut', '');
               }
-            });
-          }}
-          onBlur={() => {
-            if (!checkIn) setCheckInActive(false);
-          }}
-          onChange={(e) => {
-            checkInField.onChange(e);
-            const next = e.target.value;
-            if (checkOut && next && checkOut < next) {
-              setValue('checkOut', '');
-            }
-            if (next) {
-              window.requestAnimationFrame(openCheckoutPicker);
-            }
-          }}
-        />
-        <Input
-          type={checkOutActive || Boolean(checkOut) ? 'date' : 'text'}
-          lang="es-AR"
-          aria-label="Check-out"
-          placeholder="dd/mm/aaaa"
-          min={checkIn || undefined}
-          className="date-input min-w-0 w-full text-slate-900"
-          {...checkOutField}
-          ref={(node) => {
-            checkOutField.ref(node);
-            checkOutRef.current = node;
-          }}
-          onFocus={() => {
-            setCheckOutActive(true);
-            window.requestAnimationFrame(() => {
-              const target = checkOutRef.current;
-              if (!target) return;
-              try {
-                if (typeof (target as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
-                  (target as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
-                }
-              } catch {
-                // iOS Safari can block programmatic picker opening.
+              if (next) {
+                openCheckoutPicker();
               }
-            });
-          }}
-          onBlur={() => {
-            if (!checkOut) setCheckOutActive(false);
-          }}
-          onChange={(e) => checkOutField.onChange(e)}
-        />
+            }}
+          />
+        </div>
+        <div className="relative">
+          {!checkOut && !checkOutFocused && (
+            <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm text-slate-400">
+              dd/mm/aaaa
+            </span>
+          )}
+          <Input
+            type="date"
+            lang="es-AR"
+            aria-label="Check-out"
+            min={checkIn || undefined}
+            className="date-input min-w-0 w-full text-slate-900"
+            {...checkOutField}
+            ref={(node) => {
+              checkOutField.ref(node);
+              checkOutRef.current = node;
+            }}
+            onFocus={() => setCheckOutFocused(true)}
+            onBlur={() => setCheckOutFocused(false)}
+            onChange={(e) => checkOutField.onChange(e)}
+          />
+        </div>
       </div>
 
       <div className="relative">

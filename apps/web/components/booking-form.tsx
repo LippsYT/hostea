@@ -156,6 +156,7 @@ export const BookingForm = ({
             type="date"
             lang="es-AR"
             aria-label="Check-in"
+            required
             className="date-input min-w-0 w-full text-slate-900"
             {...checkInField}
             onFocus={() => setCheckInFocused(true)}
@@ -182,6 +183,7 @@ export const BookingForm = ({
             type="date"
             lang="es-AR"
             aria-label="Check-out"
+            required
             min={checkIn || undefined}
             className="date-input min-w-0 w-full text-slate-900"
             {...checkOutField}

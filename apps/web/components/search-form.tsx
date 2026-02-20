@@ -55,6 +55,7 @@ export const SearchForm = () => {
               type="date"
               lang="es-AR"
               aria-label="Check-in"
+              required
               value={checkIn}
               onFocus={() => setCheckInFocused(true)}
               onBlur={() => setCheckInFocused(false)}
@@ -87,6 +88,7 @@ export const SearchForm = () => {
               type="date"
               lang="es-AR"
               aria-label="Check-out"
+              required
               min={checkIn || undefined}
               value={checkOut}
               onFocus={() => setCheckOutFocused(true)}

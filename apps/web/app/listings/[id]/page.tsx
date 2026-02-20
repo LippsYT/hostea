@@ -81,7 +81,7 @@ export default async function ListingDetail({ params }: { params: { id: string }
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-            <div className="space-y-4">
+            <div className="space-y-4 lg:col-start-1">
               <div className="grid gap-4 md:grid-cols-[2fr_1fr]">
                 {primaryPhoto ? (
                   <div className="relative h-64 overflow-hidden rounded-3xl md:h-80">
@@ -99,7 +99,30 @@ export default async function ListingDetail({ params }: { params: { id: string }
                   {gallery.length === 0 && <div className="h-32 rounded-3xl bg-slate-100" />}
                 </div>
               </div>
+            </div>
 
+            <div className="h-fit lg:sticky lg:top-24 lg:row-span-2 lg:col-start-2">
+              <div className="surface-card">
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl font-semibold">USD {Number(listing.pricePerNight).toFixed(0)}</span>
+                  <span className="text-sm text-slate-500">por noche</span>
+                </div>
+                <div className="mt-5">
+                  <BookingForm
+                    listingId={listing.id}
+                    pricePerNight={Number(listing.pricePerNight)}
+                    cleaningFee={Number(listing.cleaningFee)}
+                    serviceFee={0}
+                    taxRate={normalizedTaxRate}
+                  />
+                </div>
+                <p className="mt-4 text-xs text-slate-500">
+                  Cancelacion segun politica {listing.cancelPolicy}.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4 lg:col-start-1">
               <div className="grid gap-4 md:grid-cols-3">
                 {highlights.map((item) => (
                   <div key={item.title} className="surface-card">
@@ -182,27 +205,6 @@ export default async function ListingDetail({ params }: { params: { id: string }
                     ))}
                   </div>
                 )}
-              </div>
-            </div>
-
-            <div className="lg:sticky lg:top-24 h-fit">
-              <div className="surface-card">
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-semibold">USD {Number(listing.pricePerNight).toFixed(0)}</span>
-                  <span className="text-sm text-slate-500">por noche</span>
-                </div>
-                <div className="mt-5">
-                  <BookingForm
-                    listingId={listing.id}
-                    pricePerNight={Number(listing.pricePerNight)}
-                    cleaningFee={Number(listing.cleaningFee)}
-                    serviceFee={0}
-                    taxRate={normalizedTaxRate}
-                  />
-                </div>
-                <p className="mt-4 text-xs text-slate-500">
-                  Cancelacion segun politica {listing.cancelPolicy}.
-                </p>
               </div>
             </div>
           </div>

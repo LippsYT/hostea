@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -46,7 +46,10 @@ export const BookingForm = ({
     infants: 0,
     pets: 0
   });
-  const { register, handleSubmit, watch } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  const { register, handleSubmit, setValue, watch } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  const checkOutRef = useRef<HTMLInputElement | null>(null);
+  const checkInField = register('checkIn');
+  const checkOutField = register('checkOut');
   const checkIn = watch('checkIn');
   const checkOut = watch('checkOut');
 
@@ -124,35 +127,55 @@ export const BookingForm = ({
     setLoading(false);
   };
 
+  const openCheckoutPicker = () => {
+    const target = checkOutRef.current;
+    if (!target) return;
+
+    target.focus();
+
+    try {
+      if (typeof (target as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
+        (target as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+      }
+    } catch {
+      // iOS Safari can block programmatic picker opening.
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-2">
-        <div className="relative">
-          <Input
-            type="date"
-            aria-label="Check-in"
-            className="relative z-10 w-full bg-transparent text-slate-900"
-            {...register('checkIn')}
-          />
-          {!checkIn && (
-            <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-xs text-slate-400">
-              dd/mm/aaaa
-            </span>
-          )}
-        </div>
-        <div className="relative">
-          <Input
-            type="date"
-            aria-label="Check-out"
-            className="relative z-10 w-full bg-transparent text-slate-900"
-            {...register('checkOut')}
-          />
-          {!checkOut && (
-            <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-xs text-slate-400">
-              dd/mm/aaaa
-            </span>
-          )}
-        </div>
+      <div className="space-y-2 min-w-0">
+        <Input
+          type="date"
+          lang="es-AR"
+          aria-label="Check-in"
+          placeholder="dd/mm/aaaa"
+          className="date-input min-w-0 w-full text-slate-900"
+          {...checkInField}
+          onChange={(e) => {
+            checkInField.onChange(e);
+            const next = e.target.value;
+            if (checkOut && next && checkOut < next) {
+              setValue('checkOut', '');
+            }
+            if (next) {
+              window.requestAnimationFrame(openCheckoutPicker);
+            }
+          }}
+        />
+        <Input
+          type="date"
+          lang="es-AR"
+          aria-label="Check-out"
+          placeholder="dd/mm/aaaa"
+          min={checkIn || undefined}
+          className="date-input min-w-0 w-full text-slate-900"
+          {...checkOutField}
+          ref={(node) => {
+            checkOutField.ref(node);
+            checkOutRef.current = node;
+          }}
+        />
       </div>
 
       <div className="relative">

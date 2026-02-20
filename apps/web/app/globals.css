@@ -166,3 +166,25 @@ body {
 .animate-fade-up {
   animation: fadeUp 0.45s ease-out;
 }
+
+input[type='date'].date-input {
+  min-width: 0;
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+input[type='date'].date-input::-webkit-date-and-time-value {
+  text-align: left;
+}
+
+input[type='date'].date-input::-webkit-datetime-edit {
+  color: #0f172a;
+  padding: 0;
+}
+
+input[type='date'].date-input::-webkit-calendar-picker-indicator {
+  opacity: 0.9;
+}

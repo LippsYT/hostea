@@ -13,6 +13,21 @@ export const SearchForm = () => {
   const checkOutRef = useRef<HTMLInputElement | null>(null);
   const [guests, setGuests] = useState('2');
 
+  const openCheckOutPicker = () => {
+    const target = checkOutRef.current;
+    if (!target) return;
+
+    target.focus();
+
+    try {
+      if (typeof (target as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
+        (target as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+      }
+    } catch {
+      // iOS Safari can block programmatic picker opening.
+    }
+  };
+
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams();
@@ -29,56 +44,46 @@ export const SearchForm = () => {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           <span>Check-in</span>
-          <div className="relative">
-            {!checkIn && (
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-                dd/mm/aaaa
-              </span>
-            )}
-            <Input
-              className="appearance-none text-slate-900"
-              type="date"
-              value={checkIn}
-              onChange={(e) => {
-                const next = e.target.value;
-                setCheckIn(next);
-                if (checkOut && next && checkOut < next) {
-                  setCheckOut('');
-                }
-                if (next) {
-                  const target = checkOutRef.current;
-                  if (target) {
-                    target.focus();
-                    if (typeof (target as any).showPicker === 'function') {
-                      (target as any).showPicker();
-                    }
-                  }
-                }
-              }}
-            />
-          </div>
+          <Input
+            className="date-input min-w-0 text-slate-900"
+            type="date"
+            lang="es-AR"
+            aria-label="Check-in"
+            placeholder="dd/mm/aaaa"
+            value={checkIn}
+            onChange={(e) => {
+              const next = e.target.value;
+              setCheckIn(next);
+
+              if (checkOut && next && checkOut < next) {
+                setCheckOut('');
+              }
+
+              if (next) {
+                window.requestAnimationFrame(openCheckOutPicker);
+              }
+            }}
+          />
         </label>
         <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           <span>Check-out</span>
-          <div className="relative">
-            {!checkOut && (
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-                dd/mm/aaaa
-              </span>
-            )}
-            <Input
-              ref={checkOutRef}
-              className="appearance-none text-slate-900"
-              type="date"
-              min={checkIn || undefined}
-              value={checkOut}
-              onChange={(e) => setCheckOut(e.target.value)}
-            />
-          </div>
+          <Input
+            ref={checkOutRef}
+            className="date-input min-w-0 text-slate-900"
+            type="date"
+            lang="es-AR"
+            aria-label="Check-out"
+            placeholder="dd/mm/aaaa"
+            min={checkIn || undefined}
+            value={checkOut}
+            onChange={(e) => setCheckOut(e.target.value)}
+          />
         </label>
       </div>
-      <Input placeholder="Huéspedes" value={guests} onChange={(e) => setGuests(e.target.value)} />
-      <Button type="submit" className="w-full">Buscar</Button>
+      <Input placeholder="Huespedes" value={guests} onChange={(e) => setGuests(e.target.value)} />
+      <Button type="submit" className="w-full">
+        Buscar
+      </Button>
     </form>
   );
 };

@@ -107,6 +107,7 @@ export default async function ListingDetail({ params }: { params: { id: string }
                   <span className="text-2xl font-semibold">USD {Number(listing.pricePerNight).toFixed(0)}</span>
                   <span className="text-sm text-slate-500">por noche</span>
                 </div>
+                <p className="mt-1 text-xs text-slate-500">Precio base. El total final se calcula al elegir check-in y check-out.</p>
                 <div className="mt-5">
                   <BookingForm
                     listingId={listing.id}

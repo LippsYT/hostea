@@ -10,6 +10,9 @@ export const SearchForm = () => {
   const [city, setCity] = useState('');
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
+  const [checkInActive, setCheckInActive] = useState(false);
+  const [checkOutActive, setCheckOutActive] = useState(false);
+  const checkInRef = useRef<HTMLInputElement | null>(null);
   const checkOutRef = useRef<HTMLInputElement | null>(null);
   const [guests, setGuests] = useState('2');
 
@@ -17,6 +20,7 @@ export const SearchForm = () => {
     const target = checkOutRef.current;
     if (!target) return;
 
+    setCheckOutActive(true);
     target.focus();
 
     try {
@@ -45,12 +49,30 @@ export const SearchForm = () => {
         <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           <span>Check-in</span>
           <Input
+            ref={checkInRef}
             className="date-input min-w-0 text-slate-900"
-            type="date"
+            type={checkInActive || Boolean(checkIn) ? 'date' : 'text'}
             lang="es-AR"
             aria-label="Check-in"
             placeholder="dd/mm/aaaa"
             value={checkIn}
+            onFocus={() => {
+              setCheckInActive(true);
+              window.requestAnimationFrame(() => {
+                const target = checkInRef.current;
+                if (!target) return;
+                try {
+                  if (typeof (target as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
+                    (target as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+                  }
+                } catch {
+                  // iOS Safari can block programmatic picker opening.
+                }
+              });
+            }}
+            onBlur={() => {
+              if (!checkIn) setCheckInActive(false);
+            }}
             onChange={(e) => {
               const next = e.target.value;
               setCheckIn(next);
@@ -70,12 +92,29 @@ export const SearchForm = () => {
           <Input
             ref={checkOutRef}
             className="date-input min-w-0 text-slate-900"
-            type="date"
+            type={checkOutActive || Boolean(checkOut) ? 'date' : 'text'}
             lang="es-AR"
             aria-label="Check-out"
             placeholder="dd/mm/aaaa"
             min={checkIn || undefined}
             value={checkOut}
+            onFocus={() => {
+              setCheckOutActive(true);
+              window.requestAnimationFrame(() => {
+                const target = checkOutRef.current;
+                if (!target) return;
+                try {
+                  if (typeof (target as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
+                    (target as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+                  }
+                } catch {
+                  // iOS Safari can block programmatic picker opening.
+                }
+              });
+            }}
+            onBlur={() => {
+              if (!checkOut) setCheckOutActive(false);
+            }}
             onChange={(e) => setCheckOut(e.target.value)}
           />
         </label>

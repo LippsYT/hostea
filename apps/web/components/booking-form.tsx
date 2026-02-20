@@ -39,6 +39,8 @@ export const BookingForm = ({
   const [loading, setLoading] = useState(false);
   const [guestOpen, setGuestOpen] = useState(false);
   const [guestError, setGuestError] = useState('');
+  const [checkInActive, setCheckInActive] = useState(false);
+  const [checkOutActive, setCheckOutActive] = useState(false);
   const [priceOverrides, setPriceOverrides] = useState<{ startDate: string; endDate: string; price: number }[]>([]);
   const [guests, setGuests] = useState<GuestCounts>({
     adults: 1,
@@ -47,6 +49,7 @@ export const BookingForm = ({
     pets: 0
   });
   const { register, handleSubmit, setValue, watch } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  const checkInRef = useRef<HTMLInputElement | null>(null);
   const checkOutRef = useRef<HTMLInputElement | null>(null);
   const checkInField = register('checkIn');
   const checkOutField = register('checkOut');
@@ -131,6 +134,7 @@ export const BookingForm = ({
     const target = checkOutRef.current;
     if (!target) return;
 
+    setCheckOutActive(true);
     target.focus();
 
     try {
@@ -146,12 +150,33 @@ export const BookingForm = ({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-2 min-w-0">
         <Input
-          type="date"
+          type={checkInActive || Boolean(checkIn) ? 'date' : 'text'}
           lang="es-AR"
           aria-label="Check-in"
           placeholder="dd/mm/aaaa"
           className="date-input min-w-0 w-full text-slate-900"
           {...checkInField}
+          ref={(node) => {
+            checkInField.ref(node);
+            checkInRef.current = node;
+          }}
+          onFocus={() => {
+            setCheckInActive(true);
+            window.requestAnimationFrame(() => {
+              const target = checkInRef.current;
+              if (!target) return;
+              try {
+                if (typeof (target as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
+                  (target as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+                }
+              } catch {
+                // iOS Safari can block programmatic picker opening.
+              }
+            });
+          }}
+          onBlur={() => {
+            if (!checkIn) setCheckInActive(false);
+          }}
           onChange={(e) => {
             checkInField.onChange(e);
             const next = e.target.value;
@@ -164,7 +189,7 @@ export const BookingForm = ({
           }}
         />
         <Input
-          type="date"
+          type={checkOutActive || Boolean(checkOut) ? 'date' : 'text'}
           lang="es-AR"
           aria-label="Check-out"
           placeholder="dd/mm/aaaa"
@@ -175,6 +200,24 @@ export const BookingForm = ({
             checkOutField.ref(node);
             checkOutRef.current = node;
           }}
+          onFocus={() => {
+            setCheckOutActive(true);
+            window.requestAnimationFrame(() => {
+              const target = checkOutRef.current;
+              if (!target) return;
+              try {
+                if (typeof (target as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
+                  (target as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+                }
+              } catch {
+                // iOS Safari can block programmatic picker opening.
+              }
+            });
+          }}
+          onBlur={() => {
+            if (!checkOut) setCheckOutActive(false);
+          }}
+          onChange={(e) => checkOutField.onChange(e)}
         />
       </div>
 
@@ -257,6 +300,10 @@ export const BookingForm = ({
             <span>USD {pricing.total.toFixed(2)}</span>
           </div>
         </div>
+      )}
+
+      {!pricing && (
+        <p className="text-xs text-slate-500">Selecciona fechas para ver el total estimado, similar al resumen de Airbnb.</p>
       )}
 
       <Button type="submit" size="lg" disabled={loading}>

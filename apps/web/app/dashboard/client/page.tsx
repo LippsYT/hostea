@@ -30,6 +30,7 @@ export default async function ClientPage() {
 
     return {
       id: res.id,
+      listingId: res.listing?.id,
       propertyName: res.listing?.title ?? 'Alojamiento',
       propertyImage: res.listing?.photos?.[0]?.url ?? null,
       location: location || 'Ubicación por definir',

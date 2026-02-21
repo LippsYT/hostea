@@ -103,11 +103,10 @@ export default async function ListingDetail({ params }: { params: { id: string }
 
             <div className="h-fit lg:sticky lg:top-24 lg:row-span-2 lg:col-start-2">
               <div className="surface-card">
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-semibold">USD {Number(listing.pricePerNight).toFixed(0)}</span>
-                  <span className="text-sm text-slate-500">por noche</span>
+                <div className="rounded-2xl border border-slate-200/70 bg-slate-50/80 px-4 py-3">
+                  <p className="text-sm font-semibold text-slate-900">Cotiza tu estadia</p>
+                  <p className="mt-1 text-xs text-slate-500">Selecciona check-in y check-out para ver el total estimado.</p>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">Precio base. El total final se calcula al elegir check-in y check-out.</p>
                 <div className="mt-5">
                   <BookingForm
                     listingId={listing.id}

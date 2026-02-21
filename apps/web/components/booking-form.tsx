@@ -254,6 +254,10 @@ export const BookingForm = ({
 
       {pricing && !Number.isNaN(pricing.total) && (
         <div className="space-y-2 text-sm text-slate-600">
+          <div className="flex items-baseline justify-between rounded-2xl border border-slate-200/70 bg-slate-50/80 px-3 py-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total estimado</span>
+            <span className="text-xl font-semibold text-slate-900">USD {pricing.total.toFixed(2)}</span>
+          </div>
           <div className="flex items-center justify-between">
             <span>{pricing.nights} noches</span>
             <span>USD {pricing.nightlySubtotal.toFixed(2)}</span>
@@ -273,7 +277,7 @@ export const BookingForm = ({
             <span>USD {pricing.taxes.toFixed(2)}</span>
           </div>
           <div className="flex items-center justify-between font-semibold text-slate-900">
-            <span>Total estimado</span>
+            <span>Total</span>
             <span>USD {pricing.total.toFixed(2)}</span>
           </div>
         </div>

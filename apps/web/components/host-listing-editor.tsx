@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  calcBreakdown,
+  calcClientPriceFromHostNet,
+  defaultSmartPricingParams,
+  withSmartPricingParams
+} from '@/lib/intelligent-pricing';
 
 type Photo = { id: string; url: string; sortOrder: number };
 
@@ -16,6 +22,8 @@ export type ListingEditorProps = {
     city: string;
     neighborhood: string;
     pricePerNight: number;
+    netoDeseadoUsd?: number | null;
+    precioClienteCalculadoUsd?: number | null;
     cleaningFee: number;
     serviceFee: number;
     taxRate: number;
@@ -28,12 +36,14 @@ export type ListingEditorProps = {
   };
 };
 
+const money = (value: number) => `USD ${Number(value || 0).toFixed(2)}`;
+
 export const HostListingEditor = ({ listing }: ListingEditorProps) => {
   const [csrf, setCsrf] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
-  const [commissionPercent, setCommissionPercent] = useState(0.15);
+  const [pricingParams, setPricingParams] = useState(defaultSmartPricingParams);
   const [photos, setPhotos] = useState<Photo[]>(listing.photos || []);
   const [form, setForm] = useState({
     title: listing.title,
@@ -42,7 +52,8 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
     address: listing.address,
     city: listing.city,
     neighborhood: listing.neighborhood,
-    pricePerNight: listing.pricePerNight,
+    netoDeseadoUsd:
+      typeof listing.netoDeseadoUsd === 'number' ? listing.netoDeseadoUsd : Number(listing.pricePerNight),
     cleaningFee: listing.cleaningFee,
     taxRate: listing.taxRate,
     capacity: listing.capacity,
@@ -53,39 +64,53 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
   });
 
   useEffect(() => {
-    fetch('/api/security/csrf').then(async (res) => {
-      const data = await res.json();
-      setCsrf(data.token);
-    });
+    fetch('/api/security/csrf')
+      .then(async (res) => {
+        const data = await res.json();
+        setCsrf(data.token);
+      })
+      .catch(() => undefined);
+
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
-        const value = Number(data?.settings?.commissionPercent);
-        if (Number.isFinite(value)) setCommissionPercent(value);
+        const platformPct = Number(data?.settings?.commissionPercent);
+        setPricingParams((current) =>
+          withSmartPricingParams({
+            stripePct: current.stripePct,
+            stripeFixed: current.stripeFixed,
+            platformPct: Number.isFinite(platformPct) ? platformPct : current.platformPct
+          })
+        );
       })
       .catch(() => undefined);
   }, []);
 
+  const calculatedPrice = useMemo(
+    () => calcClientPriceFromHostNet(form.netoDeseadoUsd, pricingParams),
+    [form.netoDeseadoUsd, pricingParams]
+  );
+  const breakdown = useMemo(
+    () => calcBreakdown(calculatedPrice, pricingParams),
+    [calculatedPrice, pricingParams]
+  );
+
   const save = async () => {
     setSaving(true);
+    const payload = {
+      ...form,
+      pricePerNight: calculatedPrice,
+      netoDeseadoUsd: form.netoDeseadoUsd,
+      precioClienteCalculadoUsd: calculatedPrice
+    };
     await fetch(`/api/host/listings/${listing.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
-      body: JSON.stringify(form)
+      body: JSON.stringify(payload)
     });
     setSaving(false);
     alert('Listing actualizado');
   };
-
-  const commissionPreview = useMemo(() => {
-    const base = Number(form.pricePerNight) || 0;
-    const fee = Math.round(base * commissionPercent * 100) / 100;
-    return {
-      base,
-      fee,
-      host: Math.round((base - fee) * 100) / 100
-    };
-  }, [form.pricePerNight, commissionPercent]);
 
   const uploadFile = async (file: File) => {
     setUploadError('');
@@ -158,7 +183,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-slate-900">Datos principales</h2>
-            <p className="text-sm text-slate-500">Edita la informaci?n y precios.</p>
+            <p className="text-sm text-slate-500">Edita la informacion y precios.</p>
           </div>
           <Button size="sm" onClick={save} disabled={saving}>
             {saving ? 'Guardando...' : 'Guardar cambios'}
@@ -167,31 +192,73 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
         <div className="mt-6 grid gap-3 md:grid-cols-2">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Titulo</p>
-            <Input placeholder="Titulo" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+            <Input
+              placeholder="Titulo"
+              value={form.title}
+              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+            />
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Descripcion</p>
-            <Input placeholder="Descripcion" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+            <Input
+              placeholder="Descripcion"
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            />
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Direccion</p>
-            <Input placeholder="Direccion" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
+            <Input
+              placeholder="Direccion"
+              value={form.address}
+              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+            />
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ciudad</p>
-            <Input placeholder="Ciudad" value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} />
+            <Input
+              placeholder="Ciudad"
+              value={form.city}
+              onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+            />
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Barrio</p>
-            <Input placeholder="Barrio" value={form.neighborhood} onChange={(e) => setForm((f) => ({ ...f, neighborhood: e.target.value }))} />
+            <Input
+              placeholder="Barrio"
+              value={form.neighborhood}
+              onChange={(e) => setForm((f) => ({ ...f, neighborhood: e.target.value }))}
+            />
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Precio por noche (USD)</p>
-            <Input type="number" placeholder="Precio por noche" value={form.pricePerNight} onChange={(e) => setForm((f) => ({ ...f, pricePerNight: Number(e.target.value) }))} />
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Neto deseado por noche (USD)
+            </p>
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="40"
+              value={form.netoDeseadoUsd}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, netoDeseadoUsd: Math.max(0, Number(e.target.value) || 0) }))
+              }
+            />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Precio cliente calculado (USD)
+            </p>
+            <Input type="number" value={calculatedPrice} disabled readOnly />
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Limpieza (USD)</p>
-            <Input type="number" placeholder="Limpieza" value={form.cleaningFee} onChange={(e) => setForm((f) => ({ ...f, cleaningFee: Number(e.target.value) }))} />
+            <Input
+              type="number"
+              placeholder="Limpieza"
+              value={form.cleaningFee}
+              onChange={(e) => setForm((f) => ({ ...f, cleaningFee: Number(e.target.value) }))}
+            />
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Impuestos (%)</p>
@@ -206,15 +273,30 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Capacidad</p>
-            <Input type="number" placeholder="Capacidad" value={form.capacity} onChange={(e) => setForm((f) => ({ ...f, capacity: Number(e.target.value) }))} />
+            <Input
+              type="number"
+              placeholder="Capacidad"
+              value={form.capacity}
+              onChange={(e) => setForm((f) => ({ ...f, capacity: Number(e.target.value) }))}
+            />
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Camas</p>
-            <Input type="number" placeholder="Camas" value={form.beds} onChange={(e) => setForm((f) => ({ ...f, beds: Number(e.target.value) }))} />
+            <Input
+              type="number"
+              placeholder="Camas"
+              value={form.beds}
+              onChange={(e) => setForm((f) => ({ ...f, beds: Number(e.target.value) }))}
+            />
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Baños</p>
-            <Input type="number" placeholder="Ba?os" value={form.baths} onChange={(e) => setForm((f) => ({ ...f, baths: Number(e.target.value) }))} />
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Banos</p>
+            <Input
+              type="number"
+              placeholder="Banos"
+              value={form.baths}
+              onChange={(e) => setForm((f) => ({ ...f, baths: Number(e.target.value) }))}
+            />
           </div>
           <select
             className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold uppercase tracking-wide"
@@ -244,23 +326,28 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
         </div>
         <div className="mt-6 rounded-2xl border border-slate-200/70 bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-slate-900">Posibles ganancias</p>
+            <p className="text-sm font-semibold text-slate-900">Precio inteligente (estimado)</p>
             <div className="text-xs text-slate-500">
-              Comisión plataforma: {Math.round(commissionPercent * 100)}%
+              Stripe {(pricingParams.stripePct * 100).toFixed(2)}% + {money(pricingParams.stripeFixed)} ·
+              Hostea {(pricingParams.platformPct * 100).toFixed(2)}%
             </div>
           </div>
           <div className="mt-3 space-y-1 text-sm text-slate-600">
             <div className="flex items-center justify-between">
-              <span>1 noche por USD {commissionPreview.base.toFixed(2)}</span>
-              <span>USD {commissionPreview.base.toFixed(2)}</span>
+              <span>Precio al cliente</span>
+              <span>{money(calculatedPrice)}</span>
             </div>
             <div className="flex items-center justify-between text-slate-500">
-              <span>Comisión plataforma</span>
-              <span>-USD {commissionPreview.fee.toFixed(2)}</span>
+              <span>Estimacion fee Stripe</span>
+              <span>-{money(breakdown.stripeFee)}</span>
+            </div>
+            <div className="flex items-center justify-between text-slate-500">
+              <span>Fee Hostea</span>
+              <span>-{money(breakdown.platformFee)}</span>
             </div>
             <div className="flex items-center justify-between font-semibold text-slate-900">
-              <span>Total a recibir (USD)</span>
-              <span>USD {commissionPreview.host.toFixed(2)}</span>
+              <span>Neto host</span>
+              <span>{money(breakdown.hostNet)}</span>
             </div>
           </div>
         </div>
@@ -270,7 +357,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-slate-900">Fotos</h2>
-            <p className="text-sm text-slate-500">Sub? im?genes reales del alojamiento.</p>
+            <p className="text-sm text-slate-500">Subi imagenes reales del alojamiento.</p>
           </div>
           <label className="pill-link cursor-pointer">
             {uploading ? 'Subiendo...' : 'Agregar fotos'}
@@ -286,13 +373,9 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
                 <img src={photo.url} alt="Foto" className="h-full w-full object-cover" />
               </div>
               <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-                {photo.sortOrder === 0 ? (
-                  <span className="font-semibold text-emerald-600">Foto principal</span>
-                ) : (
-                  <button onClick={() => setPrimary(photo.id)} className="font-semibold text-slate-700">
-                    Marcar principal
-                  </button>
-                )}
+                <button onClick={() => setPrimary(photo.id)} className="font-semibold text-slate-700">
+                  Principal
+                </button>
                 <button onClick={() => removePhoto(photo.id)} className="text-red-600">
                   Eliminar
                 </button>

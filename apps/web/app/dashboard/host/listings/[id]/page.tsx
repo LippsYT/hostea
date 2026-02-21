@@ -35,6 +35,15 @@ export default async function HostListingEditPage({ params }: { params: { id: st
           city: listing.city,
           neighborhood: listing.neighborhood,
           pricePerNight: Number(listing.pricePerNight),
+          netoDeseadoUsd:
+            listing.netoDeseadoUsd !== null && listing.netoDeseadoUsd !== undefined
+              ? Number(listing.netoDeseadoUsd)
+              : null,
+          precioClienteCalculadoUsd:
+            listing.precioClienteCalculadoUsd !== null &&
+            listing.precioClienteCalculadoUsd !== undefined
+              ? Number(listing.precioClienteCalculadoUsd)
+              : null,
           cleaningFee: Number(listing.cleaningFee),
           serviceFee: Number(listing.serviceFee),
           taxRate: Number(listing.taxRate),

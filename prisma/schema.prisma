@@ -162,6 +162,8 @@ model Listing {
   latitude      Float?
   longitude     Float?
   pricePerNight Decimal         @db.Decimal(10,2)
+  netoDeseadoUsd Decimal?       @db.Decimal(10,2)
+  precioClienteCalculadoUsd Decimal? @db.Decimal(10,2)
   cleaningFee   Decimal         @db.Decimal(10,2)
   serviceFee    Decimal         @db.Decimal(10,2)
   taxRate       Decimal         @db.Decimal(5,2)

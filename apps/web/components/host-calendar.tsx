@@ -9,7 +9,7 @@ import { addDays, format } from 'date-fns';
 
 type ListingOption = { id: string; title: string };
 
-type Block = { id: string; startDate: string; endDate: string; reason?: string | null };
+type Block = { id: string; startDate: string; endDate: string; reason?: string | null; createdBy?: string };
 
 type Reservation = { id: string; checkIn: string; checkOut: string; status: string };
 
@@ -78,7 +78,8 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
   ];
 
   const maintenanceBlocks = blockOnly.filter((b) => (b.reason || '').toLowerCase().includes('mantenimiento'));
-  const manualBlocks = blockOnly.filter((b) => !maintenanceBlocks.includes(b));
+  const externalBlocks = blockOnly.filter((b) => (b.createdBy || '').startsWith('ICAL:'));
+  const manualBlocks = blockOnly.filter((b) => !maintenanceBlocks.includes(b) && !externalBlocks.includes(b));
   const priceMap = useMemo(() => {
     const map = new Map<string, number>();
     priceBlocks.forEach((b) => {
@@ -175,18 +176,23 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
                 blocked: manualBlocks.map((b) => ({ from: new Date(b.startDate), to: new Date(b.endDate) })),
                 maintenance: maintenanceBlocks.map((b) => ({ from: new Date(b.startDate), to: new Date(b.endDate) })),
                 reserved: reservations.map((r) => ({ from: new Date(r.checkIn), to: new Date(r.checkOut) })),
-                price: priceBlocks.map((b) => ({ from: new Date(b.startDate), to: new Date(b.endDate) }))
+                price: priceBlocks.map((b) => ({ from: new Date(b.startDate), to: new Date(b.endDate) })),
+                external: externalBlocks.map((b) => ({ from: new Date(b.startDate), to: new Date(b.endDate) }))
               }}
               modifiersClassNames={{
                 blocked: 'rdp-day_blocked',
                 maintenance: 'rdp-day_maintenance',
                 reserved: 'rdp-day_reserved',
-                price: 'rdp-day_price'
+                price: 'rdp-day_price',
+                external: 'rdp-day_blocked'
               }}
             />
             <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-600">
               <span className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-full bg-red-500" /> Bloqueado
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full bg-amber-500" /> Externo iCal
               </span>
               <span className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-full bg-slate-400" /> Mantenimiento
@@ -207,8 +213,19 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
         <div className="mt-5 space-y-2 text-sm">
           {blockOnly.map((b) => (
             <div key={b.id} className="surface-muted flex items-center justify-between gap-3">
-              <span>{b.startDate.slice(0, 10)} - {b.endDate.slice(0, 10)} - {b.reason || 'Bloqueo'}</span>
-              <button className="text-red-600" onClick={() => removeBlock(b.id)}>Eliminar</button>
+              <span>
+                {b.startDate.slice(0, 10)} - {b.endDate.slice(0, 10)} -{' '}
+                {(b.createdBy || '').startsWith('ICAL:')
+                  ? 'Bloqueado por calendario externo'
+                  : b.reason || 'Bloqueo'}
+              </span>
+              {(b.createdBy || '').startsWith('ICAL:') ? (
+                <span className="text-xs text-slate-500">Gestionado por iCal</span>
+              ) : (
+                <button className="text-red-600" onClick={() => removeBlock(b.id)}>
+                  Eliminar
+                </button>
+              )}
             </div>
           ))}
           {blockOnly.length === 0 && <p className="text-sm text-slate-500">Sin bloqueos.</p>}

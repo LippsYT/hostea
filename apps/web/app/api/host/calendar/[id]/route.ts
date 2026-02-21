@@ -10,6 +10,12 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   if (!block || block.listing.hostId !== (session.user as any).id) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
+  if ((block.createdBy || '').startsWith('ICAL:')) {
+    return NextResponse.json(
+      { error: 'El bloqueo viene de un calendario externo. Desactiva o elimina el feed iCal.' },
+      { status: 400 }
+    );
+  }
   await prisma.calendarBlock.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });
 }

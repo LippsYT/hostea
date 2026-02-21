@@ -11,6 +11,15 @@ import {
 } from '@/lib/intelligent-pricing';
 
 type Photo = { id: string; url: string; sortOrder: number };
+type IcalFeed = {
+  id: string;
+  provider: string | null;
+  url: string;
+  isActive: boolean;
+  lastSyncAt: string | null;
+  lastSyncStatus: string;
+  lastSyncError: string | null;
+};
 
 export type ListingEditorProps = {
   listing: {
@@ -43,6 +52,12 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [icalUrl, setIcalUrl] = useState('');
+  const [icalProvider, setIcalProvider] = useState('Airbnb');
+  const [icalError, setIcalError] = useState('');
+  const [icalBusy, setIcalBusy] = useState(false);
+  const [feeds, setFeeds] = useState<IcalFeed[]>([]);
+  const [hosteaIcalUrl, setHosteaIcalUrl] = useState('');
   const [pricingParams, setPricingParams] = useState(defaultSmartPricingParams);
   const [photos, setPhotos] = useState<Photo[]>(listing.photos || []);
   const [form, setForm] = useState({
@@ -62,6 +77,15 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
     cancelPolicy: listing.cancelPolicy,
     instantBook: listing.instantBook
   });
+
+  const loadIcalFeeds = async () => {
+    const res = await fetch(`/api/host/listings/${listing.id}/ical-feeds`);
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setFeeds(data.feeds || []);
+      setHosteaIcalUrl(data.hosteaIcalUrl || '');
+    }
+  };
 
   useEffect(() => {
     fetch('/api/security/csrf')
@@ -84,6 +108,8 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
         );
       })
       .catch(() => undefined);
+
+    loadIcalFeeds();
   }, []);
 
   const calculatedPrice = useMemo(
@@ -175,6 +201,102 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
         .map((p) => ({ ...p, sortOrder: p.id === photoId ? 0 : p.sortOrder + 1 }))
         .sort((a, b) => a.sortOrder - b.sortOrder)
     );
+  };
+
+  const addIcalFeed = async () => {
+    if (!icalUrl.trim()) return;
+    setIcalError('');
+    setIcalBusy(true);
+    const res = await fetch(`/api/host/listings/${listing.id}/ical-feeds`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify({ url: icalUrl.trim(), provider: icalProvider.trim() || undefined })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setIcalError(data?.error || 'No se pudo guardar el iCal.');
+      setIcalBusy(false);
+      return;
+    }
+    setIcalUrl('');
+    await loadIcalFeeds();
+    setIcalBusy(false);
+  };
+
+  const syncAllIcalFeeds = async () => {
+    setIcalError('');
+    setIcalBusy(true);
+    const res = await fetch(`/api/host/listings/${listing.id}/ical-feeds/sync`, {
+      method: 'POST',
+      headers: { 'x-csrf-token': csrf }
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setIcalError(data?.error || 'No se pudo sincronizar.');
+      setIcalBusy(false);
+      return;
+    }
+    await loadIcalFeeds();
+    setIcalBusy(false);
+  };
+
+  const syncFeed = async (feedId: string) => {
+    setIcalError('');
+    setIcalBusy(true);
+    const res = await fetch(`/api/host/listings/${listing.id}/ical-feeds/${feedId}`, {
+      method: 'POST',
+      headers: { 'x-csrf-token': csrf }
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setIcalError(data?.error || 'No se pudo sincronizar el feed.');
+      setIcalBusy(false);
+      return;
+    }
+    await loadIcalFeeds();
+    setIcalBusy(false);
+  };
+
+  const removeFeed = async (feedId: string) => {
+    setIcalError('');
+    setIcalBusy(true);
+    const res = await fetch(`/api/host/listings/${listing.id}/ical-feeds/${feedId}`, {
+      method: 'DELETE',
+      headers: { 'x-csrf-token': csrf }
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setIcalError(data?.error || 'No se pudo eliminar el feed.');
+      setIcalBusy(false);
+      return;
+    }
+    await loadIcalFeeds();
+    setIcalBusy(false);
+  };
+
+  const toggleFeed = async (feed: IcalFeed) => {
+    setIcalError('');
+    const res = await fetch(`/api/host/listings/${listing.id}/ical-feeds/${feed.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify({ isActive: !feed.isActive })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setIcalError(data?.error || 'No se pudo actualizar el feed.');
+      return;
+    }
+    await loadIcalFeeds();
+  };
+
+  const copyHosteaIcal = async () => {
+    if (!hosteaIcalUrl) return;
+    try {
+      await navigator.clipboard.writeText(hosteaIcalUrl);
+      alert('URL iCal de Hostea copiada.');
+    } catch {
+      alert('No se pudo copiar automaticamente. Copia manualmente.');
+    }
   };
 
   return (
@@ -328,7 +450,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-semibold text-slate-900">Precio inteligente (estimado)</p>
             <div className="text-xs text-slate-500">
-              Stripe {(pricingParams.stripePct * 100).toFixed(2)}% + {money(pricingParams.stripeFixed)} ·
+              Stripe {(pricingParams.stripePct * 100).toFixed(2)}% + {money(pricingParams.stripeFixed)} -
               Hostea {(pricingParams.platformPct * 100).toFixed(2)}%
             </div>
           </div>
@@ -350,6 +472,85 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
               <span>{money(breakdown.hostNet)}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="surface-card">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">Sincronizacion iCal</h2>
+            <p className="text-sm text-slate-500">
+              Agrega links de Airbnb, Booking o Expedia para bloquear fechas automaticamente.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={syncAllIcalFeeds} disabled={icalBusy}>
+            {icalBusy ? 'Sincronizando...' : 'Sincronizar'}
+          </Button>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-[180px_1fr_auto]">
+          <Input
+            placeholder="Proveedor"
+            value={icalProvider}
+            onChange={(e) => setIcalProvider(e.target.value)}
+          />
+          <Input
+            placeholder="https://..."
+            value={icalUrl}
+            onChange={(e) => setIcalUrl(e.target.value)}
+          />
+          <Button size="sm" onClick={addIcalFeed} disabled={icalBusy}>
+            Agregar link iCal
+          </Button>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-slate-200/70 bg-white p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">iCal de Hostea</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Input value={hosteaIcalUrl} readOnly className="flex-1 min-w-[260px]" />
+            <Button size="sm" variant="outline" onClick={copyHosteaIcal}>
+              Copiar
+            </Button>
+          </div>
+        </div>
+
+        <p className="mt-4 text-xs text-amber-700">
+          Las sincronizaciones por iCal no son instantaneas y pueden tardar hasta 2 horas.
+        </p>
+        {icalError && <p className="mt-2 text-sm text-red-600">{icalError}</p>}
+
+        <div className="mt-4 space-y-2">
+          {feeds.map((feed) => (
+            <div key={feed.id} className="surface-muted flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-slate-900">{feed.provider || 'iCal'}</p>
+                <p className="break-all text-xs text-slate-500">{feed.url}</p>
+                <p className="text-xs text-slate-500">
+                  Estado:{' '}
+                  {feed.lastSyncStatus === 'SYNCED'
+                    ? 'sincronizado'
+                    : feed.lastSyncStatus === 'ERROR'
+                      ? 'error'
+                      : 'pendiente'}
+                  {feed.lastSyncAt ? ` - ${feed.lastSyncAt.slice(0, 19).replace('T', ' ')}` : ''}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" variant="outline" onClick={() => toggleFeed(feed)}>
+                  {feed.isActive ? 'Desactivar' : 'Activar'}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => syncFeed(feed.id)} disabled={icalBusy}>
+                  Sincronizar
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => removeFeed(feed.id)} disabled={icalBusy}>
+                  Eliminar
+                </Button>
+              </div>
+            </div>
+          ))}
+          {feeds.length === 0 && (
+            <p className="text-sm text-slate-500">Aun no agregaste enlaces iCal para esta propiedad.</p>
+          )}
         </div>
       </div>
 

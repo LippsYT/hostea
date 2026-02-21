@@ -76,6 +76,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Fechas no disponibles' }, { status: 409 });
     }
 
+    const blockingCalendarEvents = await prisma.calendarBlock.findFirst({
+      where: {
+        listingId,
+        NOT: { reason: { startsWith: 'PRICE:' } },
+        startDate: { lt: checkOutDate },
+        endDate: { gt: checkInDate }
+      }
+    });
+    if (blockingCalendarEvents) {
+      return NextResponse.json({ error: 'Fechas bloqueadas por calendario.' }, { status: 409 });
+    }
+
     const priceBlocks = await prisma.calendarBlock.findMany({
       where: {
         listingId,
@@ -114,7 +126,7 @@ export async function POST(req: Request) {
         total: pricing.total,
         currency: 'USD',
         status: ReservationStatus.PENDING_PAYMENT,
-        holdExpiresAt: new Date(Date.now() + 30 * 60 * 1000)
+        holdExpiresAt: new Date(Date.now() + 15 * 60 * 1000)
       }
     });
 

@@ -173,6 +173,7 @@ model Listing {
   instantBook   Boolean         @default(true)
   cancelPolicy  CancelPolicy    @default(MODERATE)
   status        String          @default("ACTIVE")
+  icalToken     String          @unique @default(cuid())
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
@@ -180,6 +181,7 @@ model Listing {
   photos        ListingPhoto[]
   amenities     ListingAmenity[]
   calendarBlocks CalendarBlock[]
+  icalFeeds     ListingIcalFeed[]
   roomTypes     RoomType[]
   reservations  Reservation[]
   reviews       Review[]
@@ -233,6 +235,23 @@ model RoomType {
 
   listing   Listing @relation(fields: [listingId], references: [id])
   reservations Reservation[]
+}
+
+model ListingIcalFeed {
+  id             String   @id @default(cuid())
+  listingId      String
+  provider       String?
+  url            String
+  isActive       Boolean  @default(true)
+  lastSyncAt     DateTime?
+  lastSyncStatus String   @default("PENDING")
+  lastSyncError  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  listing        Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, url])
 }
 
 model Reservation {

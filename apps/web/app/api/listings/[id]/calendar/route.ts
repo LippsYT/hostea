@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { buildEffectivePriceOverrides } from '@/lib/dynamic-pricing-service';
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const { searchParams } = new URL(req.url);
@@ -19,23 +20,18 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     return NextResponse.json({ overrides: [] });
   }
 
-  const blocks = await prisma.calendarBlock.findMany({
-    where: {
-      listingId,
-      reason: { startsWith: 'PRICE:' },
-      startDate: { lte: toDate },
-      endDate: { gte: fromDate }
-    }
+  const pricing = await buildEffectivePriceOverrides({
+    listingId,
+    checkIn: fromDate,
+    checkOut: toDate
   });
 
-  const overrides = blocks
-    .map((b) => {
-      const raw = (b.reason || '').replace('PRICE:', '');
-      const value = Number(raw);
-      if (!Number.isFinite(value)) return null;
-      return { startDate: b.startDate, endDate: b.endDate, price: value };
-    })
-    .filter(Boolean);
-
-  return NextResponse.json({ overrides });
+  return NextResponse.json({
+    overrides: pricing.overrides,
+    dynamicPricing: {
+      enabled: Boolean(pricing.dynamicConfig?.enabled),
+      occupancyRate: pricing.occupancyRate,
+      breakdown: pricing.dynamicBreakdown
+    }
+  });
 }

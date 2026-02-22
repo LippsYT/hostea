@@ -7,6 +7,8 @@ import { requireSession } from '@/lib/permissions';
 import { calculatePrice } from '@/lib/pricing';
 import { stripe } from '@/lib/stripe';
 import { ReservationStatus, PaymentStatus } from '@prisma/client';
+import { checkListingAvailability } from '@/lib/listing-availability';
+import { buildEffectivePriceOverrides } from '@/lib/dynamic-pricing-service';
 
 const schema = z.object({
   listingId: z.string(),
@@ -53,57 +55,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Supera la capacidad del listing' }, { status: 400 });
     }
 
-    const now = new Date();
-    const overlapping = await prisma.reservation.findFirst({
-      where: {
-        listingId,
-        AND: [
-          { checkIn: { lt: checkOutDate } },
-          { checkOut: { gt: checkInDate } },
-          {
-            OR: [
-              { status: ReservationStatus.CONFIRMED },
-              {
-                status: ReservationStatus.PENDING_PAYMENT,
-                holdExpiresAt: { gt: now }
-              }
-            ]
-          }
-        ]
-      }
+    const availability = await checkListingAvailability({
+      listingId,
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
+      guests: guestsCount
     });
-    if (overlapping) {
-      return NextResponse.json({ error: 'Fechas no disponibles' }, { status: 409 });
+    if (!availability.available) {
+      return NextResponse.json(
+        {
+          error: availability.message || 'Fechas no disponibles',
+          source: availability.source
+        },
+        { status: 409 }
+      );
     }
 
-    const blockingCalendarEvents = await prisma.calendarBlock.findFirst({
-      where: {
-        listingId,
-        NOT: { reason: { startsWith: 'PRICE:' } },
-        startDate: { lt: checkOutDate },
-        endDate: { gt: checkInDate }
-      }
+    const pricingOverrides = await buildEffectivePriceOverrides({
+      listingId,
+      checkIn: checkInDate,
+      checkOut: checkOutDate
     });
-    if (blockingCalendarEvents) {
-      return NextResponse.json({ error: 'Fechas bloqueadas por calendario.' }, { status: 409 });
-    }
-
-    const priceBlocks = await prisma.calendarBlock.findMany({
-      where: {
-        listingId,
-        reason: { startsWith: 'PRICE:' },
-        startDate: { lte: checkOutDate },
-        endDate: { gte: checkInDate }
-      }
-    });
-    const overrides = priceBlocks
-      .map((b) => {
-        const raw = (b.reason || '').replace('PRICE:', '');
-        const value = Number(raw);
-        if (!Number.isFinite(value)) return null;
-        return { startDate: b.startDate, endDate: b.endDate, price: value };
-      })
-      .filter(Boolean) as { startDate: Date; endDate: Date; price: number }[];
 
     const normalizedTaxRate = Number(listing.taxRate) > 1 ? Number(listing.taxRate) / 100 : Number(listing.taxRate);
     const pricing = calculatePrice({
@@ -113,7 +85,7 @@ export async function POST(req: Request) {
       cleaningFee: Number(listing.cleaningFee),
       serviceFee: 0,
       taxRate: normalizedTaxRate,
-      overrides
+      overrides: pricingOverrides.overrides
     });
 
     const reservation = await prisma.reservation.create({

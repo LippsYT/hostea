@@ -1,5 +1,10 @@
 import { PaymentStatus, ReservationStatus } from '@prisma/client';
 import { sendAutoMessagesOnConfirm } from '@/lib/auto-messages';
+import {
+  createCloudbedsReservation,
+  getCloudbedsMappingForListing,
+  isCloudbedsEnabled
+} from '@/lib/cloudbeds';
 
 export const handleStripeWebhook = async (event: any, prisma: any) => {
   if (event.type === 'checkout.session.completed') {
@@ -20,7 +25,10 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
 
       const reservation = await prisma.reservation.findUnique({
         where: { id: reservationId },
-        include: { listing: true }
+        include: {
+          listing: true,
+          user: { include: { profile: true } }
+        }
       });
       if (reservation) {
         await prisma.calendarBlock.create({
@@ -33,6 +41,43 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
           }
         });
         await sendAutoMessagesOnConfirm(reservation.id);
+
+        if (isCloudbedsEnabled() && getCloudbedsMappingForListing(reservation.listingId)) {
+          try {
+            const cloudbeds = await createCloudbedsReservation({
+              listingId: reservation.listingId,
+              reservationId: reservation.id,
+              checkIn: reservation.checkIn,
+              checkOut: reservation.checkOut,
+              guests: reservation.guestsCount,
+              guestName:
+                reservation.user.profile?.name ||
+                reservation.user.email.split('@')[0] ||
+                'Huesped Hostea',
+              guestEmail: reservation.user.email
+            });
+
+            await prisma.auditLog.create({
+              data: {
+                actorId: reservation.userId,
+                action: 'CLOUDBEDS_RESERVATION_CREATED',
+                entity: 'Reservation',
+                entityId: reservation.id,
+                meta: { externalId: cloudbeds.externalId, raw: cloudbeds.raw }
+              }
+            });
+          } catch (error: any) {
+            await prisma.auditLog.create({
+              data: {
+                actorId: reservation.userId,
+                action: 'CLOUDBEDS_RESERVATION_FAILED',
+                entity: 'Reservation',
+                entityId: reservation.id,
+                meta: { error: error?.message || 'Cloudbeds sync error' }
+              }
+            });
+          }
+        }
       }
     }
   }

@@ -22,6 +22,14 @@ type GuestCounts = {
   pets: number;
 };
 
+type AvailabilityState = {
+  loading: boolean;
+  available: boolean | null;
+  source?: 'cloudbeds' | 'local';
+  message?: string;
+  roomTypes?: Array<{ roomTypeId: string; name: string; availableUnits: number }>;
+};
+
 export const BookingForm = ({
   listingId,
   pricePerNight,
@@ -42,6 +50,10 @@ export const BookingForm = ({
   const [checkInFocused, setCheckInFocused] = useState(false);
   const [checkOutFocused, setCheckOutFocused] = useState(false);
   const [priceOverrides, setPriceOverrides] = useState<{ startDate: string; endDate: string; price: number }[]>([]);
+  const [availability, setAvailability] = useState<AvailabilityState>({
+    loading: false,
+    available: null
+  });
   const [guests, setGuests] = useState<GuestCounts>({
     adults: 1,
     children: 0,
@@ -100,9 +112,50 @@ export const BookingForm = ({
   const totalGuests = guests.adults + guests.children + guests.infants;
   const guestSummary = `${totalGuests} huesped${totalGuests === 1 ? '' : 'es'}` + (guests.pets ? `, ${guests.pets} mascota${guests.pets === 1 ? '' : 's'}` : '');
 
+  useEffect(() => {
+    if (!checkIn || !checkOut) {
+      setAvailability({ loading: false, available: null });
+      return;
+    }
+
+    setAvailability({ loading: true, available: null });
+    fetch(
+      `/api/listings/${listingId}/availability?checkIn=${checkIn}&checkOut=${checkOut}&guests=${totalGuests}`
+    )
+      .then(async (res) => ({ ok: res.ok, data: await res.json() }))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          setAvailability({
+            loading: false,
+            available: false,
+            message: data?.error || 'No se pudo validar disponibilidad'
+          });
+          return;
+        }
+        setAvailability({
+          loading: false,
+          available: Boolean(data?.available),
+          source: data?.source,
+          message: data?.message,
+          roomTypes: Array.isArray(data?.roomTypes) ? data.roomTypes : undefined
+        });
+      })
+      .catch(() => {
+        setAvailability({
+          loading: false,
+          available: false,
+          message: 'No se pudo validar disponibilidad'
+        });
+      });
+  }, [checkIn, checkOut, listingId, totalGuests]);
+
   const onSubmit = async (values: FormValues) => {
     if (guests.adults < 1) {
       setGuestError('Debe haber al menos 1 adulto');
+      return;
+    }
+    if (availability.available === false) {
+      setGuestError(availability.message || 'No hay disponibilidad para esas fechas');
       return;
     }
     setGuestError('');
@@ -287,7 +340,36 @@ export const BookingForm = ({
         <p className="text-xs text-slate-500">Selecciona fechas para ver el total estimado, similar al resumen de Airbnb.</p>
       )}
 
-      <Button type="submit" size="lg" disabled={loading}>
+      {availability.loading && (
+        <p className="text-xs text-slate-500">Consultando disponibilidad...</p>
+      )}
+      {availability.available === true && !availability.loading && (
+        <div className="space-y-1">
+          <p className="text-xs text-emerald-700">
+            Disponible ({availability.source === 'cloudbeds' ? 'Cloudbeds' : 'Hostea'})
+          </p>
+          {availability.source === 'cloudbeds' &&
+            availability.roomTypes &&
+            availability.roomTypes.length > 0 && (
+              <p className="text-xs text-slate-500">
+                {availability.roomTypes
+                  .map((room) => `${room.name}: ${room.availableUnits}`)
+                  .join(' · ')}
+              </p>
+            )}
+        </div>
+      )}
+      {availability.available === false && !availability.loading && (
+        <p className="text-xs text-red-600">
+          {availability.message || 'No disponible para las fechas elegidas'}
+        </p>
+      )}
+
+      <Button
+        type="submit"
+        size="lg"
+        disabled={loading || availability.loading || availability.available === false}
+      >
         {loading ? 'Procesando...' : 'Reservar ahora'}
       </Button>
     </form>

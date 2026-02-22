@@ -20,6 +20,22 @@ type IcalFeed = {
   lastSyncStatus: string;
   lastSyncError: string | null;
 };
+type DynamicPricingForm = {
+  enabled: boolean;
+  basePrice: number;
+  minPrice: number;
+  maxPrice: number;
+};
+type DynamicPreview = {
+  date: string;
+  basePrice: number;
+  occupancyRate: number;
+  occupancyAdjustmentPct: number;
+  leadTimeDays: number;
+  leadTimeAdjustmentPct: number;
+  dayOfWeekAdjustmentPct: number;
+  finalPrice: number;
+};
 
 export type ListingEditorProps = {
   listing: {
@@ -58,6 +74,16 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
   const [icalBusy, setIcalBusy] = useState(false);
   const [feeds, setFeeds] = useState<IcalFeed[]>([]);
   const [hosteaIcalUrl, setHosteaIcalUrl] = useState('');
+  const [dynamicBusy, setDynamicBusy] = useState(false);
+  const [dynamicError, setDynamicError] = useState('');
+  const [dynamicOccupancyRate, setDynamicOccupancyRate] = useState(0);
+  const [dynamicPreview, setDynamicPreview] = useState<DynamicPreview[]>([]);
+  const [dynamicConfig, setDynamicConfig] = useState<DynamicPricingForm>({
+    enabled: false,
+    basePrice: Number(listing.pricePerNight) || 0,
+    minPrice: Math.max(1, Number(listing.pricePerNight) * 0.7 || 1),
+    maxPrice: Math.max(1, Number(listing.pricePerNight) * 1.6 || 1)
+  });
   const [pricingParams, setPricingParams] = useState(defaultSmartPricingParams);
   const [photos, setPhotos] = useState<Photo[]>(listing.photos || []);
   const [form, setForm] = useState({
@@ -87,6 +113,23 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
     }
   };
 
+  const loadDynamicPricing = async () => {
+    const res = await fetch(`/api/host/listings/${listing.id}/dynamic-pricing`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setDynamicError(data?.error || 'No se pudo cargar pricing dinamico');
+      return;
+    }
+    setDynamicConfig({
+      enabled: Boolean(data?.config?.enabled),
+      basePrice: Number(data?.config?.basePrice || Number(listing.pricePerNight) || 0),
+      minPrice: Number(data?.config?.minPrice || 1),
+      maxPrice: Number(data?.config?.maxPrice || Number(listing.pricePerNight) || 1)
+    });
+    setDynamicPreview(Array.isArray(data?.preview) ? data.preview : []);
+    setDynamicOccupancyRate(Number(data?.occupancyRate || 0));
+  };
+
   useEffect(() => {
     fetch('/api/security/csrf')
       .then(async (res) => {
@@ -110,6 +153,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
       .catch(() => undefined);
 
     loadIcalFeeds();
+    loadDynamicPricing();
   }, []);
 
   const calculatedPrice = useMemo(
@@ -299,6 +343,30 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
     }
   };
 
+  const saveDynamicPricing = async () => {
+    setDynamicError('');
+    setDynamicBusy(true);
+    const payload = {
+      enabled: dynamicConfig.enabled,
+      basePrice: Math.max(1, Number(dynamicConfig.basePrice) || 1),
+      minPrice: Math.max(1, Number(dynamicConfig.minPrice) || 1),
+      maxPrice: Math.max(1, Number(dynamicConfig.maxPrice) || 1)
+    };
+    const res = await fetch(`/api/host/listings/${listing.id}/dynamic-pricing`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setDynamicError(data?.error || 'No se pudo guardar pricing dinamico');
+      setDynamicBusy(false);
+      return;
+    }
+    await loadDynamicPricing();
+    setDynamicBusy(false);
+  };
+
   return (
     <div className="space-y-8">
       <div className="surface-card">
@@ -472,6 +540,100 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
               <span>{money(breakdown.hostNet)}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="surface-card">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">Pricing dinamico</h2>
+            <p className="text-sm text-slate-500">
+              Ajusta precio automaticamente por ocupacion, cercania y dia de la semana.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={saveDynamicPricing} disabled={dynamicBusy}>
+            {dynamicBusy ? 'Guardando...' : 'Guardar pricing dinamico'}
+          </Button>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={dynamicConfig.enabled}
+              onChange={(e) =>
+                setDynamicConfig((prev) => ({ ...prev, enabled: e.target.checked }))
+              }
+            />
+            Activar
+          </label>
+          <Input
+            type="number"
+            placeholder="Base"
+            value={dynamicConfig.basePrice}
+            onChange={(e) =>
+              setDynamicConfig((prev) => ({ ...prev, basePrice: Number(e.target.value) || 0 }))
+            }
+          />
+          <Input
+            type="number"
+            placeholder="Minimo"
+            value={dynamicConfig.minPrice}
+            onChange={(e) =>
+              setDynamicConfig((prev) => ({ ...prev, minPrice: Number(e.target.value) || 0 }))
+            }
+          />
+          <Input
+            type="number"
+            placeholder="Maximo"
+            value={dynamicConfig.maxPrice}
+            onChange={(e) =>
+              setDynamicConfig((prev) => ({ ...prev, maxPrice: Number(e.target.value) || 0 }))
+            }
+          />
+        </div>
+        {dynamicError && <p className="mt-3 text-sm text-red-600">{dynamicError}</p>}
+        <div className="mt-4 rounded-2xl border border-slate-200/70 bg-white p-4 text-sm text-slate-600">
+          <p className="font-semibold text-slate-900">Desglose del calculo</p>
+          <p className="mt-1">
+            Ocupacion actual (60 dias): {(dynamicOccupancyRate * 100).toFixed(1)}%
+          </p>
+          <p className="text-xs text-slate-500">
+            Formula: base * (1 + ajuste ocupacion + ajuste cercania + ajuste dia) con limite min/max.
+          </p>
+        </div>
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200/70 bg-white">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Fecha</th>
+                <th className="px-3 py-2">Base</th>
+                <th className="px-3 py-2">Ocupacion</th>
+                <th className="px-3 py-2">Cercania</th>
+                <th className="px-3 py-2">Dia semana</th>
+                <th className="px-3 py-2">Final</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dynamicPreview.map((row) => (
+                <tr key={row.date} className="border-t border-slate-100 text-slate-700">
+                  <td className="px-3 py-2">{row.date}</td>
+                  <td className="px-3 py-2">{money(row.basePrice)}</td>
+                  <td className="px-3 py-2">{(row.occupancyAdjustmentPct * 100).toFixed(1)}%</td>
+                  <td className="px-3 py-2">{(row.leadTimeAdjustmentPct * 100).toFixed(1)}%</td>
+                  <td className="px-3 py-2">{(row.dayOfWeekAdjustmentPct * 100).toFixed(1)}%</td>
+                  <td className="px-3 py-2 font-semibold text-slate-900">{money(row.finalPrice)}</td>
+                </tr>
+              ))}
+              {dynamicPreview.length === 0 && (
+                <tr>
+                  <td className="px-3 py-3 text-slate-500" colSpan={6}>
+                    Activa pricing dinamico para ver el desglose por noche.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

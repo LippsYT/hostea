@@ -567,31 +567,70 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
             />
             Activar
           </label>
-          <Input
-            type="number"
-            placeholder="Base"
-            value={dynamicConfig.basePrice}
-            onChange={(e) =>
-              setDynamicConfig((prev) => ({ ...prev, basePrice: Number(e.target.value) || 0 }))
-            }
-          />
-          <Input
-            type="number"
-            placeholder="Minimo"
-            value={dynamicConfig.minPrice}
-            onChange={(e) =>
-              setDynamicConfig((prev) => ({ ...prev, minPrice: Number(e.target.value) || 0 }))
-            }
-          />
-          <Input
-            type="number"
-            placeholder="Maximo"
-            value={dynamicConfig.maxPrice}
-            onChange={(e) =>
-              setDynamicConfig((prev) => ({ ...prev, maxPrice: Number(e.target.value) || 0 }))
-            }
-          />
+          <div className="space-y-1">
+            <label
+              htmlFor="dynamic-base-price"
+              className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+            >
+              Precio base (USD)
+            </label>
+            <Input
+              id="dynamic-base-price"
+              type="number"
+              min={1}
+              step="0.01"
+              placeholder="40"
+              value={dynamicConfig.basePrice}
+              onChange={(e) =>
+                setDynamicConfig((prev) => ({ ...prev, basePrice: Number(e.target.value) || 0 }))
+              }
+            />
+            <p className="text-[11px] text-slate-500">Precio normal por noche.</p>
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="dynamic-min-price"
+              className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+            >
+              Precio minimo (USD)
+            </label>
+            <Input
+              id="dynamic-min-price"
+              type="number"
+              min={1}
+              step="0.01"
+              placeholder="28"
+              value={dynamicConfig.minPrice}
+              onChange={(e) =>
+                setDynamicConfig((prev) => ({ ...prev, minPrice: Number(e.target.value) || 0 }))
+              }
+            />
+            <p className="text-[11px] text-slate-500">Limite inferior automatico.</p>
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="dynamic-max-price"
+              className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+            >
+              Precio maximo (USD)
+            </label>
+            <Input
+              id="dynamic-max-price"
+              type="number"
+              min={1}
+              step="0.01"
+              placeholder="64"
+              value={dynamicConfig.maxPrice}
+              onChange={(e) =>
+                setDynamicConfig((prev) => ({ ...prev, maxPrice: Number(e.target.value) || 0 }))
+              }
+            />
+            <p className="text-[11px] text-slate-500">Limite superior automatico.</p>
+          </div>
         </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Recomendado: minimo entre -20% y -30% del base, maximo entre +30% y +60%.
+        </p>
         {dynamicError && <p className="mt-3 text-sm text-red-600">{dynamicError}</p>}
         <div className="mt-4 rounded-2xl border border-slate-200/70 bg-white p-4 text-sm text-slate-600">
           <p className="font-semibold text-slate-900">Desglose del calculo</p>

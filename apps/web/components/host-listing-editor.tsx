@@ -517,10 +517,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
         <div className="mt-6 rounded-2xl border border-slate-200/70 bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-semibold text-slate-900">Precio inteligente (estimado)</p>
-            <div className="text-xs text-slate-500">
-              Stripe {(pricingParams.stripePct * 100).toFixed(2)}% + {money(pricingParams.stripeFixed)} -
-              Hostea {(pricingParams.platformPct * 100).toFixed(2)}%
-            </div>
+            <div className="text-xs text-slate-500">Montos finales estimados en USD.</div>
           </div>
           <div className="mt-3 space-y-1 text-sm text-slate-600">
             <div className="flex items-center justify-between">
@@ -528,15 +525,15 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
               <span>{money(calculatedPrice)}</span>
             </div>
             <div className="flex items-center justify-between text-slate-500">
-              <span>Estimacion fee Stripe</span>
+              <span>Cargos administrativos</span>
               <span>-{money(breakdown.stripeFee)}</span>
             </div>
             <div className="flex items-center justify-between text-slate-500">
-              <span>Fee Hostea</span>
+              <span>Tarifa de servicio (anfitrion)</span>
               <span>-{money(breakdown.platformFee)}</span>
             </div>
             <div className="flex items-center justify-between font-semibold text-slate-900">
-              <span>Neto host</span>
+              <span>Neto final a recibir por el anfitrion</span>
               <span>{money(breakdown.hostNet)}</span>
             </div>
           </div>

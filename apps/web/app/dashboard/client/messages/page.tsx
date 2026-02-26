@@ -58,7 +58,14 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
               <p>Estado: {reservationStatusLabel(selectedThread.reservation.status)}</p>
               <p>Total: USD {Number(selectedThread.reservation.total).toFixed(2)}</p>
               {selectedThread.offerTotal && selectedThread.reservation.status === 'PENDING_PAYMENT' && (
-                <ClientOfferActions threadId={selectedThread.id} offerTotal={Number(selectedThread.offerTotal)} />
+                <ClientOfferActions
+                  threadId={selectedThread.id}
+                  offerTotal={Number(selectedThread.offerTotal)}
+                  listingTitle={selectedThread.reservation.listing.title}
+                  checkIn={selectedThread.reservation.checkIn.toISOString().slice(0, 10)}
+                  checkOut={selectedThread.reservation.checkOut.toISOString().slice(0, 10)}
+                  guestsCount={selectedThread.reservation.guestsCount}
+                />
               )}
             </div>
           ) : (

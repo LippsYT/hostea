@@ -8,6 +8,7 @@ import { getIO } from '@/lib/socket';
 const schema = z.object({
   action: z.enum(['preapprove', 'offer', 'close']),
   offerTotal: z.coerce.number().optional(),
+  offerHostNet: z.coerce.number().optional(),
   offerExpiresAt: z.string().optional()
 });
 
@@ -37,17 +38,28 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
   let messageBody = '';
   let offerTotal: number | null = null;
   let offerExpiresAt: Date | null = null;
+  let offerHostNet: number | null = null;
 
   if (parsed.data.action === 'preapprove') {
     status = 'PREAPPROVED';
     messageBody = 'Te invitamos a reservar. Puedes completar la reserva con tus fechas.';
   } else if (parsed.data.action === 'offer') {
+    const requestedTotal = Number(parsed.data.offerTotal || 0);
+    if (!Number.isFinite(requestedTotal) || requestedTotal <= 0) {
+      return NextResponse.json({ error: 'Monto de oferta invalido' }, { status: 400 });
+    }
     status = 'OFFER';
-    offerTotal = parsed.data.offerTotal || null;
-    offerExpiresAt = parsed.data.offerExpiresAt ? new Date(parsed.data.offerExpiresAt) : null;
-    messageBody = offerTotal
-      ? `Oferta especial: USD ${offerTotal.toFixed(2)}. Reserva desde la plataforma para confirmar.`
-      : 'Oferta especial disponible. Reserva desde la plataforma para confirmar.';
+    offerTotal = requestedTotal;
+    offerHostNet = Number(parsed.data.offerHostNet || 0) || null;
+    const expiresInput = parsed.data.offerExpiresAt ? new Date(parsed.data.offerExpiresAt) : null;
+    if (expiresInput && Number.isNaN(expiresInput.getTime())) {
+      return NextResponse.json({ error: 'Fecha de vencimiento invalida' }, { status: 400 });
+    }
+    offerExpiresAt = expiresInput || new Date(Date.now() + 48 * 60 * 60 * 1000);
+    messageBody = `Oferta especial enviada por USD ${offerTotal.toFixed(2)}. Acepta y paga desde la plataforma para confirmar.`;
+    if (offerHostNet && offerHostNet > 0) {
+      messageBody += ` Neto anfitrion: USD ${offerHostNet.toFixed(2)}.`;
+    }
   } else if (parsed.data.action === 'close') {
     status = thread.reservationId ? thread.status : 'REJECTED';
     messageBody = 'Conversacion cerrada por el anfitrion.';

@@ -11,12 +11,18 @@ import { HostMessageTemplates } from '@/components/host-message-templates';
 
 const statusLabel = (thread: any) => {
   if (thread.reservation) {
-    return `Reserva · ${reservationStatusLabel(thread.reservation.status)}`;
+    return `Reserva ? ${reservationStatusLabel(thread.reservation.status)}`;
   }
   if (thread.status === 'OFFER') return 'Oferta enviada';
   if (thread.status === 'PREAPPROVED') return 'Preaprobado';
   if (thread.status === 'REJECTED') return 'Rechazado';
   return 'Consulta';
+};
+
+const threadListingLabel = (thread: any) => {
+  if (thread.reservation?.listing?.title) return thread.reservation.listing.title;
+  if (thread.subject?.startsWith('LISTING:')) return 'Consulta previa';
+  return thread.subject || 'Consulta';
 };
 
 export default async function HostMessagesPage({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
@@ -60,7 +66,7 @@ export default async function HostMessagesPage({ searchParams }: { searchParams:
               return (
                 <Link key={thread.id} href={`?threadId=${thread.id}`} className="block rounded-2xl border border-slate-200/70 bg-slate-50/80 p-3 text-sm text-slate-700 hover:bg-slate-100">
                   <p className="font-semibold text-slate-900">{otherName}</p>
-                  <p className="text-xs text-slate-500">{statusLabel(thread)} · {thread.reservation?.listing.title || 'Consulta'}</p>
+                  <p className="text-xs text-slate-500">{statusLabel(thread)} ? {threadListingLabel(thread)}</p>
                 </Link>
               );
             })}
@@ -76,7 +82,7 @@ export default async function HostMessagesPage({ searchParams }: { searchParams:
             <p className="mt-2 text-sm text-slate-600">{selectedThread ? statusLabel(selectedThread) : 'Selecciona una conversacion'}</p>
             {selectedThread?.offerTotal && (
               <p className="mt-2 text-xs text-slate-500">
-                Oferta: USD {Number(selectedThread.offerTotal).toFixed(2)}{selectedThread.offerExpiresAt ? ` · vence ${selectedThread.offerExpiresAt.toISOString().slice(0, 10)}` : ''}
+                Oferta: USD {Number(selectedThread.offerTotal).toFixed(2)}{selectedThread.offerExpiresAt ? ` ? vence ${selectedThread.offerExpiresAt.toISOString().slice(0, 10)}` : ''}
               </p>
             )}
           </div>
@@ -99,9 +105,9 @@ export default async function HostMessagesPage({ searchParams }: { searchParams:
                 </Badge>
                 <p>Total: USD {Number(selectedThread.reservation.total).toFixed(2)}</p>
                 {guestPhone ? (
-                  <p className="text-xs text-slate-500">Teléfono: {guestPhone}</p>
+                  <p className="text-xs text-slate-500">Telefono: {guestPhone}</p>
                 ) : (
-                  <p className="text-xs text-slate-400">Teléfono no disponible</p>
+                  <p className="text-xs text-slate-400">Telefono no disponible</p>
                 )}
               </div>
             ) : (

@@ -3,7 +3,6 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { getSetting } from '@/lib/settings';
-import { calculateHostSplit } from '@/lib/finance';
 import { differenceInCalendarDays } from 'date-fns';
 import {
   ADJUSTMENT_STATUSES,
@@ -15,6 +14,7 @@ import {
   isPaymentCaptured
 } from '@/lib/finance-report';
 import { FinanceReportView, FinanceListingSummary, FinanceReportRow } from '@/components/finance-report-view';
+import { calcBreakdown, defaultSmartPricingParams } from '@/lib/intelligent-pricing';
 
 export default async function HostFinanceReportPage({
   params
@@ -97,23 +97,38 @@ export default async function HostFinanceReportPage({
     listingSummaryMap.set(row.listingTitle, entry);
   });
 
-  const reportRows: FinanceReportRow[] = periodRows.map((row) => ({
-    id: row.id,
-    reservationId: row.id,
-    guestName: row.guestName,
-    listingTitle: row.listingTitle,
-    status: row.status,
-    date: row.date,
-    total: row.total,
-    commission: row.commission,
-    hostNet: row.hostNet,
-    currency: row.currency
-  }));
+  const reportRows: FinanceReportRow[] = periodRows.map((row) => {
+    const reservation = reservations.find((r) => r.id === row.id);
+    const totalAbs = Math.abs(row.total);
+    const breakdown = calcBreakdown(totalAbs, defaultSmartPricingParams);
+    return {
+      id: row.id,
+      reservationId: row.id,
+      guestName: row.guestName,
+      listingTitle: row.listingTitle,
+      status: row.status,
+      checkIn: reservation?.checkIn.toISOString().slice(0, 10) || row.date,
+      checkOut: reservation?.checkOut.toISOString().slice(0, 10) || row.date,
+      baseAmount: totalAbs,
+      adminCharges: breakdown.stripeFee,
+      serviceFee: Math.abs(row.commission),
+      hostNet: row.hostNet,
+      currency: row.currency
+    };
+  });
+
+  const host = reservations[0]?.listing?.hostId
+    ? {
+        name: (session?.user as any)?.name || (session?.user as any)?.email || 'Host',
+        email: (session?.user as any)?.email || ''
+      }
+    : null;
 
   return (
     <FinanceReportView
       title="Informe mensual"
       periodLabel={getPeriodLabel(period)}
+      host={host}
       totals={{ ...totals, currency: periodRows[0]?.currency || 'USD' }}
       stats={{ nights, stays, avgNights }}
       rows={reportRows}

@@ -2,76 +2,83 @@ import { prisma } from '@/lib/db';
 
 const legalDefaults: Record<string, { title: string; content: string }> = {
   'terminos-condiciones': {
-    title: 'Términos y Condiciones – HOSTEA',
-    content: `Última actualización: February 6, 2026
+    title: 'Terminos y Condiciones - HOSTEA',
+    content: `Ultima actualizacion: 25 de febrero de 2026
 
 1. Naturaleza del servicio
-HOSTEA es una plataforma tecnológica que conecta huéspedes con anfitriones para la publicación y reserva de alojamientos.
+HOSTEA es una plataforma tecnologica que conecta huespedes con anfitriones para la publicacion y reserva de alojamientos.
 
 HOSTEA:
 - No es propietaria de los alojamientos.
-- No administra físicamente las propiedades.
-- No actúa como aseguradora ni garante de ninguna estadía.
-- No ofrece seguros ni protección contra daños o pérdidas.
-El contrato de hospedaje se celebra exclusivamente entre el huésped y el anfitrión.
+- No administra fisicamente las propiedades.
+- No actua como aseguradora ni garante de ninguna estadia.
+- No ofrece seguros ni proteccion contra danos o perdidas.
+
+El contrato de hospedaje se celebra exclusivamente entre el huesped y el anfitrion.
 
 2. Registro y cuentas
-Los usuarios deben:
-- Proporcionar información veraz y actualizada.
-- Ser mayores de 18 años.
-- Mantener la confidencialidad de sus credenciales.
-HOSTEA puede suspender cuentas por información falsa, fraude o incumplimiento de normas.
+Los usuarios deben proporcionar informacion veraz y actualizada, ser mayores de 18 anos y mantener la confidencialidad de sus credenciales.
+HOSTEA puede suspender cuentas por informacion falsa, fraude o incumplimiento de normas.
 
 3. Reservas
-Al confirmar una reserva se genera un acuerdo entre huésped y anfitrión. HOSTEA actúa como intermediario tecnológico. La disponibilidad depende de la información del anfitrión y sincronización de calendarios externos. HOSTEA no garantiza disponibilidad en plataformas externas.
+Al confirmar una reserva se genera un acuerdo entre huesped y anfitrion. HOSTEA actua como intermediario tecnologico.
+La disponibilidad depende de la informacion proporcionada por el anfitrion y de sincronizaciones externas.
 
 4. Pagos
-Los pagos se procesan a través de pasarelas externas. HOSTEA cobra una comisión por el uso de la plataforma. Actualmente los pagos a anfitriones pueden realizarse manualmente. HOSTEA no actúa como entidad financiera ni custodio bancario.
+Los pagos se procesan a traves de pasarelas externas. HOSTEA cobra una comision por el uso de la plataforma.
+HOSTEA no actua como entidad financiera ni custodio bancario.
 
 5. Cancelaciones
-Las políticas de cancelación son definidas por cada anfitrión. HOSTEA no es responsable por decisiones de cancelación del anfitrión ni penalidades aplicadas conforme a la política publicada.
+Las politicas de cancelacion son definidas por cada anfitrion. HOSTEA no es responsable por decisiones de cancelacion ni penalidades publicadas por el anfitrion.
 
-6. Limitación de responsabilidad
-HOSTEA no será responsable por daños materiales dentro del alojamiento, conflictos entre huésped y anfitrión, pérdidas económicas derivadas de cancelaciones, problemas con servicios públicos del alojamiento o fallas en plataformas externas. La responsabilidad máxima de HOSTEA se limita al monto de comisión efectivamente cobrado por la plataforma en la reserva en cuestión.
+6. Limitacion de responsabilidad
+HOSTEA no sera responsable por danos materiales, robos, accidentes, lesiones fisicas, fallecimientos, conflictos entre huesped y anfitrion, perdidas economicas por cancelaciones o fallas de terceros.
+La responsabilidad maxima de HOSTEA se limita al monto de comision efectivamente cobrado en la reserva en cuestion.
 
 7. Conducta del usuario
-Está prohibido realizar pagos fuera del sistema para evadir comisiones, usar la plataforma para actividades ilegales o publicar contenido engañoso.
+Esta prohibido realizar pagos fuera de la plataforma para evadir comisiones, usar la plataforma para actividades ilegales o publicar contenido enganoso.
 
 8. Modificaciones
-HOSTEA puede actualizar estos términos en cualquier momento.
+HOSTEA puede actualizar estos terminos en cualquier momento.
 
-EXENCIÓN CLAVE (MUY IMPORTANTE)
-HOSTEA actúa exclusivamente como intermediario tecnológico y no asume responsabilidad por daños, pérdidas, lesiones, incumplimientos contractuales o cualquier disputa derivada del uso de la plataforma.`
+Exencion clave
+HOSTEA actua exclusivamente como intermediario tecnologico y no asume responsabilidad por danos, perdidas, lesiones, incumplimientos contractuales o disputas derivadas del uso de la plataforma.`
   },
   'politica-privacidad': {
-    title: 'Política de Privacidad',
-    content: `HOSTEA recopila datos personales (nombre, email, teléfono), información de pago (procesada por terceros) y datos de uso de la plataforma.
+    title: 'Politica de Privacidad',
+    content: `HOSTEA recopila datos personales (nombre, email, telefono), informacion de pago (procesada por terceros) y datos de uso de la plataforma.
 
-HOSTEA no vende datos personales. Los datos pueden compartirse con procesadores de pago, proveedores técnicos y autoridades legales cuando sea requerido.
+HOSTEA no vende datos personales. Los datos pueden compartirse con procesadores de pago, proveedores tecnicos y autoridades legales cuando sea requerido.
 
-El usuario puede solicitar acceso, rectificación y eliminación de datos.`
+El usuario puede solicitar acceso, rectificacion y eliminacion de datos.`
   },
   'politica-pagos-cancelaciones': {
-    title: 'Política de Pagos y Cancelaciones',
-    content: `Los pagos se realizan a través de pasarelas externas. HOSTEA no almacena datos completos de tarjetas.
+    title: 'Politica de Pagos y Cancelaciones',
+    content: `Las politicas de cancelacion son definidas por el anfitrion.
+HOSTEA actua como intermediario de pagos.
+Los cargos administrativos no son reembolsables.
 
-Las liquidaciones a anfitriones pueden realizarse manualmente mediante transferencia bancaria. El anfitrión es responsable de proporcionar datos bancarios correctos. HOSTEA no se responsabiliza por errores en datos bancarios ni demoras bancarias externas.`
+Las liquidaciones a anfitriones pueden realizarse manualmente por transferencia bancaria.
+El anfitrion es responsable de proporcionar datos bancarios correctos.`
   },
   'terminos-anfitriones': {
-    title: 'Términos para Anfitriones',
-    content: `El anfitrión declara tener derecho legal para publicar el alojamiento, ser responsable por el estado y seguridad del inmueble y cumplir normativas locales.
+    title: 'Terminos para Anfitriones',
+    content: `El anfitrion declara tener derecho legal para publicar el alojamiento y es responsable por el estado y seguridad del inmueble.
 
-El anfitrión es responsable por impuestos aplicables, licencias requeridas y cumplimiento normativo municipal. HOSTEA no ofrece seguro de responsabilidad civil ni cobertura por daños.`
+El anfitrion es responsable por impuestos, licencias y cumplimiento normativo local.
+HOSTEA no ofrece seguro de responsabilidad civil ni cobertura por danos.`
   },
   'politica-reembolsos': {
-    title: 'Política de Reembolsos',
-    content: `Los reembolsos dependen exclusivamente de la política de cancelación del anfitrión y de las condiciones específicas de la reserva.
+    title: 'Politica de Reembolsos',
+    content: `Los reembolsos dependen de la politica de cancelacion del anfitrion y de las condiciones especificas de la reserva.
 
-HOSTEA puede intervenir como mediador, pero no garantiza reembolsos automáticos.`
+HOSTEA puede intervenir como mediador, pero no garantiza reembolsos automaticos.`
   },
   'limitacion-responsabilidad': {
-    title: 'Limitación de Responsabilidad',
-    content: `HOSTEA actúa exclusivamente como intermediario tecnológico y no asume responsabilidad por daños, pérdidas, lesiones, incumplimientos contractuales o cualquier disputa derivada del uso de la plataforma.`
+    title: 'Limitacion de Responsabilidad',
+    content: `HOSTEA no asume responsabilidad civil, penal ni comercial por hechos derivados de la estadia.
+
+El uso de la plataforma es bajo responsabilidad del usuario, quien libera expresamente a HOSTEA de reclamos por danos, perdidas o disputas entre partes.`
   }
 };
 
@@ -80,9 +87,11 @@ export default async function LegalPage({ params }: { params: { slug: string } }
   const fallback = legalDefaults[params.slug];
   const title = page?.title || fallback?.title;
   const content = page?.content || fallback?.content;
+
   if (!title || !content) {
     return <div className="p-10">Pagina legal no encontrada.</div>;
   }
+
   return (
     <div className="px-8 py-16">
       <div className="mx-auto max-w-3xl">

@@ -33,6 +33,17 @@ export async function POST(req: Request) {
   const due = Math.max(split.host - paid, 0);
   if (due <= 0) return NextResponse.json({ error: 'Sin saldo pendiente' }, { status: 400 });
 
+  const latestKyc = await prisma.kycSubmission.findFirst({
+    where: { userId: reservation.listing.hostId },
+    orderBy: { createdAt: 'desc' }
+  });
+  if (!latestKyc || latestKyc.status !== 'APPROVED') {
+    return NextResponse.json(
+      { error: 'No se puede pagar: el KYC del host no esta aprobado.' },
+      { status: 400 }
+    );
+  }
+
   const payout = await prisma.payout.create({
     data: {
       hostId: reservation.listing.hostId,

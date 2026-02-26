@@ -8,7 +8,12 @@ import { rateLimit } from '@/lib/rate-limit';
 const schema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
-  name: z.string().min(2)
+  name: z.string().min(2),
+  legalAcceptance: z.object({
+    terms: z.literal(true),
+    privacy: z.literal(true),
+    liability: z.literal(true)
+  })
 });
 
 export async function POST(req: Request) {
@@ -40,6 +45,35 @@ export async function POST(req: Request) {
     if (role) {
       await prisma.userRole.create({ data: { userId: user.id, roleId: role.id } });
     }
+
+    const forwardedFor = req.headers.get('x-forwarded-for') || '';
+    const ip = forwardedFor.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
+    const legalVersion = '2026-02-25';
+    await prisma.settings.upsert({
+      where: { key: `legalAcceptance:${user.id}` },
+      update: {
+        value: {
+          version: legalVersion,
+          acceptedAt: new Date().toISOString(),
+          ip,
+          terms: true,
+          privacy: true,
+          liability: true
+        }
+      },
+      create: {
+        key: `legalAcceptance:${user.id}`,
+        value: {
+          version: legalVersion,
+          acceptedAt: new Date().toISOString(),
+          ip,
+          terms: true,
+          privacy: true,
+          liability: true
+        }
+      }
+    });
+
     return NextResponse.json({ id: user.id, email: user.email });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Error' }, { status: 500 });

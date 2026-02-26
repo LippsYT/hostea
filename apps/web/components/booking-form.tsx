@@ -47,8 +47,6 @@ export const BookingForm = ({
   const [loading, setLoading] = useState(false);
   const [guestOpen, setGuestOpen] = useState(false);
   const [guestError, setGuestError] = useState('');
-  const [checkInFocused, setCheckInFocused] = useState(false);
-  const [checkOutFocused, setCheckOutFocused] = useState(false);
   const [priceOverrides, setPriceOverrides] = useState<{ startDate: string; endDate: string; price: number }[]>([]);
   const [availability, setAvailability] = useState<AvailabilityState>({
     loading: false,
@@ -199,21 +197,16 @@ export const BookingForm = ({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-2 min-w-0">
-        <div className="relative">
-          {!checkIn && !checkInFocused && (
-            <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm text-slate-400">
-              dd/mm/aaaa
-            </span>
-          )}
+        <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <span>Check-in</span>
           <Input
             type="date"
             lang="es-AR"
+            placeholder="dd/mm/aaaa"
             aria-label="Check-in"
             required
             className="date-input min-w-0 w-full text-slate-900"
             {...checkInField}
-            onFocus={() => setCheckInFocused(true)}
-            onBlur={() => setCheckInFocused(false)}
             onChange={(e) => {
               checkInField.onChange(e);
               const next = e.target.value;
@@ -225,16 +218,13 @@ export const BookingForm = ({
               }
             }}
           />
-        </div>
-        <div className="relative">
-          {!checkOut && !checkOutFocused && (
-            <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm text-slate-400">
-              dd/mm/aaaa
-            </span>
-          )}
+        </label>
+        <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <span>Check-out</span>
           <Input
             type="date"
             lang="es-AR"
+            placeholder="dd/mm/aaaa"
             aria-label="Check-out"
             required
             min={checkIn || undefined}
@@ -244,11 +234,9 @@ export const BookingForm = ({
               checkOutField.ref(node);
               checkOutRef.current = node;
             }}
-            onFocus={() => setCheckOutFocused(true)}
-            onBlur={() => setCheckOutFocused(false)}
             onChange={(e) => checkOutField.onChange(e)}
           />
-        </div>
+        </label>
       </div>
 
       <div className="relative">

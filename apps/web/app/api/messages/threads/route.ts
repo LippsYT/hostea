@@ -27,14 +27,30 @@ export async function POST(req: Request) {
     if (!ok) return NextResponse.json({ error: 'Rate limit' }, { status: 429 });
     const body = await req.json();
     const reservationId = body.reservationId as string | undefined;
+    const listingId = body.listingId as string | undefined;
 
     let hostId: string | null = null;
+    let subject: string | null = null;
     if (reservationId) {
       const reservation = await prisma.reservation.findUnique({
         where: { id: reservationId },
         include: { listing: true }
       });
       hostId = reservation?.listing.hostId || null;
+      subject = reservation?.listing.title || null;
+    } else if (listingId) {
+      const listing = await prisma.listing.findUnique({
+        where: { id: listingId }
+      });
+      hostId = listing?.hostId || null;
+      subject = listing?.title || null;
+    }
+
+    if (!hostId) {
+      return NextResponse.json({ error: 'No se encontro el anfitrion' }, { status: 404 });
+    }
+    if (hostId === (session.user as any).id) {
+      return NextResponse.json({ error: 'No puedes abrir chat con tu propio anuncio' }, { status: 400 });
     }
 
     const participants: { userId: string }[] = [{ userId: (session.user as any).id }];
@@ -61,11 +77,26 @@ export async function POST(req: Request) {
       }
     }
 
+    if (!reservationId && listingId) {
+      const existingInquiry = await prisma.messageThread.findFirst({
+        where: {
+          reservationId: null,
+          createdById: (session.user as any).id,
+          subject: `LISTING:${listingId}`,
+          participants: { some: { userId: hostId } }
+        }
+      });
+      if (existingInquiry) {
+        return NextResponse.json({ thread: existingInquiry });
+      }
+    }
+
     try {
       const thread = await prisma.messageThread.create({
         data: {
           reservationId,
           status: reservationId ? 'RESERVATION' : 'INQUIRY',
+          subject: reservationId ? subject : `LISTING:${listingId || ''}`,
           createdById: (session.user as any).id,
           participants: { create: participants }
         }

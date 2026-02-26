@@ -4,6 +4,7 @@ import { BookingForm } from '@/components/booking-form';
 import { Badge } from '@/components/ui/badge';
 import { Ban, Clock, Home, MapPin, PawPrint, ShieldCheck, Sparkles } from 'lucide-react';
 import { ListingHeader } from '@/components/listing-header';
+import { ContactHostButton } from '@/components/contact-host-button';
 
 export default async function ListingDetail({ params }: { params: { id: string } }) {
   const listing = await prisma.listing.findUnique({
@@ -115,6 +116,9 @@ export default async function ListingDetail({ params }: { params: { id: string }
                     serviceFee={0}
                     taxRate={normalizedTaxRate}
                   />
+                </div>
+                <div className="mt-3">
+                  <ContactHostButton listingId={listing.id} />
                 </div>
                 <p className="mt-4 text-xs text-slate-500">
                   Cancelacion segun politica {listing.cancelPolicy}.

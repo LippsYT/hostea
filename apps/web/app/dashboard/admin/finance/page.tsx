@@ -88,6 +88,17 @@ export default async function AdminFinancePage({
 
   const hostList = Object.values(hostRows);
   const hostIds = hostList.map((h) => h.hostId);
+  const kycRows = await prisma.kycSubmission.findMany({
+    where: { userId: { in: hostIds } },
+    orderBy: { createdAt: 'desc' }
+  });
+  const kycByHost = kycRows.reduce<Record<string, string>>((acc, row) => {
+    if (!acc[row.userId]) {
+      acc[row.userId] = row.status;
+    }
+    return acc;
+  }, {});
+
   const bankRows = await prisma.settings.findMany({
     where: { key: { in: hostIds.map((id) => `hostBankAccount:${id}`) } }
   });
@@ -98,7 +109,8 @@ export default async function AdminFinancePage({
 
   const hostBank = hostList.map((host) => ({
     ...host,
-    bankAccount: bankMap[`hostBankAccount:${host.hostId}`] || null
+    bankAccount: bankMap[`hostBankAccount:${host.hostId}`] || null,
+    kycStatus: kycByHost[host.hostId] || 'PENDING'
   }));
 
   const archiveRows = await prisma.settings.findMany({

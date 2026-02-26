@@ -14,6 +14,7 @@ import {
   isPaymentCaptured
 } from '@/lib/finance-report';
 import { FinanceReportView, FinanceListingSummary, FinanceReportRow } from '@/components/finance-report-view';
+import { calcBreakdown, defaultSmartPricingParams } from '@/lib/intelligent-pricing';
 
 export default async function AdminFinanceReportPage({
   params,
@@ -103,26 +104,42 @@ export default async function AdminFinanceReportPage({
     listingSummaryMap.set(row.listingTitle, entry);
   });
 
-  const reportRows: FinanceReportRow[] = periodRows.map((row) => ({
-    id: row.id,
-    reservationId: row.id,
-    guestName: row.guestName,
-    listingTitle: row.listingTitle,
-    status: row.status,
-    date: row.date,
-    total: row.total,
-    commission: row.commission,
-    hostNet: row.hostNet,
-    currency: row.currency,
-    hostName:
-      reservations.find((r) => r.id === row.id)?.listing.host.profile?.name ||
-      reservations.find((r) => r.id === row.id)?.listing.host.email
-  }));
+  const reportRows: FinanceReportRow[] = periodRows.map((row) => {
+    const reservation = reservations.find((r) => r.id === row.id);
+    const totalAbs = Math.abs(row.total);
+    const breakdown = calcBreakdown(totalAbs, defaultSmartPricingParams);
+    return {
+      id: row.id,
+      reservationId: row.id,
+      guestName: row.guestName,
+      listingTitle: row.listingTitle,
+      status: row.status,
+      checkIn: reservation?.checkIn.toISOString().slice(0, 10) || row.date,
+      checkOut: reservation?.checkOut.toISOString().slice(0, 10) || row.date,
+      baseAmount: totalAbs,
+      adminCharges: breakdown.stripeFee,
+      serviceFee: Math.abs(row.commission),
+      hostNet: row.hostNet,
+      currency: row.currency
+    };
+  });
+
+  const selectedHost = hostId
+    ? reservations.find((r) => r.listing.hostId === hostId)?.listing.host
+    : null;
 
   return (
     <FinanceReportView
       title="Informe mensual (Admin)"
       periodLabel={getPeriodLabel(period)}
+      host={
+        selectedHost
+          ? {
+              name: selectedHost.profile?.name || selectedHost.email,
+              email: selectedHost.email
+            }
+          : null
+      }
       totals={{ ...totals, currency: periodRows[0]?.currency || 'USD' }}
       stats={{ nights, stays, avgNights }}
       rows={reportRows}

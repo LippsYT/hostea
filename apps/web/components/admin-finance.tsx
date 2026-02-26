@@ -17,6 +17,7 @@ export type FinanceHostRow = {
   hostId: string;
   hostName: string;
   hostEmail: string;
+  kycStatus?: string;
   bankAccount?: {
     holderName?: string;
     documentId?: string;
@@ -101,7 +102,35 @@ export const AdminFinance = ({
     return { host, total, hostNet, paid, due: Math.max(hostNet - paid, 0) };
   });
 
-  const pendingPayouts = filteredRows.filter((r) => r.hostNet > 0);
+  const paidByReservation = payouts.reduce<Record<string, number>>((acc, payout) => {
+    acc[payout.reservationId] = (acc[payout.reservationId] || 0) + payout.amount;
+    return acc;
+  }, {});
+
+  const hostById = hosts.reduce<Record<string, FinanceHostRow>>((acc, host) => {
+    acc[host.hostId] = host;
+    return acc;
+  }, {});
+
+  const pendingPayouts: FinanceRow[] = [];
+  const programmedPayouts: FinanceRow[] = [];
+  filteredRows
+    .filter((row) => row.hostNet > 0)
+    .forEach((row) => {
+      const due = Math.max(row.hostNet - (paidByReservation[row.id] || 0), 0);
+      if (due <= 0) return;
+      const host = hostById[row.hostId];
+      const hasBankData =
+        Boolean(host?.bankAccount?.holderName) && Boolean(host?.bankAccount?.cbuOrAlias);
+      const isKycApproved = host?.kycStatus === 'APPROVED';
+
+      if (!hasBankData || !isKycApproved) {
+        pendingPayouts.push(row);
+        return;
+      }
+      programmedPayouts.push(row);
+    });
+
   const paidRows = payouts.filter((p) => {
     if (!p.createdAt.startsWith(selectedPeriod)) return false;
     if (selectedHost !== 'all') return p.hostId === selectedHost;
@@ -229,6 +258,9 @@ export const AdminFinance = ({
                     <p className="text-amber-700">Sin datos bancarios</p>
                   )}
                 </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  KYC: {host.kycStatus === 'APPROVED' ? 'Aprobado' : 'Pendiente'}
+                </p>
               </div>
               <div className="text-right text-slate-600">
                 <p>Total {formatMoney(total)}</p>
@@ -249,7 +281,7 @@ export const AdminFinance = ({
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="surface-card">
-          <h2 className="text-xl font-semibold text-slate-900">Transacciones programadas</h2>
+          <h2 className="text-xl font-semibold text-slate-900">Pagos pendientes</h2>
           <div className="mt-4 space-y-3 text-sm">
             {pendingPayouts.map((r) => (
               <div key={r.id} className="surface-muted flex flex-wrap items-center justify-between gap-3">
@@ -261,30 +293,71 @@ export const AdminFinance = ({
                   <p>{formatMoney(r.hostNet)}</p>
                   <Badge className={reservationStatusBadgeClass(r.status)}>{reservationStatusLabel(r.status)}</Badge>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => markPaid(r.id)}>
-                  Marcar pagado
-                </Button>
+                <Link
+                  className="text-xs font-semibold text-slate-900"
+                  href={`/dashboard/admin/finance/reports/${selectedPeriod}?hostId=${r.hostId}`}
+                >
+                  Ver liquidacion
+                </Link>
               </div>
             ))}
-            {pendingPayouts.length === 0 && <p className="text-sm text-slate-500">Sin pendientes.</p>}
+            {pendingPayouts.length === 0 && <p className="text-sm text-slate-500">Sin pagos pendientes.</p>}
           </div>
         </div>
         <div className="surface-card">
-          <h2 className="text-xl font-semibold text-slate-900">Transacciones pagadas</h2>
+          <h2 className="text-xl font-semibold text-slate-900">Pagos programados</h2>
           <div className="mt-4 space-y-3 text-sm">
-            {paidRows.map((p) => (
-              <div key={p.id} className="surface-muted flex items-center justify-between">
+            {programmedPayouts.map((r) => (
+              <div key={r.id} className="surface-muted flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-slate-900">Reserva {p.reservationId.slice(0, 6)}</p>
-                  <p className="text-xs text-slate-500">{p.createdAt}</p>
+                  <p className="font-semibold text-slate-900">{r.listingTitle}</p>
+                  <p className="text-xs text-slate-500">{r.guestName}</p>
                 </div>
-                <p>{formatMoney(p.amount, p.currency)}</p>
+                <div className="text-right">
+                  <p>{formatMoney(r.hostNet)}</p>
+                  <Badge className={reservationStatusBadgeClass(r.status)}>{reservationStatusLabel(r.status)}</Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Link
+                    className="text-xs font-semibold text-slate-900"
+                    href={`/dashboard/admin/finance/reports/${selectedPeriod}?hostId=${r.hostId}`}
+                  >
+                    Ver liquidacion
+                  </Link>
+                  <Button size="sm" variant="outline" onClick={() => markPaid(r.id)}>
+                    Marcar pagado
+                  </Button>
+                </div>
               </div>
             ))}
-            {paidRows.length === 0 && <p className="text-sm text-slate-500">Sin pagos registrados.</p>}
+            {programmedPayouts.length === 0 && <p className="text-sm text-slate-500">Sin pagos programados.</p>}
           </div>
         </div>
       </div>
+
+      <div className="surface-card">
+        <h2 className="text-xl font-semibold text-slate-900">Pagos realizados</h2>
+        <div className="mt-4 space-y-3 text-sm">
+          {paidRows.map((p) => (
+            <div key={p.id} className="surface-muted flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-slate-900">Reserva {p.reservationId.slice(0, 6)}</p>
+                <p className="text-xs text-slate-500">{p.createdAt}</p>
+              </div>
+              <div className="text-right">
+                <p>{formatMoney(p.amount, p.currency)}</p>
+                <Link
+                  className="text-xs font-semibold text-slate-900"
+                  href={`/dashboard/admin/finance/reports/${selectedPeriod}${selectedHost !== 'all' ? `?hostId=${selectedHost}` : ''}`}
+                >
+                  Descargar PDF
+                </Link>
+              </div>
+            </div>
+          ))}
+          {paidRows.length === 0 && <p className="text-sm text-slate-500">Sin pagos realizados.</p>}
+          </div>
+        </div>
 
       <div className="surface-card">
         <div className="flex items-center justify-between">

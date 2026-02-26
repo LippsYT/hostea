@@ -1,8 +1,10 @@
-﻿import { prisma } from '@/lib/db';
+import { prisma } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { ChatClient } from '@/components/chat-client';
 import Link from 'next/link';
+import { reservationStatusLabel } from '@/lib/reservation-status';
+import { ClientOfferActions } from '@/components/client-offer-actions';
 
 export default async function ClientMessagesPage({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
   const session = await getServerSession(authOptions);
@@ -14,7 +16,8 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
     include: {
       reservation: { include: { listing: true, user: true } },
       participants: { include: { user: { include: { profile: true } } } }
-    }
+    },
+    orderBy: { createdAt: 'desc' }
   });
   const selected = typeof searchParams.threadId === 'string' ? searchParams.threadId : threads[0]?.id;
   const selectedThread = threads.find((t) => t.id === selected);
@@ -31,8 +34,12 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
           <div className="mt-4 space-y-2">
             {threads.map((thread) => (
               <Link key={thread.id} href={`?threadId=${thread.id}`} className="block rounded-2xl border border-slate-200/70 bg-slate-50/80 p-3 text-sm text-slate-700 hover:bg-slate-100">
-                <p className="font-semibold text-slate-900">{thread.reservation?.listing.title || 'Soporte'}</p>
-                <p className="text-xs text-slate-500">{thread.reservation?.checkIn?.toISOString().slice(0, 10) || ''}</p>
+                <p className="font-semibold text-slate-900">{thread.reservation?.listing.title || 'Consulta de reserva'}</p>
+                <p className="text-xs text-slate-500">
+                  {thread.reservation
+                    ? `${thread.reservation.checkIn.toISOString().slice(0, 10)} - ${thread.reservation.checkOut.toISOString().slice(0, 10)}`
+                    : 'Sin reserva asociada'}
+                </p>
               </Link>
             ))}
             {threads.length === 0 && <p className="text-sm text-slate-500">Sin mensajes.</p>}
@@ -48,11 +55,19 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
               <p className="font-semibold text-slate-900">{selectedThread.reservation.listing.title}</p>
               <p>{selectedThread.reservation.checkIn.toISOString().slice(0, 10)} - {selectedThread.reservation.checkOut.toISOString().slice(0, 10)}</p>
               <p>{selectedThread.reservation.guestsCount} huespedes</p>
-              <p>Estado: {selectedThread.reservation.status}</p>
+              <p>Estado: {reservationStatusLabel(selectedThread.reservation.status)}</p>
               <p>Total: USD {Number(selectedThread.reservation.total).toFixed(2)}</p>
+              {selectedThread.offerTotal && selectedThread.reservation.status === 'PENDING_PAYMENT' && (
+                <ClientOfferActions threadId={selectedThread.id} offerTotal={Number(selectedThread.offerTotal)} />
+              )}
             </div>
           ) : (
-            <p className="mt-3 text-sm text-slate-500">Selecciona una conversacion con reserva.</p>
+            <div className="mt-3 text-sm text-slate-500">
+              <p>Selecciona una conversacion para ver detalles.</p>
+              {selectedThread?.offerTotal && (
+                <p className="mt-2">Oferta recibida: USD {Number(selectedThread.offerTotal).toFixed(2)}</p>
+              )}
+            </div>
           )}
         </aside>
       </div>

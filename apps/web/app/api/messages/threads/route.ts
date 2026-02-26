@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { requireSession } from '@/lib/permissions';
 import { assertCsrf } from '@/lib/csrf';
 import { rateLimit } from '@/lib/rate-limit';
+import { sendPushToHost } from '@/lib/push-notifications';
 
 const unauthorized = (message = 'No autorizado') =>
   NextResponse.json({ error: message }, { status: 401 });
@@ -108,6 +109,14 @@ export async function POST(req: Request) {
           participants: { create: participants }
         }
       });
+      if (!reservationId && listingId) {
+        await sendPushToHost(hostId, {
+          title: 'Nueva consulta',
+          body: `Tienes una nueva consulta en ${subject || 'tu propiedad'}.`,
+          url: `/dashboard/host/messages?threadId=${thread.id}`,
+          type: 'NEW_INQUIRY'
+        });
+      }
       return NextResponse.json({ thread });
     } catch (error: any) {
       if (error?.code === 'P2002' && reservationId) {

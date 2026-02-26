@@ -6,6 +6,7 @@ import { requireSession } from '@/lib/permissions';
 import { rateLimit } from '@/lib/rate-limit';
 import { stripe } from '@/lib/stripe';
 import { checkListingAvailability } from '@/lib/listing-availability';
+import { sendPushToHost } from '@/lib/push-notifications';
 
 const schema = z.object({
   offerId: z.string().optional()
@@ -139,6 +140,13 @@ export async function POST(
         senderId: userId,
         body: `El cliente inicio checkout para la oferta de USD ${offerAmount.toFixed(2)}.`
       }
+    });
+
+    await sendPushToHost(offer.hostId, {
+      title: 'Oferta aceptada',
+      body: `El cliente inicio el pago de la oferta en ${offer.listing.title}.`,
+      url: `/dashboard/host/messages?threadId=${thread.id}`,
+      type: 'OFFER_ACCEPTED'
     });
 
     return NextResponse.json({ checkoutUrl: stripeSession.url });

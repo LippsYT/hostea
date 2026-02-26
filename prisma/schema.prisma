@@ -111,6 +111,7 @@ model User {
   hostedOffers  Offer[]     @relation("OfferHost")
   guestOffers   Offer[]     @relation("OfferGuest")
   auditLogs     AuditLog[]  @relation("AuditActor")
+  pushSubscriptions PushSubscription[]
 }
 
 model Profile {
@@ -482,4 +483,21 @@ model LegalPage {
   content   String
   published Boolean  @default(true)
   updatedAt DateTime @updatedAt
+}
+
+model PushSubscription {
+  id         String   @id @default(cuid())
+  hostId     String   @map("host_id")
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+  isActive   Boolean  @default(true) @map("is_active")
+
+  host       User     @relation(fields: [hostId], references: [id], onDelete: Cascade)
+
+  @@index([hostId, isActive])
+  @@map("push_subscriptions")
 }

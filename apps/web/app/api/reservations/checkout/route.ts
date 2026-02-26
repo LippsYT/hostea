@@ -9,6 +9,7 @@ import { stripe } from '@/lib/stripe';
 import { ReservationStatus, PaymentStatus } from '@prisma/client';
 import { checkListingAvailability } from '@/lib/listing-availability';
 import { buildEffectivePriceOverrides } from '@/lib/dynamic-pricing-service';
+import { sendPushToHost } from '@/lib/push-notifications';
 
 const schema = z.object({
   listingId: z.string(),
@@ -133,6 +134,13 @@ export async function POST(req: Request) {
         currency: 'USD',
         status: PaymentStatus.REQUIRES_ACTION
       }
+    });
+
+    await sendPushToHost(listing.hostId, {
+      title: 'Nueva reserva',
+      body: `Nueva solicitud para ${listing.title}. Pendiente de pago.`,
+      url: `/dashboard/host/reservations?reservationId=${reservation.id}`,
+      type: 'NEW_RESERVATION'
     });
 
     return NextResponse.json({ checkoutUrl: stripeSession.url });

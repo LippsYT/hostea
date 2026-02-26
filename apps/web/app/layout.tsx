@@ -1,7 +1,8 @@
 ﻿import './globals.css';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Newsreader, Space_Grotesk } from 'next/font/google';
 import { Providers } from '@/components/providers';
+import { PwaRegister } from '@/components/pwa-register';
 
 const display = Newsreader({
   subsets: ['latin'],
@@ -18,14 +19,22 @@ const body = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: 'HOSTEA | Hospedajes premium',
-  description: 'Plataforma tipo Airbnb para reservas, pagos y gestion de propiedades.'
+  description: 'Plataforma tipo Airbnb para reservas, pagos y gestion de propiedades.',
+  manifest: '/manifest.webmanifest'
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0b1736'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
       <body className={`${display.variable} ${body.variable} font-body`}>
-        <Providers>{children}</Providers>
+        <Providers>
+          <PwaRegister />
+          {children}
+        </Providers>
       </body>
     </html>
   );

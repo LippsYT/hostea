@@ -4,6 +4,7 @@ import { requireSession } from '@/lib/permissions';
 import { assertCsrf } from '@/lib/csrf';
 import { getIO } from '@/lib/socket';
 import { rateLimit } from '@/lib/rate-limit';
+import { sendPushToHost } from '@/lib/push-notifications';
 
 export async function GET(_req: Request, { params }: { params: { threadId: string } }) {
   const session = await requireSession();
@@ -89,6 +90,32 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
     const io = getIO();
     io.to(`thread:${params.threadId}`).emit('message:new', payload);
   } catch {}
+
+  const participants = await prisma.messageThreadParticipant.findMany({
+    where: {
+      threadId: params.threadId,
+      userId: { not: userId }
+    },
+    include: {
+      user: {
+        include: {
+          roles: { include: { role: true } }
+        }
+      }
+    }
+  });
+
+  const hostRecipients = participants.filter((participant) =>
+    participant.user.roles.some((roleRow) => roleRow.role.name === 'HOST' || roleRow.role.name === 'ADMIN')
+  );
+  for (const recipient of hostRecipients) {
+    await sendPushToHost(recipient.userId, {
+      title: 'Nuevo mensaje',
+      body: `${payload.senderName}: ${payload.body.slice(0, 120)}`,
+      url: `/dashboard/host/messages?threadId=${params.threadId}`,
+      type: 'NEW_MESSAGE'
+    });
+  }
 
   return NextResponse.json({ message: payload });
 }

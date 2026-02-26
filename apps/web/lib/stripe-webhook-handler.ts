@@ -1,5 +1,6 @@
 import { PaymentStatus, ReservationStatus } from '@prisma/client';
 import { sendAutoMessagesOnConfirm } from '@/lib/auto-messages';
+import { sendPushToHost } from '@/lib/push-notifications';
 import {
   createCloudbedsReservation,
   getCloudbedsMappingForListing,
@@ -83,6 +84,12 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         }
 
         await sendAutoMessagesOnConfirm(reservation.id);
+        await sendPushToHost(offer.listing.hostId, {
+          title: 'Pago confirmado',
+          body: `Oferta pagada y reserva confirmada en ${offer.listing.title}.`,
+          url: `/dashboard/host/reservations?reservationId=${reservation.id}`,
+          type: 'PAYMENT_CONFIRMED'
+        }, prisma);
 
         if (isCloudbedsEnabled() && getCloudbedsMappingForListing(reservation.listingId)) {
           try {
@@ -153,6 +160,12 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
           }
         });
         await sendAutoMessagesOnConfirm(reservation.id);
+        await sendPushToHost(reservation.listing.hostId, {
+          title: 'Pago confirmado',
+          body: `Nueva reserva confirmada en ${reservation.listing.title}.`,
+          url: `/dashboard/host/reservations?reservationId=${reservation.id}`,
+          type: 'PAYMENT_CONFIRMED'
+        }, prisma);
 
         if (isCloudbedsEnabled() && getCloudbedsMappingForListing(reservation.listingId)) {
           try {

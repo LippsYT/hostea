@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { getIO } from '@/lib/socket';
 import { calcBreakdown } from '@/lib/intelligent-pricing';
 import { OfferStatus } from '@prisma/client';
+import { sendPushToClient } from '@/lib/push-notifications';
 
 const schema = z.object({
   action: z.enum(['preapprove', 'offer', 'close']),
@@ -42,6 +43,7 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
   if (!thread) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
+  const counterpartyId = thread.participants.find((participant: { userId: string }) => participant.userId !== userId)?.userId || null;
 
   let status: string = thread.status;
   let messageBody = '';
@@ -168,6 +170,24 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
     const io = getIO();
     io.to(`thread:${thread.id}`).emit('message:new', payload);
   } catch {}
+
+  if (counterpartyId) {
+    if (parsed.data.action === 'offer') {
+      await sendPushToClient(counterpartyId, {
+        title: 'Nueva oferta especial',
+        body: messageBody,
+        url: `/dashboard/client/messages?threadId=${thread.id}`,
+        type: 'NEW_OFFER'
+      });
+    } else if (parsed.data.action === 'preapprove') {
+      await sendPushToClient(counterpartyId, {
+        title: 'Invitacion a reservar',
+        body: 'El anfitrion te invito a reservar desde la plataforma.',
+        url: `/dashboard/client/messages?threadId=${thread.id}`,
+        type: 'INVITE_TO_BOOK'
+      });
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -4,7 +4,7 @@ import { requireSession } from '@/lib/permissions';
 import { assertCsrf } from '@/lib/csrf';
 import { getIO } from '@/lib/socket';
 import { rateLimit } from '@/lib/rate-limit';
-import { sendPushToHost } from '@/lib/push-notifications';
+import { sendPushToUser } from '@/lib/push-notifications';
 
 export async function GET(_req: Request, { params }: { params: { threadId: string } }) {
   const session = await requireSession();
@@ -105,14 +105,18 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
     }
   });
 
-  const hostRecipients = participants.filter((participant) =>
-    participant.user.roles.some((roleRow) => roleRow.role.name === 'HOST' || roleRow.role.name === 'ADMIN')
-  );
-  for (const recipient of hostRecipients) {
-    await sendPushToHost(recipient.userId, {
+  for (const recipient of participants) {
+    const roleNames = recipient.user.roles.map((roleRow) => roleRow.role.name);
+    const targetRole = roleNames.includes('HOST') || roleNames.includes('ADMIN') ? 'host' : 'client';
+    const targetUrl =
+      targetRole === 'host'
+        ? `/dashboard/host/messages?threadId=${params.threadId}`
+        : `/dashboard/client/messages?threadId=${params.threadId}`;
+
+    await sendPushToUser(recipient.userId, targetRole, {
       title: 'Nuevo mensaje',
       body: `${payload.senderName}: ${payload.body.slice(0, 120)}`,
-      url: `/dashboard/host/messages?threadId=${params.threadId}`,
+      url: targetUrl,
       type: 'NEW_MESSAGE'
     });
   }

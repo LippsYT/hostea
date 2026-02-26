@@ -7,11 +7,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 
 type PushRequest = {
-  host_id: string;
+  userId?: string;
+  host_id?: string;
+  role?: 'host' | 'client';
   title: string;
   body: string;
   url: string;
-  type: string;
+  type?: string;
+  tag?: string;
 };
 
 type SubscriptionRow = {
@@ -65,8 +68,16 @@ serve(async (req) => {
     });
 
     const payload = (await req.json()) as PushRequest;
-    if (!payload?.host_id || !payload?.title || !payload?.body || !payload?.url || !payload?.type) {
+    const userId = payload?.userId || payload?.host_id;
+    const role = payload?.role || 'host';
+    if (!userId || !payload?.title || !payload?.body || !payload?.url) {
       return new Response(JSON.stringify({ error: 'Invalid payload' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    if (role !== 'host' && role !== 'client') {
+      return new Response(JSON.stringify({ error: 'Invalid role' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -75,7 +86,8 @@ serve(async (req) => {
     const { data, error } = await supabase
       .from('push_subscriptions')
       .select('id, endpoint, p256dh, auth, is_active')
-      .eq('host_id', payload.host_id)
+      .eq('host_id', userId)
+      .eq('role', role)
       .eq('is_active', true);
 
     if (error) {
@@ -103,7 +115,8 @@ serve(async (req) => {
             title: payload.title,
             body: payload.body,
             url: payload.url,
-            type: payload.type,
+            type: payload.type || 'GENERIC',
+            tag: payload.tag || payload.type || 'GENERIC',
             timestamp: new Date().toISOString()
           }),
           { TTL: 60 * 60 }
@@ -115,7 +128,7 @@ serve(async (req) => {
         if (statusCode === 404 || statusCode === 410) {
           await supabase
             .from('push_subscriptions')
-            .update({ is_active: false })
+            .delete()
             .eq('id', row.id);
         }
       }
@@ -132,4 +145,3 @@ serve(async (req) => {
     });
   }
 });
-

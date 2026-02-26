@@ -488,6 +488,7 @@ model LegalPage {
 model PushSubscription {
   id         String   @id @default(cuid())
   hostId     String   @map("host_id")
+  role       String   @default("host")
   endpoint   String   @unique
   p256dh     String
   auth       String
@@ -498,6 +499,6 @@ model PushSubscription {
 
   host       User     @relation(fields: [hostId], references: [id], onDelete: Cascade)
 
-  @@index([hostId, isActive])
+  @@index([hostId, role, isActive])
   @@map("push_subscriptions")
 }

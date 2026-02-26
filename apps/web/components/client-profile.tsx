@@ -3,15 +3,18 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PushSubscribeCard } from '@/components/push-subscribe-card';
 
 export const ClientProfile = ({
   initialName,
   initialPhone,
-  kycStatus
+  kycStatus,
+  roles
 }: {
   initialName: string;
   initialPhone: string | null;
   kycStatus: string | null;
+  roles: string[];
 }) => {
   const [csrf, setCsrf] = useState('');
   const [name, setName] = useState(initialName || '');
@@ -45,6 +48,9 @@ export const ClientProfile = ({
     alert('KYC enviado');
   };
 
+  const canHostPush = roles.includes('HOST') || roles.includes('ADMIN');
+  const canClientPush = roles.includes('CLIENT') || roles.includes('ADMIN');
+
   return (
     <div className="space-y-6">
       <div className="surface-card">
@@ -75,6 +81,22 @@ export const ClientProfile = ({
           <Input placeholder="URL selfie" value={selfieUrl} onChange={(e) => setSelfieUrl(e.target.value)} />
         </div>
       </div>
+
+      {canHostPush && (
+        <PushSubscribeCard
+          role="host"
+          title="Notificaciones del panel host"
+          subtitle="Recibe push por consultas, mensajes, reservas y ofertas."
+        />
+      )}
+
+      {canClientPush && (
+        <PushSubscribeCard
+          role="client"
+          title="Notificaciones de tus reservas"
+          subtitle="Recibe push por mensajes del anfitrion y actualizaciones de reserva."
+        />
+      )}
     </div>
   );
 };

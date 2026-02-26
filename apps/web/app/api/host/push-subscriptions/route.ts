@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db';
 import { requireSession } from '@/lib/permissions';
 import { assertCsrf } from '@/lib/csrf';
-import { getHostPushEnabled, savePushSubscription, setHostPushEnabled } from '@/lib/push-notifications';
+import { getPushStatus, savePushSubscription, setPushEnabled } from '@/lib/push-notifications';
 
 const upsertSchema = z.object({
   endpoint: z.string().min(1),
@@ -31,14 +30,9 @@ export async function GET() {
   try {
     const session = await requireHostSession();
     const hostId = (session.user as any).id as string;
-    const [enabled, activeCount] = await Promise.all([
-      getHostPushEnabled(hostId),
-      prisma.pushSubscription.count({ where: { hostId, isActive: true } })
-    ]);
+    const status = await getPushStatus(hostId, 'host');
     return NextResponse.json({
-      enabled,
-      activeDevices: activeCount,
-      vapidPublicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
+      ...status
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'No autorizado' }, { status: 401 });
@@ -57,6 +51,7 @@ export async function POST(req: Request) {
 
     await savePushSubscription(
       hostId,
+      'host',
       {
         endpoint: parsed.data.endpoint,
         p256dh: parsed.data.keys.p256dh,
@@ -64,7 +59,7 @@ export async function POST(req: Request) {
       },
       parsed.data.userAgent || req.headers.get('user-agent') || undefined
     );
-    await setHostPushEnabled(hostId, true);
+    await setPushEnabled(hostId, 'host', true);
 
     return NextResponse.json({ ok: true });
   } catch (error: any) {
@@ -84,7 +79,7 @@ export async function PATCH(req: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'Datos invalidos' }, { status: 400 });
     }
-    await setHostPushEnabled(hostId, parsed.data.enabled);
+    await setPushEnabled(hostId, 'host', parsed.data.enabled);
     return NextResponse.json({ ok: true, enabled: parsed.data.enabled });
   } catch (error: any) {
     if (error?.message === 'CSRF token invalido') {
@@ -93,4 +88,3 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: error.message || 'Error' }, { status: 500 });
   }
 }
-

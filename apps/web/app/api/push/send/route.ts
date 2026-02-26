@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireSession } from '@/lib/permissions';
-import { sendPushToHost } from '@/lib/push-notifications';
+import { sendPushToUser } from '@/lib/push-notifications';
 
 const schema = z.object({
-  hostId: z.string().min(1),
+  userId: z.string().min(1),
+  role: z.enum(['host', 'client']),
   title: z.string().min(1),
   body: z.string().min(1),
   url: z.string().min(1),
-  type: z.string().min(1)
+  type: z.string().min(1),
+  tag: z.string().optional()
 });
 
 export async function POST(req: Request) {
@@ -31,10 +33,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
-    const result = await sendPushToHost(payload.data.hostId, payload.data);
+    const result = await sendPushToUser(payload.data.userId, payload.data.role, payload.data);
     return NextResponse.json({ ok: true, result });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Error' }, { status: 500 });
   }
 }
-

@@ -6,6 +6,7 @@ import { ClientProfile } from '@/components/client-profile';
 export default async function ClientProfilePage() {
   const session = await getServerSession(authOptions);
   const userId = (session?.user as any)?.id as string;
+  const roles = (((session?.user as any)?.roles || []) as string[]);
   const profile = await prisma.profile.findUnique({ where: { userId } });
   const lastKyc = await prisma.kycSubmission.findFirst({
     where: { userId },
@@ -22,6 +23,7 @@ export default async function ClientProfilePage() {
         initialName={profile?.name || ''}
         initialPhone={profile?.phone || ''}
         kycStatus={lastKyc?.status || null}
+        roles={roles}
       />
     </div>
   );

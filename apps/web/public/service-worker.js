@@ -1,5 +1,5 @@
 /* eslint-disable no-restricted-globals */
-const CACHE_VERSION = 'hostea-sw-v1';
+const CACHE_VERSION = 'hostea-sw-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting());
@@ -25,16 +25,16 @@ self.addEventListener('push', (event) => {
 
   const title = payload.title || 'Hostea';
   const body = payload.body || 'Tenes una nueva notificacion.';
-  const url = payload.url || '/dashboard/host/messages';
-  const type = payload.type || 'GENERAL';
+  const url = payload.url || '/dashboard';
+  const tag = payload.tag || payload.type || 'GENERAL';
 
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
       icon: '/favicon.ico',
       badge: '/favicon.ico',
-      tag: `${type}:${url}`,
-      data: { url, type },
+      tag: `${tag}:${url}`,
+      data: { url, tag },
       vibrate: [180, 60, 180],
       renotify: true,
       silent: false
@@ -44,20 +44,20 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification?.data?.url || '/dashboard/host/messages';
+  const targetUrl = event.notification?.data?.url || '/dashboard';
 
   event.waitUntil(
     (async () => {
       const windows = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const absoluteUrl = new URL(targetUrl, self.location.origin).toString();
       for (const client of windows) {
         if ('focus' in client && client.url.includes(self.location.origin)) {
-          client.navigate(targetUrl);
+          client.navigate(absoluteUrl);
           client.focus();
           return;
         }
       }
-      await clients.openWindow(targetUrl);
+      await clients.openWindow(absoluteUrl);
     })()
   );
 });
-

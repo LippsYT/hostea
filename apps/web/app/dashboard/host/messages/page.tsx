@@ -47,11 +47,20 @@ export default async function HostMessagesPage({
   const userId = (session?.user as any)?.id as string;
   const userName = (session?.user as any)?.name || (session?.user as any)?.email || 'Usuario';
 
+  await prisma.offer.updateMany({
+    where: { hostId: userId, status: 'PENDING', expiresAt: { lt: new Date() } },
+    data: { status: 'EXPIRED' }
+  });
+
   const threads = await prisma.messageThread.findMany({
     where: { participants: { some: { userId } } },
     include: {
       reservation: { include: { listing: true, user: { include: { profile: true } } } },
       participants: { include: { user: { include: { profile: true } } } },
+      offers: {
+        orderBy: { createdAt: 'desc' },
+        take: 1
+      },
       messages: {
         take: 1,
         orderBy: { createdAt: 'desc' },
@@ -96,6 +105,7 @@ export default async function HostMessagesPage({
     : null;
 
   const selectedLastMessage = selectedThread?.messages?.[0];
+  const selectedLatestOffer = selectedThread?.offers?.[0];
 
   return (
     <div className="space-y-6">
@@ -185,6 +195,9 @@ export default async function HostMessagesPage({
             threadId={selected}
             reservationStatus={reservationStatus}
             guestPhone={selectedGuestPhone}
+            defaultCheckIn={selectedThread?.reservation?.checkIn?.toISOString().slice(0, 10) || null}
+            defaultCheckOut={selectedThread?.reservation?.checkOut?.toISOString().slice(0, 10) || null}
+            defaultGuestsCount={selectedThread?.reservation?.guestsCount || 1}
           />
 
           <div className="rounded-2xl border border-slate-200/70 bg-slate-50/70 p-4">
@@ -216,6 +229,16 @@ export default async function HostMessagesPage({
             <div className="rounded-2xl border border-slate-200/70 bg-white p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ultimo mensaje</p>
               <p className="mt-2 text-sm text-slate-700">{selectedLastMessage.body}</p>
+            </div>
+          )}
+          {selectedLatestOffer && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <p className="text-xs font-semibold uppercase tracking-wide">Oferta activa</p>
+              <p className="mt-1 font-semibold">USD {Number(selectedLatestOffer.clientTotal).toFixed(2)}</p>
+              <p className="text-xs">
+                {selectedLatestOffer.checkIn.toISOString().slice(0, 10)} -{' '}
+                {selectedLatestOffer.checkOut.toISOString().slice(0, 10)}
+              </p>
             </div>
           )}
         </aside>

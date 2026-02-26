@@ -64,6 +64,14 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  PAID
+  EXPIRED
+  CANCELED
+}
+
 enum ThreadType {
   RESERVATION
   SUPPORT
@@ -99,6 +107,8 @@ model User {
   reviews       Review[]    @relation("ReviewAuthor")
   payments      Payment[]
   payouts       Payout[]
+  hostedOffers  Offer[]     @relation("OfferHost")
+  guestOffers   Offer[]     @relation("OfferGuest")
   auditLogs     AuditLog[]  @relation("AuditActor")
 }
 
@@ -184,6 +194,7 @@ model Listing {
   icalFeeds     ListingIcalFeed[]
   roomTypes     RoomType[]
   reservations  Reservation[]
+  offers        Offer[]
   reviews       Review[]
 }
 
@@ -274,6 +285,7 @@ model Reservation {
   roomType      RoomType?         @relation(fields: [roomTypeId], references: [id])
   guests        ReservationGuest[]
   payment       Payment?
+  offer         Offer?
   thread        MessageThread?
   review        Review?
 }
@@ -316,6 +328,39 @@ model Payout {
   host            User     @relation(fields: [hostId], references: [id])
 }
 
+model Offer {
+  id               String      @id @default(cuid())
+  threadId         String
+  listingId        String
+  hostId           String
+  guestId          String
+  reservationId    String?     @unique
+  status           OfferStatus @default(PENDING)
+  checkIn          DateTime
+  checkOut         DateTime
+  guestsCount      Int         @default(1)
+  hostNet          Decimal     @db.Decimal(10,2)
+  adminCharges     Decimal     @db.Decimal(10,2)
+  serviceFee       Decimal     @db.Decimal(10,2)
+  clientTotal      Decimal     @db.Decimal(10,2)
+  currency         String      @default("USD")
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  paidAt           DateTime?
+  paymentSessionId String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  thread           MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  listing          Listing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  host             User          @relation("OfferHost", fields: [hostId], references: [id], onDelete: Cascade)
+  guest            User          @relation("OfferGuest", fields: [guestId], references: [id], onDelete: Cascade)
+  reservation      Reservation?  @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+
+  @@index([threadId, status, expiresAt])
+  @@index([guestId, status, expiresAt])
+}
+
 model MessageThread {
   id           String               @id @default(cuid())
   type         ThreadType           @default(RESERVATION)
@@ -332,6 +377,7 @@ model MessageThread {
   createdBy    User                 @relation("ThreadCreator", fields: [createdById], references: [id])
   participants MessageThreadParticipant[]
   messages     Message[]
+  offers       Offer[]
 }
 
 model MessageThreadParticipant {

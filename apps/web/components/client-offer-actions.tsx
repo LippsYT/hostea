@@ -6,6 +6,7 @@ import { calcBreakdown } from '@/lib/intelligent-pricing';
 
 export const ClientOfferActions = ({
   threadId,
+  offerId,
   offerTotal,
   listingTitle,
   checkIn,
@@ -13,6 +14,7 @@ export const ClientOfferActions = ({
   guestsCount
 }: {
   threadId: string;
+  offerId: string;
   offerTotal: number;
   listingTitle?: string;
   checkIn?: string;
@@ -31,7 +33,8 @@ export const ClientOfferActions = ({
 
       const res = await fetch(`/api/messages/${threadId}/offer/accept`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-csrf-token': token }
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': token },
+        body: JSON.stringify({ offerId })
       });
       const data = await res.json().catch(() => ({}));
       if (data?.checkoutUrl) {

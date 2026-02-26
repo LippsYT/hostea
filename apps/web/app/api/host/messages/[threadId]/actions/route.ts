@@ -4,11 +4,16 @@ import { requireSession } from '@/lib/permissions';
 import { assertCsrf } from '@/lib/csrf';
 import { z } from 'zod';
 import { getIO } from '@/lib/socket';
+import { calcBreakdown } from '@/lib/intelligent-pricing';
+import { OfferStatus } from '@prisma/client';
 
 const schema = z.object({
   action: z.enum(['preapprove', 'offer', 'close']),
   offerTotal: z.coerce.number().optional(),
   offerHostNet: z.coerce.number().optional(),
+  checkIn: z.string().optional(),
+  checkOut: z.string().optional(),
+  guestsCount: z.coerce.number().optional(),
   offerExpiresAt: z.string().optional()
 });
 
@@ -28,7 +33,11 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
 
   const userId = (session.user as any).id as string;
   const thread = await prisma.messageThread.findFirst({
-    where: { id: params.threadId, participants: { some: { userId } } }
+    where: { id: params.threadId, participants: { some: { userId } } },
+    include: {
+      reservation: true,
+      participants: true
+    }
   });
   if (!thread) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
@@ -48,6 +57,39 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
     if (!Number.isFinite(requestedTotal) || requestedTotal <= 0) {
       return NextResponse.json({ error: 'Monto de oferta invalido' }, { status: 400 });
     }
+    const checkInInput = parsed.data.checkIn || (thread.reservation?.checkIn ? thread.reservation.checkIn.toISOString().slice(0, 10) : '');
+    const checkOutInput = parsed.data.checkOut || (thread.reservation?.checkOut ? thread.reservation.checkOut.toISOString().slice(0, 10) : '');
+    if (!checkInInput || !checkOutInput) {
+      return NextResponse.json(
+        { error: 'La oferta especial requiere fecha de entrada y salida' },
+        { status: 400 }
+      );
+    }
+    const checkIn = new Date(checkInInput);
+    const checkOut = new Date(checkOutInput);
+    if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime()) || checkOut <= checkIn) {
+      return NextResponse.json({ error: 'Rango de fechas invalido' }, { status: 400 });
+    }
+
+    const listingId =
+      thread.reservation?.listingId ||
+      (thread.subject?.startsWith('LISTING:') ? thread.subject.replace('LISTING:', '').trim() : null);
+    if (!listingId) {
+      return NextResponse.json(
+        { error: 'No se pudo identificar la propiedad para la oferta' },
+        { status: 400 }
+      );
+    }
+
+    const guestParticipant = thread.participants.find((participant: { userId: string }) => participant.userId !== userId);
+    if (!guestParticipant?.userId) {
+      return NextResponse.json({ error: 'No se pudo identificar al cliente de la conversacion' }, { status: 400 });
+    }
+
+    const guestsCount = Math.max(
+      1,
+      Number(parsed.data.guestsCount) || thread.reservation?.guestsCount || 1
+    );
     status = 'OFFER';
     offerTotal = requestedTotal;
     offerHostNet = Number(parsed.data.offerHostNet || 0) || null;
@@ -56,6 +98,31 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
       return NextResponse.json({ error: 'Fecha de vencimiento invalida' }, { status: 400 });
     }
     offerExpiresAt = expiresInput || new Date(Date.now() + 48 * 60 * 60 * 1000);
+    const breakdown = calcBreakdown(offerTotal);
+
+    await prisma.offer.updateMany({
+      where: { threadId: thread.id, status: OfferStatus.PENDING },
+      data: { status: OfferStatus.EXPIRED }
+    });
+
+    await prisma.offer.create({
+      data: {
+        threadId: thread.id,
+        listingId,
+        hostId: userId,
+        guestId: guestParticipant.userId,
+        checkIn,
+        checkOut,
+        guestsCount,
+        hostNet: offerHostNet || breakdown.hostNet,
+        adminCharges: breakdown.stripeFee,
+        serviceFee: breakdown.platformFee,
+        clientTotal: offerTotal,
+        currency: 'USD',
+        expiresAt: offerExpiresAt
+      }
+    });
+
     messageBody = `Oferta especial enviada por USD ${offerTotal.toFixed(2)}. Acepta y paga desde la plataforma para confirmar.`;
     if (offerHostNet && offerHostNet > 0) {
       messageBody += ` Neto anfitrion: USD ${offerHostNet.toFixed(2)}.`;

@@ -11,16 +11,53 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
   const userId = (session?.user as any)?.id as string;
   const userName = (session?.user as any)?.name || (session?.user as any)?.email || 'Usuario';
 
+  await prisma.offer.updateMany({
+    where: { guestId: userId, status: 'PENDING', expiresAt: { lt: new Date() } },
+    data: { status: 'EXPIRED' }
+  });
+
   const threads = await prisma.messageThread.findMany({
     where: { participants: { some: { userId } } },
     include: {
       reservation: { include: { listing: true, user: true } },
-      participants: { include: { user: { include: { profile: true } } } }
+      participants: { include: { user: { include: { profile: true } } } },
+      offers: {
+        where: { guestId: userId },
+        orderBy: { createdAt: 'desc' },
+        take: 5
+      }
     },
     orderBy: { createdAt: 'desc' }
   });
+  const inquiryListingIds = Array.from(
+    new Set(
+      threads
+        .map((thread) =>
+          thread.subject?.startsWith('LISTING:') ? thread.subject.replace('LISTING:', '').trim() : null
+        )
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+  const inquiryListings = inquiryListingIds.length
+    ? await prisma.listing.findMany({
+        where: { id: { in: inquiryListingIds } },
+        select: { id: true, title: true }
+      })
+    : [];
+  const inquiryListingMap = new Map(inquiryListings.map((listing) => [listing.id, listing.title]));
+
   const selected = typeof searchParams.threadId === 'string' ? searchParams.threadId : threads[0]?.id;
   const selectedThread = threads.find((t) => t.id === selected);
+  const selectedThreadId = selectedThread?.id || '';
+  const activeOffer =
+    selectedThread?.offers?.find((offer) => {
+      const statusOk = offer.status === 'PENDING' || offer.status === 'ACCEPTED';
+      return statusOk && offer.expiresAt.getTime() > Date.now();
+    }) || null;
+
+  const selectedListingTitle = selectedThread?.reservation?.listing?.title
+    || inquiryListingMap.get(selectedThread?.subject?.replace('LISTING:', '').trim() || '')
+    || 'Alojamiento';
 
   return (
     <div className="space-y-6">
@@ -34,7 +71,11 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
           <div className="mt-4 space-y-2">
             {threads.map((thread) => (
               <Link key={thread.id} href={`?threadId=${thread.id}`} className="block rounded-2xl border border-slate-200/70 bg-slate-50/80 p-3 text-sm text-slate-700 hover:bg-slate-100">
-                <p className="font-semibold text-slate-900">{thread.reservation?.listing.title || 'Consulta de reserva'}</p>
+                <p className="font-semibold text-slate-900">
+                  {thread.reservation?.listing.title
+                    || inquiryListingMap.get(thread.subject?.replace('LISTING:', '').trim() || '')
+                    || 'Consulta de reserva'}
+                </p>
                 <p className="text-xs text-slate-500">
                   {thread.reservation
                     ? `${thread.reservation.checkIn.toISOString().slice(0, 10)} - ${thread.reservation.checkOut.toISOString().slice(0, 10)}`
@@ -57,22 +98,31 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
               <p>{selectedThread.reservation.guestsCount} huespedes</p>
               <p>Estado: {reservationStatusLabel(selectedThread.reservation.status)}</p>
               <p>Total: USD {Number(selectedThread.reservation.total).toFixed(2)}</p>
-              {selectedThread.offerTotal && selectedThread.reservation.status === 'PENDING_PAYMENT' && (
+              {activeOffer && (
                 <ClientOfferActions
-                  threadId={selectedThread.id}
-                  offerTotal={Number(selectedThread.offerTotal)}
-                  listingTitle={selectedThread.reservation.listing.title}
-                  checkIn={selectedThread.reservation.checkIn.toISOString().slice(0, 10)}
-                  checkOut={selectedThread.reservation.checkOut.toISOString().slice(0, 10)}
-                  guestsCount={selectedThread.reservation.guestsCount}
+                  threadId={selectedThreadId}
+                  offerId={activeOffer.id}
+                  offerTotal={Number(activeOffer.clientTotal)}
+                  listingTitle={selectedListingTitle}
+                  checkIn={activeOffer.checkIn.toISOString().slice(0, 10)}
+                  checkOut={activeOffer.checkOut.toISOString().slice(0, 10)}
+                  guestsCount={activeOffer.guestsCount}
                 />
               )}
             </div>
           ) : (
             <div className="mt-3 text-sm text-slate-500">
               <p>Selecciona una conversacion para ver detalles.</p>
-              {selectedThread?.offerTotal && (
-                <p className="mt-2">Oferta recibida: USD {Number(selectedThread.offerTotal).toFixed(2)}</p>
+              {activeOffer && (
+                <ClientOfferActions
+                  threadId={selectedThreadId}
+                  offerId={activeOffer.id}
+                  offerTotal={Number(activeOffer.clientTotal)}
+                  listingTitle={selectedListingTitle}
+                  checkIn={activeOffer.checkIn.toISOString().slice(0, 10)}
+                  checkOut={activeOffer.checkOut.toISOString().slice(0, 10)}
+                  guestsCount={activeOffer.guestsCount}
+                />
               )}
             </div>
           )}

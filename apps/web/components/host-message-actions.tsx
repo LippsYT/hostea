@@ -13,15 +13,26 @@ type HostMessageActionsProps = {
   threadId?: string;
   reservationStatus?: ReservationStatus | string | null;
   guestPhone?: string | null;
+  defaultCheckIn?: string | null;
+  defaultCheckOut?: string | null;
+  defaultGuestsCount?: number | null;
 };
 
 export const HostMessageActions = ({
   threadId,
   reservationStatus,
-  guestPhone
+  guestPhone,
+  defaultCheckIn,
+  defaultCheckOut,
+  defaultGuestsCount
 }: HostMessageActionsProps) => {
   const [csrf, setCsrf] = useState('');
   const [offerHostNet, setOfferHostNet] = useState('');
+  const [offerCheckIn, setOfferCheckIn] = useState(defaultCheckIn || '');
+  const [offerCheckOut, setOfferCheckOut] = useState(defaultCheckOut || '');
+  const [offerGuestsCount, setOfferGuestsCount] = useState(
+    String(Math.max(1, Number(defaultGuestsCount) || 1))
+  );
   const [offerExpiresAt, setOfferExpiresAt] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -31,6 +42,12 @@ export const HostMessageActions = ({
       setCsrf(data.token);
     });
   }, []);
+
+  useEffect(() => {
+    setOfferCheckIn(defaultCheckIn || '');
+    setOfferCheckOut(defaultCheckOut || '');
+    setOfferGuestsCount(String(Math.max(1, Number(defaultGuestsCount) || 1)));
+  }, [threadId, defaultCheckIn, defaultCheckOut, defaultGuestsCount]);
 
   if (!threadId) {
     return <p className="text-sm text-slate-500">Selecciona una conversacion.</p>;
@@ -53,6 +70,9 @@ export const HostMessageActions = ({
           action,
           offerTotal: action === 'offer' ? offerClientPrice : undefined,
           offerHostNet: action === 'offer' ? desiredNet : undefined,
+          checkIn: action === 'offer' ? offerCheckIn : undefined,
+          checkOut: action === 'offer' ? offerCheckOut : undefined,
+          guestsCount: action === 'offer' ? Number(offerGuestsCount) : undefined,
           offerExpiresAt
         })
       });
@@ -87,6 +107,28 @@ export const HostMessageActions = ({
           placeholder="Neto a recibir (USD)"
           className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
         />
+        <div className="grid gap-2 sm:grid-cols-2">
+          <input
+            value={offerCheckIn}
+            onChange={(e) => setOfferCheckIn(e.target.value)}
+            type="date"
+            className="date-input w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+          />
+          <input
+            value={offerCheckOut}
+            onChange={(e) => setOfferCheckOut(e.target.value)}
+            type="date"
+            className="date-input w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+          />
+        </div>
+        <input
+          value={offerGuestsCount}
+          onChange={(e) => setOfferGuestsCount(e.target.value)}
+          type="number"
+          min={1}
+          placeholder="Huespedes"
+          className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+        />
         <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
           <p className="font-semibold text-slate-900">Resumen de oferta</p>
           <div className="mt-2 space-y-1">
@@ -114,7 +156,11 @@ export const HostMessageActions = ({
           type="date"
           className="date-input w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
         />
-        <Button className="w-full" disabled={sending || !desiredNet} onClick={() => sendAction('offer')}>
+        <Button
+          className="w-full"
+          disabled={sending || !desiredNet || !offerCheckIn || !offerCheckOut}
+          onClick={() => sendAction('offer')}
+        >
           Enviar oferta especial
         </Button>
       </div>

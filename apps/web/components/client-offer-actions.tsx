@@ -8,6 +8,7 @@ export const ClientOfferActions = ({
   threadId,
   offerId,
   offerTotal,
+  offerStatus,
   listingTitle,
   checkIn,
   checkOut,
@@ -16,15 +17,18 @@ export const ClientOfferActions = ({
   threadId: string;
   offerId: string;
   offerTotal: number;
+  offerStatus?: string;
   listingTitle?: string;
   checkIn?: string;
   checkOut?: string;
   guestsCount?: number;
 }) => {
   const [loading, setLoading] = useState(false);
+  const [rejected, setRejected] = useState(offerStatus === 'REJECTED');
   const breakdown = calcBreakdown(offerTotal);
 
   const acceptOffer = async () => {
+    if (rejected) return;
     try {
       setLoading(true);
       const csrfRes = await fetch('/api/security/csrf');
@@ -42,6 +46,30 @@ export const ClientOfferActions = ({
         return;
       }
       alert(data?.error || 'No se pudo aceptar la oferta');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const rejectOffer = async () => {
+    if (rejected) return;
+    try {
+      setLoading(true);
+      const csrfRes = await fetch('/api/security/csrf');
+      const csrfData = await csrfRes.json().catch(() => ({}));
+      const token = csrfData?.token || '';
+      const res = await fetch(`/api/messages/${threadId}/offer/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': token },
+        body: JSON.stringify({ offerId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.error) {
+        alert(data?.error || 'No se pudo rechazar la oferta');
+        return;
+      }
+      setRejected(true);
+      window.location.reload();
     } finally {
       setLoading(false);
     }
@@ -71,8 +99,16 @@ export const ClientOfferActions = ({
           <span>USD {offerTotal.toFixed(2)}</span>
         </div>
       </div>
-      <Button className="mt-3 w-full" onClick={acceptOffer} disabled={loading}>
-        {loading ? 'Procesando...' : 'Aceptar oferta y pagar'}
+      <Button className="mt-3 w-full" onClick={acceptOffer} disabled={loading || rejected}>
+        {rejected ? 'Oferta rechazada' : loading ? 'Procesando...' : 'Aceptar oferta y pagar'}
+      </Button>
+      <Button
+        className="mt-2 w-full"
+        variant="outline"
+        onClick={rejectOffer}
+        disabled={loading || rejected}
+      >
+        {rejected ? 'Oferta rechazada' : 'Rechazar oferta'}
       </Button>
     </div>
   );

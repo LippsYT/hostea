@@ -49,11 +49,14 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
   const selected = typeof searchParams.threadId === 'string' ? searchParams.threadId : threads[0]?.id;
   const selectedThread = threads.find((t) => t.id === selected);
   const selectedThreadId = selectedThread?.id || '';
-  const activeOffer =
-    selectedThread?.offers?.find((offer) => {
-      const statusOk = offer.status === 'PENDING' || offer.status === 'ACCEPTED';
-      return statusOk && offer.expiresAt.getTime() > Date.now();
-    }) || null;
+  const latestOffer = selectedThread?.offers?.[0] || null;
+  const visibleOffer = latestOffer
+    ? latestOffer.status === 'REJECTED'
+      ? latestOffer
+      : latestOffer.expiresAt.getTime() > Date.now()
+        ? latestOffer
+        : null
+    : null;
 
   const selectedListingTitle = selectedThread?.reservation?.listing?.title
     || inquiryListingMap.get(selectedThread?.subject?.replace('LISTING:', '').trim() || '')
@@ -98,30 +101,32 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
               <p>{selectedThread.reservation.guestsCount} huespedes</p>
               <p>Estado: {reservationStatusLabel(selectedThread.reservation.status)}</p>
               <p>Total: USD {Number(selectedThread.reservation.total).toFixed(2)}</p>
-              {activeOffer && (
+              {visibleOffer && (
                 <ClientOfferActions
                   threadId={selectedThreadId}
-                  offerId={activeOffer.id}
-                  offerTotal={Number(activeOffer.clientTotal)}
+                  offerId={visibleOffer.id}
+                  offerTotal={Number(visibleOffer.clientTotal)}
+                  offerStatus={visibleOffer.status}
                   listingTitle={selectedListingTitle}
-                  checkIn={activeOffer.checkIn.toISOString().slice(0, 10)}
-                  checkOut={activeOffer.checkOut.toISOString().slice(0, 10)}
-                  guestsCount={activeOffer.guestsCount}
+                  checkIn={visibleOffer.checkIn.toISOString().slice(0, 10)}
+                  checkOut={visibleOffer.checkOut.toISOString().slice(0, 10)}
+                  guestsCount={visibleOffer.guestsCount}
                 />
               )}
             </div>
           ) : (
             <div className="mt-3 text-sm text-slate-500">
               <p>Selecciona una conversacion para ver detalles.</p>
-              {activeOffer && (
+              {visibleOffer && (
                 <ClientOfferActions
                   threadId={selectedThreadId}
-                  offerId={activeOffer.id}
-                  offerTotal={Number(activeOffer.clientTotal)}
+                  offerId={visibleOffer.id}
+                  offerTotal={Number(visibleOffer.clientTotal)}
+                  offerStatus={visibleOffer.status}
                   listingTitle={selectedListingTitle}
-                  checkIn={activeOffer.checkIn.toISOString().slice(0, 10)}
-                  checkOut={activeOffer.checkOut.toISOString().slice(0, 10)}
-                  guestsCount={activeOffer.guestsCount}
+                  checkIn={visibleOffer.checkIn.toISOString().slice(0, 10)}
+                  checkOut={visibleOffer.checkOut.toISOString().slice(0, 10)}
+                  guestsCount={visibleOffer.guestsCount}
                 />
               )}
             </div>

@@ -33,7 +33,6 @@ export const HostMessageActions = ({
   const [offerGuestsCount, setOfferGuestsCount] = useState(
     String(Math.max(1, Number(defaultGuestsCount) || 1))
   );
-  const [offerExpiresAt, setOfferExpiresAt] = useState('');
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
@@ -72,8 +71,7 @@ export const HostMessageActions = ({
           offerHostNet: action === 'offer' ? desiredNet : undefined,
           checkIn: action === 'offer' ? offerCheckIn : undefined,
           checkOut: action === 'offer' ? offerCheckOut : undefined,
-          guestsCount: action === 'offer' ? Number(offerGuestsCount) : undefined,
-          offerExpiresAt
+          guestsCount: action === 'offer' ? Number(offerGuestsCount) : undefined
         })
       });
       const data = await res.json();
@@ -83,7 +81,6 @@ export const HostMessageActions = ({
       }
       if (action === 'offer') {
         setOfferHostNet('');
-        setOfferExpiresAt('');
       }
       window.location.reload();
     } finally {
@@ -149,13 +146,8 @@ export const HostMessageActions = ({
               <span>USD {offerClientPrice.toFixed(2)}</span>
             </div>
           </div>
+          <p className="mt-2 text-xs text-slate-500">La oferta vence automaticamente en 48 horas.</p>
         </div>
-        <input
-          value={offerExpiresAt}
-          onChange={(e) => setOfferExpiresAt(e.target.value)}
-          type="date"
-          className="date-input w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-        />
         <Button
           className="w-full"
           disabled={sending || !desiredNet || !offerCheckIn || !offerCheckOut}

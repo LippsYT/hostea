@@ -123,10 +123,10 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
       }
     });
 
-    messageBody = `Oferta especial enviada por USD ${offerTotal.toFixed(2)}. Acepta y paga desde la plataforma para confirmar.`;
-    if (offerHostNet && offerHostNet > 0) {
-      messageBody += ` Neto anfitrion: USD ${offerHostNet.toFixed(2)}.`;
-    }
+    const expiryLabel = offerExpiresAt.toLocaleDateString('es-AR');
+    messageBody = `Oferta especial enviada: USD ${offerTotal.toFixed(
+      2
+    )}. Valida hasta ${expiryLabel}. Para confirmar, acepta y paga desde la plataforma.`;
   } else if (parsed.data.action === 'close') {
     status = thread.reservationId ? thread.status : 'REJECTED';
     messageBody = 'Conversacion cerrada por el anfitrion.';

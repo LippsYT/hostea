@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { getIO } from '@/lib/socket';
 
 const schema = z.object({
-  action: z.enum(['preapprove', 'offer', 'reject']),
+  action: z.enum(['preapprove', 'offer', 'close']),
   offerTotal: z.coerce.number().optional(),
   offerExpiresAt: z.string().optional()
 });
@@ -18,16 +18,20 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
   if (!roles.includes('HOST') && !roles.includes('ADMIN')) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
+
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: 'Datos invalidos' }, { status: 400 });
   }
 
+  const userId = (session.user as any).id as string;
   const thread = await prisma.messageThread.findFirst({
-    where: { id: params.threadId, participants: { some: { userId: (session.user as any).id } } }
+    where: { id: params.threadId, participants: { some: { userId } } }
   });
-  if (!thread) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  if (!thread) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  }
 
   let status: string = thread.status;
   let messageBody = '';
@@ -36,19 +40,17 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
 
   if (parsed.data.action === 'preapprove') {
     status = 'PREAPPROVED';
-    messageBody = 'Preaprobado: podes reservar cuando quieras con tus fechas.';
-  }
-  if (parsed.data.action === 'offer') {
+    messageBody = 'Te invitamos a reservar. Puedes completar la reserva con tus fechas.';
+  } else if (parsed.data.action === 'offer') {
     status = 'OFFER';
     offerTotal = parsed.data.offerTotal || null;
     offerExpiresAt = parsed.data.offerExpiresAt ? new Date(parsed.data.offerExpiresAt) : null;
     messageBody = offerTotal
-      ? `Oferta especial: USD ${offerTotal.toFixed(2)}. Reservá desde la plataforma para confirmar.`
-      : 'Oferta especial disponible. Reservá desde la plataforma para confirmar.';
-  }
-  if (parsed.data.action === 'reject') {
-    status = 'REJECTED';
-    messageBody = 'Lo sentimos, no podemos aceptar esta solicitud en estas fechas.';
+      ? `Oferta especial: USD ${offerTotal.toFixed(2)}. Reserva desde la plataforma para confirmar.`
+      : 'Oferta especial disponible. Reserva desde la plataforma para confirmar.';
+  } else if (parsed.data.action === 'close') {
+    status = thread.reservationId ? thread.status : 'REJECTED';
+    messageBody = 'Conversacion cerrada por el anfitrion.';
   }
 
   await prisma.messageThread.update({
@@ -64,13 +66,13 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
   const message = await prisma.message.create({
     data: {
       threadId: thread.id,
-      senderId: (session.user as any).id,
+      senderId: userId,
       body: messageBody
     }
   });
 
   const sender = await prisma.user.findUnique({
-    where: { id: (session.user as any).id },
+    where: { id: userId },
     include: { profile: true }
   });
 
@@ -78,6 +80,7 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
     id: message.id,
     body: message.body,
     createdAt: message.createdAt,
+    seenAt: message.seenAt,
     senderId: message.senderId,
     senderName: sender?.profile?.name || sender?.email || 'Usuario'
   };

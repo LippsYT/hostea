@@ -12,6 +12,19 @@ export async function GET(_req: Request, { params }: { params: { threadId: strin
     where: { id: params.threadId, participants: { some: { userId } } }
   });
   if (!thread) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  const isAssociated = Boolean(thread.reservationId) || Boolean(thread.subject?.startsWith('LISTING:'));
+  if (!isAssociated) {
+    return NextResponse.json({ error: 'Este chat no tiene consulta o reserva asociada' }, { status: 400 });
+  }
+
+  await prisma.message.updateMany({
+    where: {
+      threadId: params.threadId,
+      senderId: { not: userId },
+      seenAt: null
+    },
+    data: { seenAt: new Date() }
+  });
 
   const messages = await prisma.message.findMany({
     where: { threadId: params.threadId },
@@ -23,6 +36,7 @@ export async function GET(_req: Request, { params }: { params: { threadId: strin
     id: m.id,
     body: m.body,
     createdAt: m.createdAt,
+    seenAt: m.seenAt,
     senderId: m.senderId,
     senderName: m.sender.profile?.name || m.sender.email
   }));
@@ -44,6 +58,10 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
     where: { id: params.threadId, participants: { some: { userId } } }
   });
   if (!thread) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  const isAssociated = Boolean(thread.reservationId) || Boolean(thread.subject?.startsWith('LISTING:'));
+  if (!isAssociated) {
+    return NextResponse.json({ error: 'Este chat no tiene consulta o reserva asociada' }, { status: 400 });
+  }
 
   const message = await prisma.message.create({
     data: {
@@ -62,6 +80,7 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
     id: message.id,
     body: message.body,
     createdAt: message.createdAt,
+    seenAt: message.seenAt,
     senderId: message.senderId,
     senderName: sender?.profile?.name || sender?.email || 'Usuario'
   };

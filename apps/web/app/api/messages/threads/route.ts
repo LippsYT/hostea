@@ -4,6 +4,9 @@ import { requireSession } from '@/lib/permissions';
 import { assertCsrf } from '@/lib/csrf';
 import { rateLimit } from '@/lib/rate-limit';
 
+const unauthorized = (message = 'No autorizado') =>
+  NextResponse.json({ error: message }, { status: 401 });
+
 export async function GET() {
   try {
     const session = await requireSession();
@@ -15,6 +18,9 @@ export async function GET() {
     });
     return NextResponse.json({ threads });
   } catch (error: any) {
+    if (error?.message === 'No autorizado') {
+      return unauthorized();
+    }
     return NextResponse.json({ error: error.message || 'Error' }, { status: 500 });
   }
 }
@@ -23,11 +29,19 @@ export async function POST(req: Request) {
   try {
     assertCsrf(req);
     const session = await requireSession();
-    const ok = await rateLimit(`thread:${(session.user as any).id}`, 10, 60);
-    if (!ok) return NextResponse.json({ error: 'Rate limit' }, { status: 429 });
+    const userId = (session.user as any).id as string;
+    const ok = await rateLimit(`thread:${userId}`, 10, 60);
+    if (!ok) {
+      return NextResponse.json({ error: 'Rate limit' }, { status: 429 });
+    }
+
     const body = await req.json();
     const reservationId = body.reservationId as string | undefined;
     const listingId = body.listingId as string | undefined;
+
+    if (!reservationId && !listingId) {
+      return NextResponse.json({ error: 'Debe indicar reserva o propiedad' }, { status: 400 });
+    }
 
     let hostId: string | null = null;
     let subject: string | null = null;
@@ -39,9 +53,7 @@ export async function POST(req: Request) {
       hostId = reservation?.listing.hostId || null;
       subject = reservation?.listing.title || null;
     } else if (listingId) {
-      const listing = await prisma.listing.findUnique({
-        where: { id: listingId }
-      });
+      const listing = await prisma.listing.findUnique({ where: { id: listingId } });
       hostId = listing?.hostId || null;
       subject = listing?.title || null;
     }
@@ -49,31 +61,24 @@ export async function POST(req: Request) {
     if (!hostId) {
       return NextResponse.json({ error: 'No se encontro el anfitrion' }, { status: 404 });
     }
-    if (hostId === (session.user as any).id) {
+    if (hostId === userId) {
       return NextResponse.json({ error: 'No puedes abrir chat con tu propio anuncio' }, { status: 400 });
     }
 
-    const participants: { userId: string }[] = [{ userId: (session.user as any).id }];
-    if (hostId && hostId !== (session.user as any).id) {
-      participants.push({ userId: hostId });
-    }
-
     if (reservationId) {
-      const existing = await prisma.messageThread.findUnique({
+      const existingReservationThread = await prisma.messageThread.findUnique({
         where: { reservationId }
       });
-
-      if (existing) {
-        const userId = (session.user as any).id;
+      if (existingReservationThread) {
         const participant = await prisma.messageThreadParticipant.findUnique({
-          where: { threadId_userId: { threadId: existing.id, userId } }
+          where: { threadId_userId: { threadId: existingReservationThread.id, userId } }
         });
         if (!participant) {
           await prisma.messageThreadParticipant.create({
-            data: { threadId: existing.id, userId }
+            data: { threadId: existingReservationThread.id, userId }
           });
         }
-        return NextResponse.json({ thread: existing });
+        return NextResponse.json({ thread: existingReservationThread });
       }
     }
 
@@ -81,7 +86,7 @@ export async function POST(req: Request) {
       const existingInquiry = await prisma.messageThread.findFirst({
         where: {
           reservationId: null,
-          createdById: (session.user as any).id,
+          createdById: userId,
           subject: `LISTING:${listingId}`,
           participants: { some: { userId: hostId } }
         }
@@ -91,29 +96,37 @@ export async function POST(req: Request) {
       }
     }
 
+    const participants: { userId: string }[] = [{ userId }, { userId: hostId }];
+
     try {
       const thread = await prisma.messageThread.create({
         data: {
           reservationId,
           status: reservationId ? 'RESERVATION' : 'INQUIRY',
           subject: reservationId ? subject : `LISTING:${listingId || ''}`,
-          createdById: (session.user as any).id,
+          createdById: userId,
           participants: { create: participants }
         }
       });
       return NextResponse.json({ thread });
     } catch (error: any) {
       if (error?.code === 'P2002' && reservationId) {
-        const existing = await prisma.messageThread.findUnique({
+        const existingThread = await prisma.messageThread.findUnique({
           where: { reservationId }
         });
-        if (existing) {
-          return NextResponse.json({ thread: existing });
+        if (existingThread) {
+          return NextResponse.json({ thread: existingThread });
         }
       }
       throw error;
     }
   } catch (error: any) {
+    if (error?.message === 'No autorizado') {
+      return unauthorized();
+    }
+    if (error?.message === 'CSRF token invalido') {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     return NextResponse.json({ error: error.message || 'Error' }, { status: 500 });
   }
 }

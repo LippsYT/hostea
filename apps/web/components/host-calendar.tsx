@@ -20,6 +20,18 @@ type Hold = {
   expiresAt: string;
 };
 type OccupancyByDate = Record<string, { occupied: number; total: number }>;
+type DayMeta = {
+  status: 'Bloqueado' | 'iCal' | 'Reservado' | null;
+  occupancyLabel: string;
+  reservations: number;
+  external: number;
+  holds: number;
+  occupied: number;
+  total: number;
+};
+
+const overlaps = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) =>
+  aStart < bEnd && aEnd > bStart;
 
 export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
   const [csrf, setCsrf] = useState('');
@@ -107,6 +119,43 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
     });
     return map;
   }, [priceBlocks]);
+  const dayMeta = useMemo(() => {
+    const map = new Map<string, DayMeta>();
+    for (const [key, value] of Object.entries(occupancyByDate)) {
+      const dayStart = new Date(`${key}T00:00:00.000Z`);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+
+      const reservationsCount = reservations.filter((reservation) =>
+        overlaps(dayStart, dayEnd, new Date(reservation.checkIn), new Date(reservation.checkOut))
+      ).length;
+      const externalCount = externalBlocks.filter((block) =>
+        overlaps(dayStart, dayEnd, new Date(block.startDate), new Date(block.endDate))
+      ).length;
+      const holdsCount = holds.filter((hold) =>
+        overlaps(dayStart, dayEnd, new Date(hold.startDate), new Date(hold.endDate))
+      ).length;
+      const hardBlocksCount = manualBlocks.filter((block) =>
+        overlaps(dayStart, dayEnd, new Date(block.startDate), new Date(block.endDate))
+      ).length;
+
+      let status: DayMeta['status'] = null;
+      if (hardBlocksCount > 0) status = 'Bloqueado';
+      else if (externalCount > 0) status = 'iCal';
+      else if (reservationsCount > 0 || holdsCount > 0) status = 'Reservado';
+
+      map.set(key, {
+        status,
+        occupancyLabel: `${value.occupied}/${value.total}`,
+        reservations: reservationsCount,
+        external: externalCount,
+        holds: holdsCount,
+        occupied: value.occupied,
+        total: value.total
+      });
+    }
+    return map;
+  }, [occupancyByDate, reservations, externalBlocks, holds, manualBlocks]);
 
   return (
     <div className="space-y-4">
@@ -168,25 +217,40 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
               </div>
             )}
           </div>
-          <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-3">
+          <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 md:p-5">
             <DayPicker
+              className="host-calendar-picker"
               mode="range"
               selected={range}
               onSelect={setRange}
+              showOutsideDays
               disabled={disabledRanges}
               components={{
                 DayButton: (props: DayButtonProps) => {
                   const key = format(props.day.date, 'yyyy-MM-dd');
                   const price = priceMap.get(key);
+                  const meta = dayMeta.get(key);
+                  const statusClass =
+                    meta?.status === 'Bloqueado'
+                      ? 'rdp-day-status-blocked'
+                      : meta?.status === 'iCal'
+                        ? 'rdp-day-status-ical'
+                        : meta?.status === 'Reservado'
+                          ? 'rdp-day-status-reserved'
+                          : '';
+                  const tooltip = meta
+                    ? `Reservas: ${meta.reservations} | iCal: ${meta.external} | Holds: ${meta.holds} | Total: ${meta.occupied}/${meta.total}`
+                    : undefined;
                   const { children, ...buttonProps } = props;
                   return (
-                    <button {...buttonProps}>
+                    <button {...buttonProps} title={tooltip}>
                       <div className="rdp-day-content">
                         <span className="rdp-day-number">{children}</span>
-                        {occupancyByDate[key] && (
-                          <span className="rdp-day-price">
-                            Ocupacion {occupancyByDate[key].occupied}/{occupancyByDate[key].total}
-                          </span>
+                        {meta?.status && (
+                          <span className={`rdp-day-status ${statusClass}`}>{meta.status}</span>
+                        )}
+                        {meta && (
+                          <span className="rdp-day-occupancy">{meta.occupancyLabel}</span>
                         )}
                         {price !== undefined && (
                           <span className="rdp-day-price">USD {price}</span>

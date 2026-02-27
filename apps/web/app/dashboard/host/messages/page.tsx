@@ -7,6 +7,8 @@ import { HostMessageActions } from '@/components/host-message-actions';
 import Link from 'next/link';
 import { reservationStatusBadgeClass, reservationStatusLabel } from '@/lib/reservation-status';
 import { Badge } from '@/components/ui/badge';
+import { expireAwaitingPaymentReservations } from '@/lib/reservation-request-flow';
+import { getReservationWorkflowStatus } from '@/lib/reservation-workflow';
 
 type ThreadState = 'consulta' | 'oferta' | 'reserva' | 'cerrada';
 
@@ -47,6 +49,8 @@ export default async function HostMessagesPage({
   const userId = (session?.user as any)?.id as string;
   const userName = (session?.user as any)?.name || (session?.user as any)?.email || 'Usuario';
 
+  await expireAwaitingPaymentReservations();
+
   await prisma.offer.updateMany({
     where: { hostId: userId, status: 'PENDING', expiresAt: { lt: new Date() } },
     data: { status: 'EXPIRED' }
@@ -55,7 +59,7 @@ export default async function HostMessagesPage({
   const threads = await prisma.messageThread.findMany({
     where: { participants: { some: { userId } } },
     include: {
-      reservation: { include: { listing: true, user: { include: { profile: true } } } },
+      reservation: { include: { listing: true, user: { include: { profile: true } }, payment: true } },
       participants: { include: { user: { include: { profile: true } } } },
       offers: {
         orderBy: { createdAt: 'desc' },
@@ -95,7 +99,20 @@ export default async function HostMessagesPage({
   const selectedGuestName =
     selectedGuest?.user.profile?.name || selectedGuest?.user.email || 'Huesped';
   const selectedGuestPhone = selectedGuest?.user.profile?.phone || null;
-  const reservationStatus = selectedThread?.reservation?.status;
+  const reservationStatus = selectedThread?.reservation
+    ? (() => {
+        const workflow = getReservationWorkflowStatus({
+          status: selectedThread.reservation.status,
+          holdExpiresAt: selectedThread.reservation.holdExpiresAt,
+          paymentStatus: selectedThread.reservation.payment?.status || null
+        });
+        if (workflow === 'pending_approval') return 'PENDING_APPROVAL';
+        if (workflow === 'awaiting_payment') return 'AWAITING_PAYMENT';
+        if (workflow === 'expired') return 'EXPIRED';
+        if (workflow === 'rejected') return 'REJECTED';
+        return selectedThread.reservation.status;
+      })()
+    : null;
   const selectedState = selectedThread ? getThreadState(selectedThread) : null;
 
   const selectedListingTitle = selectedThread
@@ -212,8 +229,13 @@ export default async function HostMessagesPage({
                 </p>
                 <p>{selectedThread.reservation.guestsCount} huespedes</p>
                 <p>Total: USD {Number(selectedThread.reservation.total).toFixed(2)}</p>
-                <Badge className={reservationStatusBadgeClass(selectedThread.reservation.status)}>
-                  {reservationStatusLabel(selectedThread.reservation.status)}
+                {reservationStatus === 'AWAITING_PAYMENT' && selectedThread.reservation.holdExpiresAt && (
+                  <p className="text-xs text-indigo-700">
+                    Pago vence: {selectedThread.reservation.holdExpiresAt.toLocaleString('es-AR')}
+                  </p>
+                )}
+                <Badge className={reservationStatusBadgeClass(reservationStatus)}>
+                  {reservationStatusLabel(reservationStatus)}
                 </Badge>
               </div>
             ) : (

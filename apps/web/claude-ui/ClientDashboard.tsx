@@ -18,6 +18,7 @@ type Reservation = {
   status: 'upcoming' | 'active' | 'completed' | 'cancelled';
   totalPrice: number;
   pendingApproval?: boolean;
+  awaitingPayment?: boolean;
 };
 
 type ClientDashboardProps = {
@@ -86,6 +87,31 @@ export default function ClientDashboard({ reservations, stats }: ClientDashboard
     }
   };
 
+  const payReservation = async (reservationId: string) => {
+    try {
+      setLoadingThreadId(reservationId);
+      let token = csrf;
+      if (!token) {
+        const csrfRes = await fetch('/api/security/csrf');
+        const csrfData = await csrfRes.json();
+        token = csrfData?.token || '';
+        setCsrf(token);
+      }
+      const res = await fetch(`/api/reservations/${reservationId}/pay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': token }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data?.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+      alert(data?.error || 'No se pudo iniciar el pago');
+    } finally {
+      setLoadingThreadId(null);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="space-y-1">
@@ -140,6 +166,7 @@ export default function ClientDashboard({ reservations, stats }: ClientDashboard
           emptyTitle="No tienes reservas proximas."
           emptyDescription="Cuando reserves un alojamiento, aparecera aqui."
           onContactHost={createOrOpenThread}
+          onPayReservation={payReservation}
           loadingThreadId={loadingThreadId}
         />
       )}
@@ -149,6 +176,7 @@ export default function ClientDashboard({ reservations, stats }: ClientDashboard
           emptyTitle="No tienes estadias activas."
           emptyDescription="Las reservas en curso apareceran aqui."
           onContactHost={createOrOpenThread}
+          onPayReservation={payReservation}
           loadingThreadId={loadingThreadId}
         />
       )}
@@ -158,6 +186,7 @@ export default function ClientDashboard({ reservations, stats }: ClientDashboard
           emptyTitle="Todavia no tienes historial."
           emptyDescription="Tus reservas finalizadas o canceladas apareceran aqui."
           onContactHost={createOrOpenThread}
+          onPayReservation={payReservation}
           loadingThreadId={loadingThreadId}
         />
       )}
@@ -195,12 +224,14 @@ function ReservationList({
   emptyTitle,
   emptyDescription,
   onContactHost,
+  onPayReservation,
   loadingThreadId
 }: {
   reservations: Reservation[];
   emptyTitle: string;
   emptyDescription: string;
   onContactHost: (reservationId: string) => Promise<void>;
+  onPayReservation: (reservationId: string) => Promise<void>;
   loadingThreadId: string | null;
 }) {
   if (reservations.length === 0) {
@@ -248,11 +279,15 @@ function ReservationList({
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-slate-500">
-                    {reservation.pendingApproval ? 'Estado' : 'Total pagado'}
+                    {reservation.pendingApproval || reservation.awaitingPayment ? 'Estado' : 'Total pagado'}
                   </p>
                   {reservation.pendingApproval ? (
                     <p className="text-sm font-semibold text-slate-900">
                       El anfitrion debe aprobar tu reserva
+                    </p>
+                  ) : reservation.awaitingPayment ? (
+                    <p className="text-sm font-semibold text-slate-900">
+                      Solicitud aprobada. Falta pagar para confirmar.
                     </p>
                   ) : (
                     <p className="text-2xl font-bold text-slate-900">{money(reservation.totalPrice)}</p>
@@ -272,6 +307,15 @@ function ReservationList({
                         ? 'Volver a mensajes'
                         : 'Contactar host'}
                   </Button>
+                  {reservation.awaitingPayment && (
+                    <Button
+                      size="sm"
+                      onClick={() => onPayReservation(reservation.id)}
+                      disabled={loadingThreadId === reservation.id}
+                    >
+                      {loadingThreadId === reservation.id ? 'Abriendo...' : 'Pagar y confirmar'}
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     onClick={() => {

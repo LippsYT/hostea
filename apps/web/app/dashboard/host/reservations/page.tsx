@@ -4,6 +4,10 @@ import { prisma } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { HostReservations } from '@/components/host-reservations';
 import { ReservationStatus } from '@prisma/client';
+import {
+  expireAwaitingPaymentReservations
+} from '@/lib/reservation-request-flow';
+import { getReservationWorkflowStatus } from '@/lib/reservation-workflow';
 
 export default async function HostReservationsPage({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
   const session = await getServerSession(authOptions);
@@ -12,6 +16,7 @@ export default async function HostReservationsPage({ searchParams }: { searchPar
     redirect('/dashboard');
   }
   const userId = (session?.user as any)?.id as string;
+  await expireAwaitingPaymentReservations();
   const rawView = typeof searchParams.view === 'string' ? searchParams.view : 'pending';
   const view = ['pending', 'confirmed', 'rejected'].includes(rawView) ? rawView : 'pending';
   const statusFilter =
@@ -27,7 +32,14 @@ export default async function HostReservationsPage({ searchParams }: { searchPar
   });
   const filteredReservations =
     view === 'pending'
-      ? reservations.filter((reservation) => !reservation.payment && !reservation.holdExpiresAt)
+      ? reservations.filter((reservation) => {
+          const workflow = getReservationWorkflowStatus({
+            status: reservation.status,
+            holdExpiresAt: reservation.holdExpiresAt,
+            paymentStatus: reservation.payment?.status || null
+          });
+          return workflow === 'pending_approval' || workflow === 'awaiting_payment';
+        })
       : reservations;
 
   const safe = filteredReservations.map((r) => ({
@@ -35,10 +47,18 @@ export default async function HostReservationsPage({ searchParams }: { searchPar
     listingTitle: r.listing.title,
     guestName: r.user.profile?.name || r.user.email || 'Huésped',
     guestPhone: r.user.profile?.phone || null,
-    status:
-      r.status === ReservationStatus.PENDING_PAYMENT && !r.payment && !r.holdExpiresAt
-        ? 'PENDING_APPROVAL'
-        : r.status,
+    status: (() => {
+      const workflow = getReservationWorkflowStatus({
+        status: r.status,
+        holdExpiresAt: r.holdExpiresAt,
+        paymentStatus: r.payment?.status || null
+      });
+      if (workflow === 'pending_approval') return 'PENDING_APPROVAL';
+      if (workflow === 'awaiting_payment') return 'AWAITING_PAYMENT';
+      if (workflow === 'expired') return 'EXPIRED';
+      if (workflow === 'rejected') return 'REJECTED';
+      return r.status;
+    })(),
     checkIn: r.checkIn.toISOString().slice(0, 10),
     checkOut: r.checkOut.toISOString().slice(0, 10),
     total: Number(r.total)

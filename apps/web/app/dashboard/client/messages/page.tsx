@@ -5,11 +5,16 @@ import { ChatClient } from '@/components/chat-client';
 import Link from 'next/link';
 import { reservationStatusLabel } from '@/lib/reservation-status';
 import { ClientOfferActions } from '@/components/client-offer-actions';
+import { ClientReservationPaymentActions } from '@/components/client-reservation-payment-actions';
+import { expireAwaitingPaymentReservations } from '@/lib/reservation-request-flow';
+import { getReservationWorkflowStatus } from '@/lib/reservation-workflow';
 
 export default async function ClientMessagesPage({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
   const session = await getServerSession(authOptions);
   const userId = (session?.user as any)?.id as string;
   const userName = (session?.user as any)?.name || (session?.user as any)?.email || 'Usuario';
+
+  await expireAwaitingPaymentReservations();
 
   await prisma.offer.updateMany({
     where: { guestId: userId, status: 'PENDING', expiresAt: { lt: new Date() } },
@@ -19,7 +24,7 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
   const threads = await prisma.messageThread.findMany({
     where: { participants: { some: { userId } } },
     include: {
-      reservation: { include: { listing: true, user: true } },
+      reservation: { include: { listing: true, user: true, payment: true } },
       participants: { include: { user: { include: { profile: true } } } },
       offers: {
         where: { guestId: userId },
@@ -50,6 +55,13 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
   const selectedThread = threads.find((t) => t.id === selected);
   const selectedThreadId = selectedThread?.id || '';
   const latestOffer = selectedThread?.offers?.[0] || null;
+  const reservationWorkflowStatus = selectedThread?.reservation
+    ? getReservationWorkflowStatus({
+        status: selectedThread.reservation.status,
+        holdExpiresAt: selectedThread.reservation.holdExpiresAt,
+        paymentStatus: selectedThread.reservation.payment?.status || null
+      })
+    : null;
   const visibleOffer = latestOffer
     ? latestOffer.status === 'REJECTED'
       ? latestOffer
@@ -99,8 +111,27 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
               <p className="font-semibold text-slate-900">{selectedThread.reservation.listing.title}</p>
               <p>{selectedThread.reservation.checkIn.toISOString().slice(0, 10)} - {selectedThread.reservation.checkOut.toISOString().slice(0, 10)}</p>
               <p>{selectedThread.reservation.guestsCount} huespedes</p>
-              <p>Estado: {reservationStatusLabel(selectedThread.reservation.status)}</p>
+              <p>
+                Estado:{' '}
+                {reservationStatusLabel(
+                  reservationWorkflowStatus === 'pending_approval'
+                    ? 'PENDING_APPROVAL'
+                    : reservationWorkflowStatus === 'awaiting_payment'
+                      ? 'AWAITING_PAYMENT'
+                      : reservationWorkflowStatus === 'expired'
+                        ? 'EXPIRED'
+                        : reservationWorkflowStatus === 'rejected'
+                          ? 'REJECTED'
+                          : selectedThread.reservation.status
+                )}
+              </p>
               <p>Total: USD {Number(selectedThread.reservation.total).toFixed(2)}</p>
+              {reservationWorkflowStatus === 'awaiting_payment' && (
+                <ClientReservationPaymentActions
+                  reservationId={selectedThread.reservation.id}
+                  paymentExpiresAt={selectedThread.reservation.holdExpiresAt?.toISOString() || null}
+                />
+              )}
               {visibleOffer && (
                 <ClientOfferActions
                   threadId={selectedThreadId}

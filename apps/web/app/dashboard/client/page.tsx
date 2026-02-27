@@ -3,10 +3,13 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { ReservationStatus } from '@prisma/client';
 import ClientDashboard from '../../../claude-ui/ClientDashboard';
+import { getReservationWorkflowStatus } from '@/lib/reservation-workflow';
+import { expireAwaitingPaymentReservations } from '@/lib/reservation-request-flow';
 
 export default async function ClientPage() {
   const session = await getServerSession(authOptions);
   const userId = (session?.user as any)?.id as string;
+  await expireAwaitingPaymentReservations();
   const reservations = await prisma.reservation.findMany({
     where: { userId },
     include: { listing: { include: { photos: true } }, payment: true },
@@ -14,8 +17,13 @@ export default async function ClientPage() {
   });
 
   const mappedReservations = reservations.map((res) => {
-    const isPendingApproval =
-      res.status === ReservationStatus.PENDING_PAYMENT && !res.payment && !res.holdExpiresAt;
+    const workflow = getReservationWorkflowStatus({
+      status: res.status,
+      holdExpiresAt: res.holdExpiresAt,
+      paymentStatus: res.payment?.status || null
+    });
+    const isPendingApproval = workflow === 'pending_approval';
+    const isAwaitingPayment = workflow === 'awaiting_payment';
     let status: 'upcoming' | 'active' | 'completed' | 'cancelled' = 'upcoming';
     if (res.status === ReservationStatus.CHECKED_IN) status = 'active';
     if (res.status === ReservationStatus.COMPLETED) status = 'completed';
@@ -41,7 +49,8 @@ export default async function ClientPage() {
       guests: res.guestsCount,
       status,
       totalPrice: Number(res.total),
-      pendingApproval: isPendingApproval
+      pendingApproval: isPendingApproval,
+      awaitingPayment: isAwaitingPayment
     };
   });
 

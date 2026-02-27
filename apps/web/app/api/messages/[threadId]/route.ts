@@ -5,8 +5,10 @@ import { assertCsrf } from '@/lib/csrf';
 import { getIO } from '@/lib/socket';
 import { rateLimit } from '@/lib/rate-limit';
 import { sendPushToUser } from '@/lib/push-notifications';
+import { expireAwaitingPaymentReservations } from '@/lib/reservation-request-flow';
 
 export async function GET(_req: Request, { params }: { params: { threadId: string } }) {
+  await expireAwaitingPaymentReservations();
   const session = await requireSession();
   const userId = (session.user as any).id;
   const thread = await prisma.messageThread.findFirst({
@@ -46,6 +48,7 @@ export async function GET(_req: Request, { params }: { params: { threadId: strin
 }
 
 export async function POST(req: Request, { params }: { params: { threadId: string } }) {
+  await expireAwaitingPaymentReservations();
   assertCsrf(req);
   const session = await requireSession();
   const userId = (session.user as any).id;

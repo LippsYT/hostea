@@ -7,9 +7,13 @@ import { getIO } from '@/lib/socket';
 import { calcBreakdown } from '@/lib/intelligent-pricing';
 import { OfferStatus } from '@prisma/client';
 import { sendPushToClient } from '@/lib/push-notifications';
+import {
+  approveReservationRequest,
+  rejectReservationRequest
+} from '@/lib/reservation-request-flow';
 
 const schema = z.object({
-  action: z.enum(['preapprove', 'offer', 'close']),
+  action: z.enum(['preapprove', 'offer', 'close', 'approve_request', 'reject_request']),
   offerTotal: z.coerce.number().optional(),
   offerHostNet: z.coerce.number().optional(),
   checkIn: z.string().optional(),
@@ -51,7 +55,31 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
   let offerExpiresAt: Date | null = null;
   let offerHostNet: number | null = null;
 
-  if (parsed.data.action === 'preapprove') {
+  if (parsed.data.action === 'approve_request') {
+    if (!thread.reservationId) {
+      return NextResponse.json({ error: 'No hay solicitud asociada al chat' }, { status: 400 });
+    }
+    try {
+      await approveReservationRequest(thread.reservationId, userId);
+      return NextResponse.json({ ok: true });
+    } catch (error: any) {
+      const message = error?.message || 'No se pudo aprobar la solicitud';
+      const code = message === 'No autorizado' ? 403 : message.includes('cupo') ? 409 : 400;
+      return NextResponse.json({ error: message }, { status: code });
+    }
+  } else if (parsed.data.action === 'reject_request') {
+    if (!thread.reservationId) {
+      return NextResponse.json({ error: 'No hay solicitud asociada al chat' }, { status: 400 });
+    }
+    try {
+      await rejectReservationRequest(thread.reservationId, userId);
+      return NextResponse.json({ ok: true });
+    } catch (error: any) {
+      const message = error?.message || 'No se pudo rechazar la solicitud';
+      const code = message === 'No autorizado' ? 403 : 400;
+      return NextResponse.json({ error: message }, { status: code });
+    }
+  } else if (parsed.data.action === 'preapprove') {
     status = 'PREAPPROVED';
     messageBody = 'Te invitamos a reservar. Puedes completar la reserva con tus fechas.';
   } else if (parsed.data.action === 'offer') {

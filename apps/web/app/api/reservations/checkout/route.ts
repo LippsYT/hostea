@@ -10,6 +10,7 @@ import { ReservationStatus, PaymentStatus } from '@prisma/client';
 import { checkListingAvailability } from '@/lib/listing-availability';
 import { buildEffectivePriceOverrides } from '@/lib/dynamic-pricing-service';
 import { sendPushToHost } from '@/lib/push-notifications';
+import { expireAwaitingPaymentReservations } from '@/lib/reservation-request-flow';
 
 const schema = z.object({
   listingId: z.string(),
@@ -39,6 +40,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Datos invalidos' }, { status: 400 });
     }
     const { listingId, checkIn, checkOut, guests, guestsBreakdown } = parsed.data;
+    await expireAwaitingPaymentReservations();
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
     if (Number.isNaN(checkInDate.getTime()) || Number.isNaN(checkOutDate.getTime()) || checkOutDate <= checkInDate) {
@@ -132,6 +134,7 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         pendingApproval: true,
+        status: 'pending_approval',
         reservationId: reservation.id,
         threadId: thread.id,
         message: 'Solicitud enviada. El anfitrion debe aprobar la reserva.'

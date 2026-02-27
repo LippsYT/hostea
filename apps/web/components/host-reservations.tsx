@@ -67,6 +67,9 @@ export const HostReservations = ({ reservations }: { reservations: HostReservati
                   </Button>
                 </>
               )}
+              {r.status === 'AWAITING_PAYMENT' && (
+                <span className="text-xs text-slate-500">Esperando pago del cliente</span>
+              )}
               {r.status === 'CONFIRMED' && (
                 <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, 'CHECKED_IN')}>
                   Check-in

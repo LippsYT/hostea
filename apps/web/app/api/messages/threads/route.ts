@@ -4,12 +4,14 @@ import { requireSession } from '@/lib/permissions';
 import { assertCsrf } from '@/lib/csrf';
 import { rateLimit } from '@/lib/rate-limit';
 import { sendPushToHost } from '@/lib/push-notifications';
+import { expireAwaitingPaymentReservations } from '@/lib/reservation-request-flow';
 
 const unauthorized = (message = 'No autorizado') =>
   NextResponse.json({ error: message }, { status: 401 });
 
 export async function GET() {
   try {
+    await expireAwaitingPaymentReservations();
     const session = await requireSession();
     const userId = (session.user as any).id;
     const threads = await prisma.messageThread.findMany({
@@ -28,6 +30,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    await expireAwaitingPaymentReservations();
     assertCsrf(req);
     const session = await requireSession();
     const userId = (session.user as any).id as string;

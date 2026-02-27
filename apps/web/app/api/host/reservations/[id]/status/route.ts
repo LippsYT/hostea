@@ -4,24 +4,19 @@ import { requireSession } from '@/lib/permissions';
 import { assertCsrf } from '@/lib/csrf';
 import { z } from 'zod';
 import { ReservationStatus } from '@prisma/client';
-import { sendAutoMessagesOnConfirm } from '@/lib/auto-messages';
-import { checkListingAvailability } from '@/lib/listing-availability';
+import {
+  expireAwaitingPaymentReservations,
+  approveReservationRequest,
+  rejectReservationRequest
+} from '@/lib/reservation-request-flow';
 
 const schema = z.object({
   status: z.nativeEnum(ReservationStatus),
   reason: z.string().max(240).optional()
 });
 
-const isPendingApprovalReservation = (reservation: {
-  status: ReservationStatus;
-  holdExpiresAt: Date | null;
-  payment: unknown;
-}) =>
-  reservation.status === ReservationStatus.PENDING_PAYMENT &&
-  reservation.holdExpiresAt === null &&
-  !reservation.payment;
-
 export async function POST(req: Request, { params }: { params: { id: string } }) {
+  await expireAwaitingPaymentReservations();
   assertCsrf(req);
   const session = await requireSession();
   const body = await req.json();
@@ -38,7 +33,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   const nextStatus = parsed.data.status;
-  const isPendingApproval = isPendingApprovalReservation(reservation);
+  const isPendingApproval =
+    reservation.status === ReservationStatus.PENDING_PAYMENT &&
+    !reservation.holdExpiresAt &&
+    !reservation.payment;
   const actorId = (session.user as any).id as string;
 
   if (isPendingApproval) {
@@ -47,66 +45,24 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
 
     if (nextStatus === ReservationStatus.CONFIRMED) {
-      const availability = await checkListingAvailability({
-        listingId: reservation.listingId,
-        checkIn: reservation.checkIn,
-        checkOut: reservation.checkOut,
-        guests: reservation.guestsCount,
-        excludeReservationId: reservation.id
-      });
-      if (!availability.available) {
-        return NextResponse.json(
-          { error: availability.message || 'Ya no hay cupo para esas fechas.' },
-          { status: 409 }
-        );
+      try {
+        const result = await approveReservationRequest(reservation.id, actorId);
+        return NextResponse.json({ reservation: result.reservation });
+      } catch (error: any) {
+        const message = error?.message || 'No se pudo aprobar la solicitud';
+        const code = message.includes('cupo') ? 409 : message === 'No autorizado' ? 403 : 400;
+        return NextResponse.json({ error: message }, { status: code });
       }
-
-      const updated = await prisma.$transaction(async (tx) => {
-        const next = await tx.reservation.update({
-          where: { id: reservation.id },
-          data: { status: ReservationStatus.CONFIRMED }
-        });
-        await tx.calendarBlock.create({
-          data: {
-            listingId: reservation.listingId,
-            startDate: reservation.checkIn,
-            endDate: reservation.checkOut,
-            reason: 'Reserva confirmada (aprobada por host)',
-            createdBy: reservation.userId
-          }
-        });
-        await tx.auditLog.create({
-          data: {
-            actorId,
-            action: 'RESERVATION_APPROVED',
-            entity: 'Reservation',
-            entityId: reservation.id,
-            meta: { approvedBy: actorId, approvedAt: new Date() }
-          }
-        });
-        return next;
-      });
-      await sendAutoMessagesOnConfirm(reservation.id);
-      return NextResponse.json({ reservation: updated });
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
-      const next = await tx.reservation.update({
-        where: { id: reservation.id },
-        data: { status: ReservationStatus.CANCELED }
-      });
-      await tx.auditLog.create({
-        data: {
-          actorId,
-          action: 'RESERVATION_REJECTED',
-          entity: 'Reservation',
-          entityId: reservation.id,
-          meta: { rejectedAt: new Date(), reason: parsed.data.reason || null }
-        }
-      });
-      return next;
-    });
-    return NextResponse.json({ reservation: updated });
+    try {
+      const result = await rejectReservationRequest(reservation.id, actorId, parsed.data.reason);
+      return NextResponse.json({ reservation: result.reservation });
+    } catch (error: any) {
+      const message = error?.message || 'No se pudo rechazar la solicitud';
+      const code = message === 'No autorizado' ? 403 : 400;
+      return NextResponse.json({ error: message }, { status: code });
+    }
   }
 
   if (nextStatus !== ReservationStatus.CHECKED_IN && nextStatus !== ReservationStatus.COMPLETED) {

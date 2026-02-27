@@ -54,12 +54,18 @@ export const HostMessageActions = ({
 
   const isClosed =
     reservationStatus === ReservationStatus.CANCELED ||
-    reservationStatus === ReservationStatus.REFUNDED;
+    reservationStatus === ReservationStatus.REFUNDED ||
+    reservationStatus === 'REJECTED' ||
+    reservationStatus === 'EXPIRED';
+  const isPendingApproval = reservationStatus === 'PENDING_APPROVAL';
+  const isAwaitingPayment = reservationStatus === 'AWAITING_PAYMENT';
   const desiredNet = Math.max(0, Number(offerHostNet) || 0);
   const offerClientPrice = calcClientPriceFromHostNet(desiredNet, defaultSmartPricingParams);
   const offerBreakdown = calcBreakdown(offerClientPrice, defaultSmartPricingParams);
 
-  const sendAction = async (action: 'preapprove' | 'offer' | 'close') => {
+  const sendAction = async (
+    action: 'preapprove' | 'offer' | 'close' | 'approve_request' | 'reject_request'
+  ) => {
     setSending(true);
     try {
       const res = await fetch(`/api/host/messages/${threadId}/actions`, {
@@ -90,9 +96,41 @@ export const HostMessageActions = ({
 
   return (
     <div className="space-y-3">
-      <Button variant="outline" className="w-full" disabled={sending || isClosed} onClick={() => sendAction('preapprove')}>
-        Invitar a reservar
-      </Button>
+      {isPendingApproval && (
+        <div className="space-y-2 rounded-2xl border border-sky-200 bg-sky-50 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">
+            Solicitud pendiente
+          </p>
+          <Button className="w-full" disabled={sending} onClick={() => sendAction('approve_request')}>
+            Aprobar solicitud
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full border-rose-200 text-rose-600 hover:bg-rose-50"
+            disabled={sending}
+            onClick={() => sendAction('reject_request')}
+          >
+            Rechazar
+          </Button>
+        </div>
+      )}
+
+      {!isPendingApproval && (
+        <Button
+          variant="outline"
+          className="w-full"
+          disabled={sending || isClosed || isAwaitingPayment}
+          onClick={() => sendAction('preapprove')}
+        >
+          Invitar a reservar
+        </Button>
+      )}
+
+      {isAwaitingPayment && (
+        <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
+          La solicitud ya fue aprobada. Estamos esperando que el cliente pague para confirmar.
+        </div>
+      )}
 
       <div className="space-y-2 rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Oferta especial</p>

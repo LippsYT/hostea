@@ -7,6 +7,27 @@ import {
   isCloudbedsEnabled
 } from '@/lib/cloudbeds';
 
+const ensureThreadMessage = async (
+  prisma: any,
+  threadId: string | undefined,
+  senderId: string,
+  body: string
+) => {
+  if (!threadId) return;
+  const existing = await prisma.message.findFirst({
+    where: { threadId, senderId, body },
+    orderBy: { createdAt: 'desc' }
+  });
+  if (existing) return;
+  await prisma.message.create({
+    data: {
+      threadId,
+      senderId,
+      body
+    }
+  });
+};
+
 export const handleStripeWebhook = async (event: any, prisma: any) => {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as any;
@@ -146,10 +167,23 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         where: { id: reservationId },
         include: {
           listing: true,
-          user: { include: { profile: true } }
+          user: { include: { profile: true } },
+          thread: true
         }
       });
       if (reservation) {
+        if (reservation.thread?.id) {
+          await prisma.messageThread.update({
+            where: { id: reservation.thread.id },
+            data: { status: 'RESERVATION' }
+          });
+          await ensureThreadMessage(
+            prisma,
+            reservation.thread.id,
+            reservation.listing.hostId,
+            '✅ Reserva confirmada.'
+          );
+        }
         await prisma.calendarBlock.create({
           data: {
             listingId: reservation.listingId,
@@ -243,10 +277,23 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         where: { reservationId },
         data: { status: PaymentStatus.FAILED }
       });
-      await prisma.reservation.update({
+      const reservation = await prisma.reservation.update({
         where: { id: reservationId },
-        data: { status: ReservationStatus.CANCELED, holdExpiresAt: null }
+        data: { status: ReservationStatus.CANCELED, holdExpiresAt: null },
+        include: { listing: true, thread: true }
       });
+      if (reservation.thread?.id) {
+        await prisma.messageThread.update({
+          where: { id: reservation.thread.id },
+          data: { status: 'REJECTED' }
+        });
+        await ensureThreadMessage(
+          prisma,
+          reservation.thread.id,
+          reservation.listing.hostId,
+          '⏳ La solicitud vencio.'
+        );
+      }
     }
   }
 
@@ -258,10 +305,23 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         where: { id: payment.id },
         data: { status: PaymentStatus.FAILED }
       });
-      await prisma.reservation.update({
+      const reservation = await prisma.reservation.update({
         where: { id: payment.reservationId },
-        data: { status: ReservationStatus.CANCELED, holdExpiresAt: null }
+        data: { status: ReservationStatus.CANCELED, holdExpiresAt: null },
+        include: { listing: true, thread: true }
       });
+      if (reservation.thread?.id) {
+        await prisma.messageThread.update({
+          where: { id: reservation.thread.id },
+          data: { status: 'REJECTED' }
+        });
+        await ensureThreadMessage(
+          prisma,
+          reservation.thread.id,
+          reservation.listing.hostId,
+          '⏳ La solicitud vencio.'
+        );
+      }
     }
   }
 };

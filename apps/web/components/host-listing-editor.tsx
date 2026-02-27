@@ -9,6 +9,11 @@ import {
   defaultSmartPricingParams,
   withSmartPricingParams
 } from '@/lib/intelligent-pricing';
+import {
+  type BookingMode,
+  bookingModeFromInstantBook,
+  bookingModeLabel
+} from '@/lib/booking-mode';
 
 type Photo = { id: string; url: string; sortOrder: number };
 type IcalFeed = {
@@ -74,6 +79,8 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
   const [icalBusy, setIcalBusy] = useState(false);
   const [feeds, setFeeds] = useState<IcalFeed[]>([]);
   const [hosteaIcalUrl, setHosteaIcalUrl] = useState('');
+  const [bookingModeBusy, setBookingModeBusy] = useState(false);
+  const [showIcalModeModal, setShowIcalModeModal] = useState(false);
   const [dynamicBusy, setDynamicBusy] = useState(false);
   const [dynamicError, setDynamicError] = useState('');
   const [dynamicOccupancyRate, setDynamicOccupancyRate] = useState(0);
@@ -101,7 +108,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
     beds: listing.beds,
     baths: listing.baths,
     cancelPolicy: listing.cancelPolicy,
-    instantBook: listing.instantBook
+    bookingMode: bookingModeFromInstantBook(listing.instantBook)
   });
 
   const loadIcalFeeds = async () => {
@@ -171,7 +178,8 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
       ...form,
       pricePerNight: calculatedPrice,
       netoDeseadoUsd: form.netoDeseadoUsd,
-      precioClienteCalculadoUsd: calculatedPrice
+      precioClienteCalculadoUsd: calculatedPrice,
+      bookingMode: form.bookingMode
     };
     await fetch(`/api/host/listings/${listing.id}`, {
       method: 'PUT',
@@ -180,6 +188,25 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
     });
     setSaving(false);
     alert('Listing actualizado');
+  };
+
+  const saveBookingMode = async (mode: BookingMode) => {
+    setBookingModeBusy(true);
+    try {
+      const res = await fetch(`/api/host/listings/${listing.id}/booking-mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+        body: JSON.stringify({ mode })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setIcalError(data?.error || 'No se pudo actualizar el modo de reservas.');
+        return;
+      }
+      setForm((prev) => ({ ...prev, bookingMode: mode }));
+    } finally {
+      setBookingModeBusy(false);
+    }
   };
 
   const uploadFile = async (file: File) => {
@@ -263,6 +290,9 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
       return;
     }
     setIcalUrl('');
+    if (data?.recommendApprovalMode && form.bookingMode === 'instant') {
+      setShowIcalModeModal(true);
+    }
     await loadIcalFeeds();
     setIcalBusy(false);
   };
@@ -329,6 +359,9 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
     if (!res.ok) {
       setIcalError(data?.error || 'No se pudo actualizar el feed.');
       return;
+    }
+    if (!feed.isActive && form.bookingMode === 'instant') {
+      setShowIcalModeModal(true);
     }
     await loadIcalFeeds();
   };
@@ -505,14 +538,33 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
             <option value="MODERATE">MODERATE</option>
             <option value="STRICT">STRICT</option>
           </select>
-          <label className="flex items-center gap-3 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={form.instantBook}
-              onChange={(e) => setForm((f) => ({ ...f, instantBook: e.target.checked }))}
-            />
-            Reserva inmediata
-          </label>
+          <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Modo de reservas</p>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {(['instant', 'approval'] as BookingMode[]).map((mode) => {
+                const selected = form.bookingMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, bookingMode: mode }))}
+                    className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                      selected
+                        ? 'border-slate-900 bg-slate-50 text-slate-900'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <p className="font-semibold">{bookingModeLabel(mode)}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {mode === 'instant'
+                        ? 'El huesped confirma al instante. Recomendado solo si tu disponibilidad esta 100% controlada.'
+                        : 'Recibes solicitud y apruebas manualmente. Recomendado si usas iCal o varios canales.'}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
         <div className="mt-6 rounded-2xl border border-slate-200/70 bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -702,6 +754,26 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
           </Button>
         </div>
 
+        {feeds.length > 0 && form.bookingMode === 'instant' && (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="font-semibold">Sincronizacion iCal (importante)</p>
+            <p className="mt-1 text-xs text-amber-800">
+              iCal puede demorar en actualizarse. Para reducir overbooking, recomendamos activar
+              "Reservas por aprobacion".
+            </p>
+            <div className="mt-3">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => saveBookingMode('approval')}
+                disabled={bookingModeBusy}
+              >
+                {bookingModeBusy ? 'Actualizando...' : 'Activar Reservas por aprobacion'}
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="mt-4 rounded-2xl border border-slate-200/70 bg-white p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">iCal de Hostea</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -784,6 +856,34 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
           {photos.length === 0 && <p className="text-sm text-slate-500">Aun no hay fotos cargadas.</p>}
         </div>
       </div>
+
+      {showIcalModeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+            <h3 className="text-xl font-semibold text-slate-900">Sincronizacion iCal (importante)</h3>
+            <p className="mt-3 text-sm text-slate-600">
+              Estas usando sincronizacion por iCal con canales externos (Airbnb/Booking/etc).
+              iCal puede demorar en actualizarse, por lo que algunas reservas externas podrian no
+              reflejarse al instante en Hostea. Para reducir overbooking, recomendamos activar
+              "Reservas por aprobacion".
+            </p>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowIcalModeModal(false)}>
+                Entendido
+              </Button>
+              <Button
+                onClick={async () => {
+                  await saveBookingMode('approval');
+                  setShowIcalModeModal(false);
+                }}
+                disabled={bookingModeBusy}
+              >
+                {bookingModeBusy ? 'Actualizando...' : 'Activar Reservas por aprobacion'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

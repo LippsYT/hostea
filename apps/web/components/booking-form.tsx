@@ -35,18 +35,21 @@ export const BookingForm = ({
   pricePerNight,
   cleaningFee,
   serviceFee,
-  taxRate
+  taxRate,
+  instantBook = true
 }: {
   listingId: string;
   pricePerNight: number;
   cleaningFee: number;
   serviceFee: number;
   taxRate: number;
+  instantBook?: boolean;
 }) => {
   const [csrfToken, setCsrfToken] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [guestOpen, setGuestOpen] = useState(false);
   const [guestError, setGuestError] = useState('');
+  const [pendingApprovalThreadId, setPendingApprovalThreadId] = useState<string | null>(null);
   const [priceOverrides, setPriceOverrides] = useState<{ startDate: string; endDate: string; price: number }[]>([]);
   const [availability, setAvailability] = useState<AvailabilityState>({
     loading: false,
@@ -172,6 +175,11 @@ export const BookingForm = ({
       })
     });
     const data = await res.json();
+    if (data?.pendingApproval) {
+      setPendingApprovalThreadId(data.threadId || null);
+      setLoading(false);
+      return;
+    }
     if (data.checkoutUrl) {
       window.location.href = data.checkoutUrl;
     } else {
@@ -358,8 +366,30 @@ export const BookingForm = ({
         size="lg"
         disabled={loading || availability.loading || availability.available === false}
       >
-        {loading ? 'Procesando...' : 'Reservar ahora'}
+        {loading ? 'Procesando...' : instantBook ? 'Reservar ahora' : 'Enviar solicitud'}
       </Button>
+
+      {pendingApprovalThreadId !== null && (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          <p className="font-semibold">Solicitud enviada</p>
+          <p className="mt-1 text-blue-800">
+            El anfitrion debe aprobar tu reserva. Te avisaremos cuando este confirmada.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="mt-3"
+            onClick={() =>
+              (window.location.href = pendingApprovalThreadId
+                ? `/dashboard/client/messages?threadId=${pendingApprovalThreadId}`
+                : '/dashboard/client/messages')
+            }
+          >
+            Volver a mensajes
+          </Button>
+        </div>
+      )}
     </form>
   );
 };

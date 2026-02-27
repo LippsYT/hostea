@@ -11,6 +11,7 @@ import {
   defaultSmartPricingParams,
   withSmartPricingParams
 } from '@/lib/intelligent-pricing';
+import { instantBookFromBookingMode, type BookingMode } from '@/lib/booking-mode';
 import { ListingType, CancelPolicy } from '@prisma/client';
 
 const emptyToUndefined = (value: unknown) =>
@@ -30,7 +31,12 @@ const schema = z
     capacity: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
     beds: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
     baths: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
-    cancelPolicy: z.preprocess(emptyToUndefined, z.nativeEnum(CancelPolicy).optional())
+    cancelPolicy: z.preprocess(emptyToUndefined, z.nativeEnum(CancelPolicy).optional()),
+    instantBook: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+    bookingMode: z.preprocess(
+      emptyToUndefined,
+      z.enum(['instant', 'approval']).optional()
+    )
   })
   .passthrough();
 
@@ -77,6 +83,11 @@ export async function POST(req: Request) {
     const beds = Number.isFinite(data.beds) ? data.beds! : 1;
     const baths = Number.isFinite(data.baths) ? data.baths! : 1;
     const cancelPolicy = data.cancelPolicy ?? CancelPolicy.FLEXIBLE;
+    const bookingMode = data.bookingMode as BookingMode | undefined;
+    const instantBook =
+      bookingMode !== undefined
+        ? instantBookFromBookingMode(bookingMode)
+        : data.instantBook ?? true;
     const listing = await prisma.listing.create({
       data: {
         hostId: (session.user as any).id,
@@ -95,7 +106,8 @@ export async function POST(req: Request) {
         capacity,
         beds,
         baths,
-        cancelPolicy
+        cancelPolicy,
+        instantBook
       }
     });
     return NextResponse.json({ listing });

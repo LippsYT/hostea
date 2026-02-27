@@ -18,6 +18,7 @@ type AvailabilityInput = {
   checkIn: Date;
   checkOut: Date;
   guests: number;
+  excludeReservationId?: string;
 };
 
 const localAvailability = async (args: AvailabilityInput): Promise<ListingAvailabilityResult> => {
@@ -25,6 +26,7 @@ const localAvailability = async (args: AvailabilityInput): Promise<ListingAvaila
   const now = new Date();
   const overlapping = await prisma.reservation.findFirst({
     where: {
+      ...(args.excludeReservationId ? { id: { not: args.excludeReservationId } } : {}),
       listingId: args.listingId,
       checkIn: { lt: args.checkOut },
       checkOut: { gt: args.checkIn },

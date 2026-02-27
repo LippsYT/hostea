@@ -5,12 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-type NavItem = { href: string; label: string };
-
-const isActiveRoute = (pathname: string, href: string) => {
-  if (href === '/dashboard') return pathname === '/dashboard';
-  return pathname === href || pathname.startsWith(`${href}/`);
-};
+type NavItem = { key: string; href: string; label: string };
 
 export const DashboardShell = ({
   navItems,
@@ -30,10 +25,12 @@ export const DashboardShell = ({
     setMobileOpen(false);
   }, [pathname]);
 
-  const activeMap = useMemo(() => {
-    const map = new Map<string, boolean>();
-    navItems.forEach((item) => map.set(item.href, isActiveRoute(pathname, item.href)));
-    return map;
+  const activeKey = useMemo(() => {
+    const sorted = [...navItems].sort((a, b) => b.href.length - a.href.length);
+    const matched = sorted.find(
+      (item) => pathname === item.href || pathname.startsWith(`${item.href}/`)
+    );
+    return matched?.key || null;
   }, [pathname, navItems]);
 
   return (
@@ -54,10 +51,10 @@ export const DashboardShell = ({
         </div>
         <nav className="mt-6 space-y-1 text-sm">
           {navItems.map((item) => {
-            const active = activeMap.get(item.href);
+            const active = item.key === activeKey;
             return (
               <Link
-                key={item.href}
+                key={item.key}
                 href={item.href}
                 className={`flex items-center justify-between rounded-full px-4 py-2 transition ${
                   active
@@ -155,10 +152,10 @@ export const DashboardShell = ({
 
           <nav className="mt-5 space-y-1 text-sm">
             {navItems.map((item) => {
-              const active = activeMap.get(item.href);
+              const active = item.key === activeKey;
               return (
                 <Link
-                  key={item.href}
+                  key={item.key}
                   href={item.href}
                   className={`block rounded-full px-4 py-2 transition ${
                     active

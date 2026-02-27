@@ -36,7 +36,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const allowedNavItems = navItems
     .filter((item) => hasRole(roles, item.roles))
-    .map((item) => ({ href: item.href, label: item.label }));
+    .map((item) => ({ key: item.href, href: item.href, label: item.label }))
+    .filter((item, index, arr) => arr.findIndex((x) => x.href === item.href) === index);
 
   return (
     <div className="min-h-screen bg-slate-950/5">

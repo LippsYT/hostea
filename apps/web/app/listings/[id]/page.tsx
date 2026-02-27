@@ -115,6 +115,7 @@ export default async function ListingDetail({ params }: { params: { id: string }
                     cleaningFee={Number(listing.cleaningFee)}
                     serviceFee={0}
                     taxRate={normalizedTaxRate}
+                    instantBook={listing.instantBook}
                   />
                 </div>
                 <div className="mt-3">

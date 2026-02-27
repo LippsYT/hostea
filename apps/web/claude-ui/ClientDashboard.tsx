@@ -17,6 +17,7 @@ type Reservation = {
   guests: number;
   status: 'upcoming' | 'active' | 'completed' | 'cancelled';
   totalPrice: number;
+  pendingApproval?: boolean;
 };
 
 type ClientDashboardProps = {
@@ -246,8 +247,16 @@ function ReservationList({
 
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Total pagado</p>
-                  <p className="text-2xl font-bold text-slate-900">{money(reservation.totalPrice)}</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">
+                    {reservation.pendingApproval ? 'Estado' : 'Total pagado'}
+                  </p>
+                  {reservation.pendingApproval ? (
+                    <p className="text-sm font-semibold text-slate-900">
+                      El anfitrion debe aprobar tu reserva
+                    </p>
+                  ) : (
+                    <p className="text-2xl font-bold text-slate-900">{money(reservation.totalPrice)}</p>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
@@ -257,7 +266,11 @@ function ReservationList({
                     disabled={loadingThreadId === reservation.id}
                   >
                     <MessageSquare className="mr-1 h-4 w-4" />
-                    {loadingThreadId === reservation.id ? 'Abriendo...' : 'Contactar host'}
+                    {loadingThreadId === reservation.id
+                      ? 'Abriendo...'
+                      : reservation.pendingApproval
+                        ? 'Volver a mensajes'
+                        : 'Contactar host'}
                   </Button>
                   <Button
                     size="sm"

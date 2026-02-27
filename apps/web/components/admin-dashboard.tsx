@@ -25,6 +25,7 @@ export const AdminDashboard = ({
   const [csrf, setCsrf] = useState('');
   const [roleMap, setRoleMap] = useState<Record<string, string>>({});
   const [statusMap, setStatusMap] = useState<Record<string, string>>({});
+  const [reservationTab, setReservationTab] = useState<'pending' | 'confirmed' | 'rejected'>('pending');
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
@@ -75,6 +76,14 @@ export const AdminDashboard = ({
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }
     });
   };
+
+  const filteredReservations = reservations.filter((reservation) => {
+    if (reservationTab === 'pending') return reservation.status === 'PENDING_PAYMENT';
+    if (reservationTab === 'confirmed') {
+      return ['CONFIRMED', 'CHECKED_IN', 'COMPLETED'].includes(reservation.status);
+    }
+    return ['CANCELED', 'REFUNDED', 'DISPUTED'].includes(reservation.status);
+  });
 
   return (
     <div className="space-y-10">
@@ -171,9 +180,32 @@ export const AdminDashboard = ({
 
         <div className="surface-card">
           <h2 className="text-xl font-semibold text-slate-900">Reservas</h2>
-          <p className="text-sm text-slate-500">Ultimos movimientos y cancelaciones.</p>
+          <p className="text-sm text-slate-500">Gestion por estado.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={`pill-link ${reservationTab === 'pending' ? 'pill-link-active' : ''}`}
+              onClick={() => setReservationTab('pending')}
+            >
+              Pendientes
+            </button>
+            <button
+              type="button"
+              className={`pill-link ${reservationTab === 'confirmed' ? 'pill-link-active' : ''}`}
+              onClick={() => setReservationTab('confirmed')}
+            >
+              Confirmadas
+            </button>
+            <button
+              type="button"
+              className={`pill-link ${reservationTab === 'rejected' ? 'pill-link-active' : ''}`}
+              onClick={() => setReservationTab('rejected')}
+            >
+              Rechazadas
+            </button>
+          </div>
           <div className="mt-5 space-y-3">
-            {reservations.map((r) => (
+            {filteredReservations.map((r) => (
               <div key={r.id} className="surface-muted flex flex-wrap items-center justify-between gap-3 text-sm">
                 <div>
                   <p className="font-semibold text-slate-900">{r.listingTitle}</p>
@@ -184,6 +216,9 @@ export const AdminDashboard = ({
                 <Button size="sm" variant="outline" onClick={() => cancelReservation(r.id)}>Cancelar</Button>
               </div>
             ))}
+            {filteredReservations.length === 0 && (
+              <p className="text-sm text-slate-500">No hay reservas en esta seccion.</p>
+            )}
           </div>
         </div>
       </section>

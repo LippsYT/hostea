@@ -10,6 +10,7 @@ import {
   defaultSmartPricingParams,
   withSmartPricingParams
 } from '@/lib/intelligent-pricing';
+import { instantBookFromBookingMode, type BookingMode } from '@/lib/booking-mode';
 import { ListingType, CancelPolicy } from '@prisma/client';
 
 const schema = z.object({
@@ -28,7 +29,8 @@ const schema = z.object({
   beds: z.coerce.number(),
   baths: z.coerce.number(),
   cancelPolicy: z.nativeEnum(CancelPolicy),
-  instantBook: z.coerce.boolean().optional()
+  instantBook: z.coerce.boolean().optional(),
+  bookingMode: z.enum(['instant', 'approval']).optional()
 });
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
@@ -72,6 +74,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     desiredNet !== null ? desiredNet : calcBreakdown(pricePerNight, pricingParams).hostNet;
   const precioClienteCalculadoUsd = pricePerNight;
   const normalizedTaxRate = data.taxRate > 1 ? data.taxRate / 100 : data.taxRate;
+  const bookingMode = data.bookingMode as BookingMode | undefined;
+  const instantBook =
+    bookingMode !== undefined
+      ? instantBookFromBookingMode(bookingMode)
+      : data.instantBook ?? listing.instantBook;
   const updated = await prisma.listing.update({
     where: { id: params.id },
     data: {
@@ -91,7 +98,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       beds: data.beds,
       baths: data.baths,
       cancelPolicy: data.cancelPolicy,
-      instantBook: data.instantBook ?? listing.instantBook
+      instantBook
     }
   });
   return NextResponse.json({ listing: updated });

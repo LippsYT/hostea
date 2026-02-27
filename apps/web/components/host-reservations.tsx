@@ -27,10 +27,15 @@ export const HostReservations = ({ reservations }: { reservations: HostReservati
   }, []);
 
   const updateStatus = async (id: string, status: string) => {
+    let reason: string | undefined;
+    if (status === 'CANCELED') {
+      const input = prompt('Motivo del rechazo (opcional):') || '';
+      reason = input.trim() || undefined;
+    }
     await fetch(`/api/host/reservations/${id}/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
-      body: JSON.stringify({ status })
+      body: JSON.stringify({ status, reason })
     });
     window.location.reload();
   };
@@ -52,8 +57,26 @@ export const HostReservations = ({ reservations }: { reservations: HostReservati
               <Badge className={reservationStatusBadgeClass(r.status)}>
                 {reservationStatusLabel(r.status)}
               </Badge>
-              <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, 'CHECKED_IN')}>Check-in</Button>
-              <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, 'COMPLETED')}>Completar</Button>
+              {r.status === 'PENDING_APPROVAL' && (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, 'CONFIRMED')}>
+                    Aprobar
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, 'CANCELED')}>
+                    Rechazar
+                  </Button>
+                </>
+              )}
+              {r.status === 'CONFIRMED' && (
+                <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, 'CHECKED_IN')}>
+                  Check-in
+                </Button>
+              )}
+              {r.status === 'CHECKED_IN' && (
+                <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, 'COMPLETED')}>
+                  Completar
+                </Button>
+              )}
             </div>
           </div>
         </div>

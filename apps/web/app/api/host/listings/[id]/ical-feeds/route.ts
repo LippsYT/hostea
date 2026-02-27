@@ -37,7 +37,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const session = await requireSession();
     const listing = await prisma.listing.findUnique({
       where: { id: params.id },
-      select: { id: true, hostId: true }
+      select: { id: true, hostId: true, instantBook: true }
     });
     if (!listing || listing.hostId !== (session.user as any).id) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
@@ -56,7 +56,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         provider: parsed.data.provider?.trim() || null
       }
     });
-    return NextResponse.json({ feed });
+    return NextResponse.json({
+      feed,
+      recommendApprovalMode: Boolean(listing.instantBook)
+    });
   } catch (error: any) {
     if (error?.code === 'P2002') {
       return NextResponse.json({ error: 'Ese iCal ya esta agregado.' }, { status: 409 });

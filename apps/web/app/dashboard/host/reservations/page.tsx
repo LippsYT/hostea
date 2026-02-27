@@ -12,29 +12,33 @@ export default async function HostReservationsPage({ searchParams }: { searchPar
     redirect('/dashboard');
   }
   const userId = (session?.user as any)?.id as string;
-  const view = typeof searchParams.view === 'string' ? searchParams.view : 'active';
-  const historyStatuses: ReservationStatus[] = [
-    ReservationStatus.CANCELED,
-    ReservationStatus.REFUNDED,
-    ReservationStatus.DISPUTED,
-    ReservationStatus.COMPLETED
-  ];
+  const rawView = typeof searchParams.view === 'string' ? searchParams.view : 'pending';
+  const view = ['pending', 'confirmed', 'rejected'].includes(rawView) ? rawView : 'pending';
   const statusFilter =
-    view === 'history'
-      ? { status: { in: historyStatuses } }
-      : { status: ReservationStatus.CONFIRMED };
+    view === 'rejected'
+      ? { status: { in: [ReservationStatus.CANCELED, ReservationStatus.REFUNDED, ReservationStatus.DISPUTED] } }
+      : view === 'confirmed'
+        ? { status: { in: [ReservationStatus.CONFIRMED, ReservationStatus.CHECKED_IN, ReservationStatus.COMPLETED] } }
+        : { status: ReservationStatus.PENDING_PAYMENT };
   const reservations = await prisma.reservation.findMany({
     where: { listing: { hostId: userId }, ...statusFilter },
-    include: { listing: true, user: { include: { profile: true } } },
+    include: { listing: true, user: { include: { profile: true } }, payment: true },
     orderBy: { createdAt: 'desc' }
   });
+  const filteredReservations =
+    view === 'pending'
+      ? reservations.filter((reservation) => !reservation.payment && !reservation.holdExpiresAt)
+      : reservations;
 
-  const safe = reservations.map((r) => ({
+  const safe = filteredReservations.map((r) => ({
     id: r.id,
     listingTitle: r.listing.title,
     guestName: r.user.profile?.name || r.user.email || 'Huésped',
     guestPhone: r.user.profile?.phone || null,
-    status: r.status,
+    status:
+      r.status === ReservationStatus.PENDING_PAYMENT && !r.payment && !r.holdExpiresAt
+        ? 'PENDING_APPROVAL'
+        : r.status,
     checkIn: r.checkIn.toISOString().slice(0, 10),
     checkOut: r.checkOut.toISOString().slice(0, 10),
     total: Number(r.total)
@@ -48,11 +52,14 @@ export default async function HostReservationsPage({ searchParams }: { searchPar
           <h1 className="section-title">Reservas</h1>
         </div>
         <div className="flex gap-2">
-          <a className={`pill-link ${view !== 'history' ? 'pill-link-active' : ''}`} href="/dashboard/host/reservations">
+          <a className={`pill-link ${view === 'pending' ? 'pill-link-active' : ''}`} href="/dashboard/host/reservations?view=pending">
+            Pendientes
+          </a>
+          <a className={`pill-link ${view === 'confirmed' ? 'pill-link-active' : ''}`} href="/dashboard/host/reservations?view=confirmed">
             Confirmadas
           </a>
-          <a className={`pill-link ${view === 'history' ? 'pill-link-active' : ''}`} href="/dashboard/host/reservations?view=history">
-            Historial
+          <a className={`pill-link ${view === 'rejected' ? 'pill-link-active' : ''}`} href="/dashboard/host/reservations?view=rejected">
+            Rechazadas
           </a>
         </div>
       </div>

@@ -9,11 +9,13 @@ export default async function ClientPage() {
   const userId = (session?.user as any)?.id as string;
   const reservations = await prisma.reservation.findMany({
     where: { userId },
-    include: { listing: { include: { photos: true } } },
+    include: { listing: { include: { photos: true } }, payment: true },
     orderBy: { createdAt: 'desc' }
   });
 
   const mappedReservations = reservations.map((res) => {
+    const isPendingApproval =
+      res.status === ReservationStatus.PENDING_PAYMENT && !res.payment && !res.holdExpiresAt;
     let status: 'upcoming' | 'active' | 'completed' | 'cancelled' = 'upcoming';
     if (res.status === ReservationStatus.CHECKED_IN) status = 'active';
     if (res.status === ReservationStatus.COMPLETED) status = 'completed';
@@ -38,7 +40,8 @@ export default async function ClientPage() {
       checkOut: res.checkOut.toISOString().slice(0, 10),
       guests: res.guestsCount,
       status,
-      totalPrice: Number(res.total)
+      totalPrice: Number(res.total),
+      pendingApproval: isPendingApproval
     };
   });
 

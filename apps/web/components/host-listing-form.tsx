@@ -9,6 +9,7 @@ import {
   defaultSmartPricingParams,
   withSmartPricingParams
 } from '@/lib/intelligent-pricing';
+import { type BookingMode, bookingModeLabel } from '@/lib/booking-mode';
 
 const money = (value: number) => `USD ${Number(value || 0).toFixed(2)}`;
 
@@ -28,7 +29,8 @@ export const HostListingForm = () => {
     capacity: 2,
     beds: 1,
     baths: 1,
-    cancelPolicy: 'FLEXIBLE'
+    cancelPolicy: 'FLEXIBLE',
+    bookingMode: 'instant' as BookingMode
   });
 
   useEffect(() => {
@@ -70,7 +72,8 @@ export const HostListingForm = () => {
       ...form,
       pricePerNight: calculatedPrice,
       netoDeseadoUsd: form.netoDeseadoUsd,
-      precioClienteCalculadoUsd: calculatedPrice
+      precioClienteCalculadoUsd: calculatedPrice,
+      bookingMode: form.bookingMode
     };
     const res = await fetch('/api/host/listings', {
       method: 'POST',
@@ -218,6 +221,34 @@ export const HostListingForm = () => {
           <option value="MODERATE">MODERATE</option>
           <option value="STRICT">STRICT</option>
         </select>
+
+        <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Modo de reservas</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {(['instant', 'approval'] as BookingMode[]).map((mode) => {
+              const selected = form.bookingMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, bookingMode: mode }))}
+                  className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                    selected
+                      ? 'border-slate-900 bg-slate-50 text-slate-900'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                  }`}
+                >
+                  <p className="font-semibold">{bookingModeLabel(mode)}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {mode === 'instant'
+                      ? 'El huesped confirma al instante. Recomendado solo si tu disponibilidad esta 100% controlada.'
+                      : 'Recibes solicitud y apruebas manualmente. Recomendado si usas iCal o varios canales.'}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">

@@ -89,6 +89,55 @@ export async function POST(req: Request) {
       overrides: pricingOverrides.overrides
     });
 
+    if (!listing.instantBook) {
+      const reservation = await prisma.reservation.create({
+        data: {
+          listingId,
+          userId: (session.user as any).id,
+          checkIn: checkInDate,
+          checkOut: checkOutDate,
+          guestsCount,
+          total: pricing.total,
+          currency: 'USD',
+          status: ReservationStatus.PENDING_PAYMENT,
+          holdExpiresAt: null
+        }
+      });
+
+      const participants = [{ userId: (session.user as any).id }, { userId: listing.hostId }];
+      const thread = await prisma.messageThread.create({
+        data: {
+          reservationId: reservation.id,
+          status: 'INQUIRY',
+          subject: listing.title,
+          createdById: (session.user as any).id,
+          participants: { create: participants }
+        }
+      });
+
+      await prisma.message.create({
+        data: {
+          threadId: thread.id,
+          senderId: (session.user as any).id,
+          body: `Solicitud de reserva enviada para ${listing.title} (${checkIn} - ${checkOut}).`
+        }
+      });
+
+      await sendPushToHost(listing.hostId, {
+        title: 'Nueva solicitud pendiente',
+        body: `Hay una solicitud por aprobar para ${listing.title}.`,
+        url: `/dashboard/host/reservations?view=pending&reservationId=${reservation.id}`,
+        type: 'NEW_INQUIRY'
+      });
+
+      return NextResponse.json({
+        pendingApproval: true,
+        reservationId: reservation.id,
+        threadId: thread.id,
+        message: 'Solicitud enviada. El anfitrion debe aprobar la reserva.'
+      });
+    }
+
     const reservation = await prisma.reservation.create({
       data: {
         listingId,

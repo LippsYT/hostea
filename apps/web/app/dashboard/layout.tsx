@@ -1,7 +1,7 @@
-﻿import Link from 'next/link';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { ReservationAlerts } from '@/components/reservation-alerts';
+import { DashboardShell } from '@/components/dashboard-shell';
 
 type NavItem = { href: string; label: string; roles?: string[] };
 
@@ -34,66 +34,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const displayName = user?.name || user?.email || 'Invitado';
   const roleLabel = roles.join(' · ') || 'Usuario';
 
+  const allowedNavItems = navItems
+    .filter((item) => hasRole(roles, item.roles))
+    .map((item) => ({ href: item.href, label: item.label }));
+
   return (
     <div className="min-h-screen bg-slate-950/5">
       <ReservationAlerts roles={roles} />
-      <div className="grid min-h-screen lg:grid-cols-[260px_1fr]">
-        <aside className="hidden border-r border-slate-200/70 bg-white/80 p-6 backdrop-blur lg:block">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="text-xl font-semibold tracking-tight">
-              HOSTEA
-            </Link>
-            <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-              Pro
-            </span>
-          </div>
-          <div className="mt-6 rounded-2xl border border-slate-200/70 bg-white/70 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Cuenta</p>
-            <p className="mt-2 text-sm font-semibold text-slate-900">{displayName}</p>
-            <p className="text-xs text-slate-500">{roleLabel}</p>
-          </div>
-          <nav className="mt-6 space-y-1 text-sm">
-            {navItems.filter((item) => hasRole(roles, item.roles)).map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex items-center justify-between rounded-full px-4 py-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
-              >
-                <span>{item.label}</span>
-                <span className="h-1.5 w-1.5 rounded-full bg-slate-200" />
-              </Link>
-            ))}
-          </nav>
-        </aside>
-
-        <div className="min-h-screen">
-          <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/80 backdrop-blur">
-            <div className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-10">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Panel</p>
-                <h1 className="text-xl font-semibold text-slate-900">HOSTEA Studio</h1>
-              </div>
-              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-                <Link
-                  href="/"
-                  className="flex-1 rounded-full border border-slate-200/70 px-4 py-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 sm:flex-none"
-                >
-                  Ir al sitio
-                </Link>
-                <Link
-                  href="/auth/sign-in"
-                  className="flex-1 rounded-full bg-slate-900 px-4 py-2 text-center text-xs font-semibold uppercase tracking-wide text-white hover:bg-slate-800 sm:flex-none"
-                >
-                  Cambiar cuenta
-                </Link>
-              </div>
-            </div>
-          </header>
-          <main className="px-6 pb-16 pt-8 lg:px-10">
-            <div className="mx-auto max-w-6xl">{children}</div>
-          </main>
-        </div>
-      </div>
+      <DashboardShell navItems={allowedNavItems} displayName={displayName} roleLabel={roleLabel}>
+        {children}
+      </DashboardShell>
     </div>
   );
 }

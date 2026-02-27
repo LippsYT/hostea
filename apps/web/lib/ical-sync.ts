@@ -82,6 +82,13 @@ export const syncIcalFeedById = async (feedId: string): Promise<SyncResult> => {
       },
       select: { id: true, checkIn: true, checkOut: true, createdAt: true }
     });
+    const holdRanges = await prisma.calendarHold.findMany({
+      where: {
+        listingId: feed.listingId,
+        expiresAt: { gt: now }
+      },
+      select: { reservationId: true, startDate: true, endDate: true }
+    });
 
     const externalBlocksFromOtherSources = await prisma.calendarBlock.findMany({
       where: {
@@ -103,8 +110,11 @@ export const syncIcalFeedById = async (feedId: string): Promise<SyncResult> => {
       const reservationConflict = reservationRanges.find((reservation) =>
         overlap(event.startDate, event.endDate, reservation.checkIn, reservation.checkOut)
       );
+      const holdConflict = holdRanges.find((hold) =>
+        overlap(event.startDate, event.endDate, hold.startDate, hold.endDate)
+      );
 
-      if (reservationConflict) {
+      if (reservationConflict || holdConflict) {
         skipped += 1;
         if (actorId) {
           await prisma.auditLog.create({
@@ -115,7 +125,7 @@ export const syncIcalFeedById = async (feedId: string): Promise<SyncResult> => {
               entityId: feed.listingId,
               meta: {
                 feedId: feed.id,
-                reservationId: reservationConflict.id,
+                reservationId: reservationConflict?.id || holdConflict?.reservationId,
                 startDate: event.startDate,
                 endDate: event.endDate
               }

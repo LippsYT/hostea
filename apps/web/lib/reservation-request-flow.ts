@@ -1,5 +1,10 @@
-import { PaymentStatus, ReservationStatus } from '@prisma/client';
+﻿import { PaymentStatus, ReservationStatus } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import {
+  cleanupExpiredReservationHolds,
+  createOrRefreshReservationHold,
+  deleteReservationHold
+} from '@/lib/calendar-holds';
 import { checkListingAvailability } from '@/lib/listing-availability';
 import { sendPushToClient, sendPushToHost } from '@/lib/push-notifications';
 import {
@@ -12,9 +17,9 @@ const PAYMENT_WINDOW_MINUTES = 30;
 export const buildPaymentExpiresAt = () =>
   new Date(Date.now() + PAYMENT_WINDOW_MINUTES * 60 * 1000);
 
-const APPROVED_MESSAGE = '✅ Solicitud aprobada. Tenés 30 min para pagar y confirmar.';
-const REJECTED_MESSAGE = '❌ Solicitud rechazada.';
-const EXPIRED_MESSAGE = '⏳ La solicitud venció.';
+const APPROVED_MESSAGE = 'Solicitud aprobada. Tenes 30 min para pagar y confirmar.';
+const REJECTED_MESSAGE = 'Solicitud rechazada.';
+const EXPIRED_MESSAGE = 'La solicitud vencio.';
 
 const createThreadMessageIfMissing = async (
   tx: any,
@@ -52,7 +57,7 @@ export const approveReservationRequest = async (reservationId: string, actorId: 
       paymentStatus: reservation.payment?.status || null
     })
   ) {
-    throw new Error('La reserva no está pendiente de aprobación');
+    throw new Error('La reserva no esta pendiente de aprobacion');
   }
 
   const availability = await checkListingAvailability({
@@ -79,18 +84,16 @@ export const approveReservationRequest = async (reservationId: string, actorId: 
       }
     });
 
-    await tx.calendarBlock.deleteMany({
-      where: { listingId: reservation.listingId, createdBy: `reservation-hold:${reservation.id}` }
-    });
-    await tx.calendarBlock.create({
-      data: {
+    await createOrRefreshReservationHold(
+      {
         listingId: reservation.listingId,
-        startDate: reservation.checkIn,
-        endDate: reservation.checkOut,
-        reason: 'Hold temporal por pago pendiente',
-        createdBy: `reservation-hold:${reservation.id}`
-      }
-    });
+        reservationId: reservation.id,
+        checkIn: reservation.checkIn,
+        checkOut: reservation.checkOut,
+        expiresAt: paymentExpiresAt
+      },
+      tx
+    );
 
     if (reservation.thread?.id) {
       await tx.messageThread.update({
@@ -121,7 +124,7 @@ export const approveReservationRequest = async (reservationId: string, actorId: 
     reservation.userId,
     {
       title: 'Solicitud aprobada',
-      body: 'Tu solicitud fue aprobada. Tenés 30 minutos para pagar.',
+      body: 'Tu solicitud fue aprobada. Tenes 30 minutos para pagar.',
       url: reservation.thread?.id
         ? `/dashboard/client/messages?threadId=${reservation.thread.id}`
         : '/dashboard/client/messages',
@@ -158,7 +161,7 @@ export const rejectReservationRequest = async (
       paymentStatus: reservation.payment?.status || null
     })
   ) {
-    throw new Error('La reserva no está pendiente de aprobación');
+    throw new Error('La reserva no esta pendiente de aprobacion');
   }
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -171,9 +174,7 @@ export const rejectReservationRequest = async (
       }
     });
 
-    await tx.calendarBlock.deleteMany({
-      where: { listingId: reservation.listingId, createdBy: `reservation-hold:${reservation.id}` }
-    });
+    await deleteReservationHold(reservation.id, tx);
 
     if (reservation.thread?.id) {
       await tx.messageThread.update({
@@ -200,7 +201,7 @@ export const rejectReservationRequest = async (
     reservation.userId,
     {
       title: 'Solicitud rechazada',
-      body: 'El anfitrión rechazó la solicitud.',
+      body: 'El anfitrion rechazo la solicitud.',
       url: reservation.thread?.id
         ? `/dashboard/client/messages?threadId=${reservation.thread.id}`
         : '/dashboard/client/messages',
@@ -231,7 +232,7 @@ export const clientRejectAwaitingPayment = async (reservationId: string, actorId
     paymentStatus: reservation.payment?.status || null
   });
   if (workflow !== 'awaiting_payment') {
-    throw new Error('La solicitud no está esperando pago');
+    throw new Error('La solicitud no esta esperando pago');
   }
 
   await prisma.$transaction(async (tx) => {
@@ -260,20 +261,18 @@ export const clientRejectAwaitingPayment = async (reservationId: string, actorId
         tx,
         reservation.thread.id,
         actorId,
-        '❌ Solicitud rechazada por el huésped.'
+        'Solicitud rechazada por el huesped.'
       );
     }
 
-    await tx.calendarBlock.deleteMany({
-      where: { listingId: reservation.listingId, createdBy: `reservation-hold:${reservation.id}` }
-    });
+    await deleteReservationHold(reservation.id, tx);
   });
 
   await sendPushToHost(
     reservation.listing.hostId,
     {
       title: 'Solicitud rechazada',
-      body: 'El huésped rechazó la solicitud antes de pagar.',
+      body: 'El huesped rechazo la solicitud antes de pagar.',
       url: reservation.thread?.id
         ? `/dashboard/host/messages?threadId=${reservation.thread.id}`
         : '/dashboard/host/messages',
@@ -284,6 +283,7 @@ export const clientRejectAwaitingPayment = async (reservationId: string, actorId
 };
 
 export const expireAwaitingPaymentReservations = async () => {
+  const holdsExpired = await cleanupExpiredReservationHolds(prisma);
   const now = new Date();
   const expired = await prisma.reservation.findMany({
     where: {
@@ -298,7 +298,7 @@ export const expireAwaitingPaymentReservations = async () => {
   });
 
   if (!expired.length) {
-    return 0;
+    return holdsExpired;
   }
 
   for (const reservation of expired) {
@@ -331,9 +331,7 @@ export const expireAwaitingPaymentReservations = async () => {
         });
       }
 
-      await tx.calendarBlock.deleteMany({
-        where: { listingId: reservation.listingId, createdBy: `reservation-hold:${reservation.id}` }
-      });
+      await deleteReservationHold(reservation.id, tx);
 
       if (reservation.thread?.id) {
         await tx.messageThread.update({
@@ -353,7 +351,7 @@ export const expireAwaitingPaymentReservations = async () => {
       reservation.userId,
       {
         title: 'Solicitud vencida',
-        body: 'La solicitud venció porque no se completó el pago a tiempo.',
+        body: 'La solicitud vencio porque no se completo el pago a tiempo.',
         url: reservation.thread?.id
           ? `/dashboard/client/messages?threadId=${reservation.thread.id}`
           : '/dashboard/client/messages',
@@ -366,7 +364,7 @@ export const expireAwaitingPaymentReservations = async () => {
       reservation.listing.hostId,
       {
         title: 'Solicitud vencida',
-        body: 'Una solicitud aprobada venció sin pago.',
+        body: 'Una solicitud aprobada vencio sin pago.',
         url: reservation.thread?.id
           ? `/dashboard/host/messages?threadId=${reservation.thread.id}`
           : '/dashboard/host/messages',
@@ -376,5 +374,5 @@ export const expireAwaitingPaymentReservations = async () => {
     );
   }
 
-  return expired.length;
+  return holdsExpired + expired.length;
 };

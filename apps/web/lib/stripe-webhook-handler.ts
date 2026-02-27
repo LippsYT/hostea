@@ -1,6 +1,7 @@
 import { PaymentStatus, ReservationStatus } from '@prisma/client';
 import { sendAutoMessagesOnConfirm } from '@/lib/auto-messages';
 import { sendPushToHost } from '@/lib/push-notifications';
+import { deleteReservationHold } from '@/lib/calendar-holds';
 import {
   createCloudbedsReservation,
   getCloudbedsMappingForListing,
@@ -84,15 +85,6 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
 
         await prisma.calendarBlock.deleteMany({
           where: { listingId: offer.listingId, createdBy: `offer:${offer.id}` }
-        });
-        await prisma.calendarBlock.create({
-          data: {
-            listingId: offer.listingId,
-            startDate: offer.checkIn,
-            endDate: offer.checkOut,
-            reason: 'Reserva confirmada (oferta especial)',
-            createdBy: offer.guestId
-          }
         });
 
         if (!offer.thread.reservationId) {
@@ -184,12 +176,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         }
       });
       if (reservation) {
-        await prisma.calendarBlock.deleteMany({
-          where: {
-            listingId: reservation.listingId,
-            createdBy: `reservation-hold:${reservation.id}`
-          }
-        });
+        await deleteReservationHold(reservation.id, prisma);
 
         if (reservation.thread?.id) {
           await prisma.messageThread.update({
@@ -204,15 +191,6 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
           );
         }
 
-        await prisma.calendarBlock.create({
-          data: {
-            listingId: reservation.listingId,
-            startDate: reservation.checkIn,
-            endDate: reservation.checkOut,
-            reason: 'Reserva confirmada',
-            createdBy: reservation.userId
-          }
-        });
         await sendAutoMessagesOnConfirm(reservation.id);
         await sendPushToHost(
           reservation.listing.hostId,
@@ -312,12 +290,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         },
         include: { listing: true, thread: true }
       });
-      await prisma.calendarBlock.deleteMany({
-        where: {
-          listingId: reservation.listingId,
-          createdBy: `reservation-hold:${reservation.id}`
-        }
-      });
+      await deleteReservationHold(reservation.id, prisma);
       if (reservation.thread?.id) {
         await prisma.messageThread.update({
           where: { id: reservation.thread.id },
@@ -350,12 +323,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         },
         include: { listing: true, thread: true }
       });
-      await prisma.calendarBlock.deleteMany({
-        where: {
-          listingId: reservation.listingId,
-          createdBy: `reservation-hold:${reservation.id}`
-        }
-      });
+      await deleteReservationHold(reservation.id, prisma);
       if (reservation.thread?.id) {
         await prisma.messageThread.update({
           where: { id: reservation.thread.id },

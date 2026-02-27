@@ -14,6 +14,7 @@ import {
   buildPaymentExpiresAt,
   expireAwaitingPaymentReservations
 } from '@/lib/reservation-request-flow';
+import { createOrRefreshReservationHold } from '@/lib/calendar-holds';
 
 const schema = z.object({
   listingId: z.string(),
@@ -161,14 +162,12 @@ export async function POST(req: Request) {
       }
     });
 
-    await prisma.calendarBlock.create({
-      data: {
-        listingId,
-        startDate: checkInDate,
-        endDate: checkOutDate,
-        reason: 'Hold temporal por checkout en curso',
-        createdBy: `reservation-hold:${reservation.id}`
-      }
+    await createOrRefreshReservationHold({
+      listingId,
+      reservationId: reservation.id,
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
+      expiresAt: paymentExpiresAt
     });
 
     const stripeSession = await stripe.checkout.sessions.create({

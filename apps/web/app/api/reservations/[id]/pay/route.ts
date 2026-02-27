@@ -9,6 +9,7 @@ import { checkListingAvailability } from '@/lib/listing-availability';
 import {
   expireAwaitingPaymentReservations
 } from '@/lib/reservation-request-flow';
+import { createOrRefreshReservationHold } from '@/lib/calendar-holds';
 import { getReservationWorkflowStatus } from '@/lib/reservation-workflow';
 import { sendPushToHost } from '@/lib/push-notifications';
 
@@ -64,17 +65,16 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       );
     }
 
-    await prisma.calendarBlock.deleteMany({
-      where: { listingId: reservation.listingId, createdBy: `reservation-hold:${reservation.id}` }
-    });
-    await prisma.calendarBlock.create({
-      data: {
-        listingId: reservation.listingId,
-        startDate: reservation.checkIn,
-        endDate: reservation.checkOut,
-        reason: 'Hold temporal por pago pendiente',
-        createdBy: `reservation-hold:${reservation.id}`
-      }
+    const expiresAt =
+      reservation.paymentExpiresAt ||
+      reservation.holdExpiresAt ||
+      new Date(Date.now() + 30 * 60 * 1000);
+    await createOrRefreshReservationHold({
+      listingId: reservation.listingId,
+      reservationId: reservation.id,
+      checkIn: reservation.checkIn,
+      checkOut: reservation.checkOut,
+      expiresAt
     });
 
     const amount = Number(reservation.total);

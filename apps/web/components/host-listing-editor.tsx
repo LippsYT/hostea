@@ -52,6 +52,7 @@ export type ListingEditorProps = {
     city: string;
     neighborhood: string;
     pricePerNight: number;
+    inventoryQty: number;
     netoDeseadoUsd?: number | null;
     precioClienteCalculadoUsd?: number | null;
     cleaningFee: number;
@@ -97,6 +98,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
     title: listing.title,
     description: listing.description,
     type: listing.type,
+    inventoryQty: listing.inventoryQty || 1,
     address: listing.address,
     city: listing.city,
     neighborhood: listing.neighborhood,
@@ -290,7 +292,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
       return;
     }
     setIcalUrl('');
-    if (data?.recommendApprovalMode && form.bookingMode === 'instant') {
+    if (data?.recommendApprovalMode && form.type === 'HOTEL' && form.bookingMode === 'instant') {
       setShowIcalModeModal(true);
     }
     await loadIcalFeeds();
@@ -360,7 +362,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
       setIcalError(data?.error || 'No se pudo actualizar el feed.');
       return;
     }
-    if (!feed.isActive && form.bookingMode === 'instant') {
+    if (!feed.isActive && form.type === 'HOTEL' && form.bookingMode === 'instant') {
       setShowIcalModeModal(true);
     }
     await loadIcalFeeds();
@@ -524,11 +526,40 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
           <select
             className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold uppercase tracking-wide"
             value={form.type}
-            onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                type: e.target.value,
+                inventoryQty: e.target.value === 'HOTEL' ? Math.max(1, f.inventoryQty) : 1
+              }))
+            }
           >
             <option value="APARTMENT">APARTMENT</option>
             <option value="HOTEL">HOTEL</option>
           </select>
+          {form.type === 'HOTEL' ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Cantidad de habitaciones disponibles (este anuncio)
+              </p>
+              <Input
+                type="number"
+                min={1}
+                placeholder="1"
+                value={form.inventoryQty}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    inventoryQty: Math.max(1, Number(e.target.value) || 1)
+                  }))
+                }
+              />
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+              Departamento: inventario fijo en 1 unidad.
+            </div>
+          )}
           <select
             className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold uppercase tracking-wide"
             value={form.cancelPolicy}
@@ -754,7 +785,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
           </Button>
         </div>
 
-        {feeds.length > 0 && form.bookingMode === 'instant' && (
+        {feeds.length > 0 && form.type === 'HOTEL' && form.bookingMode === 'instant' && (
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             <p className="font-semibold">Sincronizacion iCal (importante)</p>
             <p className="mt-1 text-xs text-amber-800">

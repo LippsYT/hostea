@@ -17,6 +17,7 @@ const schema = z.object({
   title: z.string().min(3),
   description: z.string().min(10),
   type: z.nativeEnum(ListingType),
+  propertyType: z.enum(['apartment', 'hotel']).optional(),
   address: z.string(),
   city: z.string(),
   neighborhood: z.string(),
@@ -26,6 +27,7 @@ const schema = z.object({
   cleaningFee: z.coerce.number(),
   taxRate: z.coerce.number(),
   capacity: z.coerce.number(),
+  inventoryQty: z.coerce.number().int().min(1).optional(),
   beds: z.coerce.number(),
   baths: z.coerce.number(),
   cancelPolicy: z.nativeEnum(CancelPolicy),
@@ -73,18 +75,30 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const netoDeseadoUsd =
     desiredNet !== null ? desiredNet : calcBreakdown(pricePerNight, pricingParams).hostNet;
   const precioClienteCalculadoUsd = pricePerNight;
+  const type =
+    data.type ??
+    (data.propertyType === 'hotel'
+      ? ListingType.HOTEL
+      : data.propertyType === 'apartment'
+        ? ListingType.APARTMENT
+        : listing.type);
   const normalizedTaxRate = data.taxRate > 1 ? data.taxRate / 100 : data.taxRate;
   const bookingMode = data.bookingMode as BookingMode | undefined;
   const instantBook =
     bookingMode !== undefined
       ? instantBookFromBookingMode(bookingMode)
       : data.instantBook ?? listing.instantBook;
+  const inventoryQtyRaw =
+    typeof data.inventoryQty === 'number' && Number.isFinite(data.inventoryQty)
+      ? data.inventoryQty
+      : listing.inventoryQty;
+  const inventoryQty = type === ListingType.HOTEL ? Math.max(1, inventoryQtyRaw) : 1;
   const updated = await prisma.listing.update({
     where: { id: params.id },
     data: {
       title: data.title,
       description: data.description,
-      type: data.type,
+      type,
       address: data.address,
       city: data.city,
       neighborhood: data.neighborhood,
@@ -95,6 +109,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       serviceFee: 0,
       taxRate: normalizedTaxRate,
       capacity: data.capacity,
+      inventoryQty,
       beds: data.beds,
       baths: data.baths,
       cancelPolicy: data.cancelPolicy,

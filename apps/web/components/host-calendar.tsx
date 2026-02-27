@@ -12,6 +12,14 @@ type ListingOption = { id: string; title: string };
 type Block = { id: string; startDate: string; endDate: string; reason?: string | null; createdBy?: string };
 
 type Reservation = { id: string; checkIn: string; checkOut: string; status: string };
+type Hold = {
+  id: string;
+  reservationId: string;
+  startDate: string;
+  endDate: string;
+  expiresAt: string;
+};
+type OccupancyByDate = Record<string, { occupied: number; total: number }>;
 
 export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
   const [csrf, setCsrf] = useState('');
@@ -22,6 +30,9 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
   const [priceOverride, setPriceOverride] = useState(0);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [holds, setHolds] = useState<Hold[]>([]);
+  const [inventoryQty, setInventoryQty] = useState(1);
+  const [occupancyByDate, setOccupancyByDate] = useState<OccupancyByDate>({});
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
@@ -36,6 +47,9 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
     const data = await res.json();
     setBlocks(data.blocks || []);
     setReservations(data.reservations || []);
+    setHolds(data.holds || []);
+    setInventoryQty(Math.max(1, Number(data.inventoryQty || 1)));
+    setOccupancyByDate(data.occupancyByDate || {});
   };
 
   useEffect(() => {
@@ -72,10 +86,10 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
 
   const priceBlocks = blocks.filter((b) => (b.reason || '').startsWith('PRICE:'));
   const blockOnly = blocks.filter((b) => !priceBlocks.includes(b));
-  const disabledRanges = [
-    ...blockOnly.map((b) => ({ from: new Date(b.startDate), to: new Date(b.endDate) })),
-    ...reservations.map((r) => ({ from: new Date(r.checkIn), to: new Date(r.checkOut) }))
-  ];
+  const fullOccupancyDays = Object.entries(occupancyByDate)
+    .filter(([, value]) => Number(value?.occupied || 0) >= Number(value?.total || 1))
+    .map(([key]) => new Date(`${key}T00:00:00.000Z`));
+  const disabledRanges = fullOccupancyDays;
 
   const maintenanceBlocks = blockOnly.filter((b) => (b.reason || '').toLowerCase().includes('mantenimiento'));
   const externalBlocks = blockOnly.filter((b) => (b.createdBy || '').startsWith('ICAL:'));
@@ -148,6 +162,11 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
                 Reservas confirmadas y bloqueos se muestran deshabilitados.
               </div>
             )}
+            {inventoryQty > 1 && externalBlocks.length > 0 && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                iCal activo + inventario tipo hotel. Recomendado: reservas por aprobacion para evitar overbooking.
+              </div>
+            )}
           </div>
           <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-3">
             <DayPicker
@@ -164,6 +183,11 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
                     <button {...buttonProps}>
                       <div className="rdp-day-content">
                         <span className="rdp-day-number">{children}</span>
+                        {occupancyByDate[key] && (
+                          <span className="rdp-day-price">
+                            Ocupacion {occupancyByDate[key].occupied}/{occupancyByDate[key].total}
+                          </span>
+                        )}
                         {price !== undefined && (
                           <span className="rdp-day-price">USD {price}</span>
                         )}
@@ -256,6 +280,20 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
             </div>
           ))}
           {reservations.length === 0 && <p className="text-sm text-slate-500">Sin reservas confirmadas.</p>}
+        </div>
+      </div>
+
+      <div className="surface-card">
+        <h2 className="text-xl font-semibold text-slate-900">Holds de pago activos</h2>
+        <p className="mt-1 text-xs text-slate-500">Bloqueos temporales en checkout aprobado.</p>
+        <div className="mt-5 space-y-2 text-sm">
+          {holds.map((hold) => (
+            <div key={hold.id} className="surface-muted">
+              {hold.startDate.slice(0, 10)} - {hold.endDate.slice(0, 10)} - vence{' '}
+              {new Date(hold.expiresAt).toLocaleString('es-AR')}
+            </div>
+          ))}
+          {holds.length === 0 && <p className="text-sm text-slate-500">Sin holds activos.</p>}
         </div>
       </div>
     </div>

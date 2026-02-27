@@ -184,6 +184,7 @@ model Listing {
   serviceFee    Decimal         @db.Decimal(10,2)
   taxRate       Decimal         @db.Decimal(5,2)
   capacity      Int
+  inventoryQty  Int             @default(1)
   beds          Int
   baths         Int
   instantBook   Boolean         @default(true)
@@ -199,6 +200,7 @@ model Listing {
   calendarBlocks CalendarBlock[]
   icalFeeds     ListingIcalFeed[]
   roomTypes     RoomType[]
+  calendarHolds CalendarHold[]
   reservations  Reservation[]
   offers        Offer[]
   reviews       Review[]
@@ -241,6 +243,22 @@ model CalendarBlock {
   createdAt DateTime @default(now())
 
   listing   Listing @relation(fields: [listingId], references: [id])
+}
+
+model CalendarHold {
+  id            String      @id @default(cuid())
+  listingId     String
+  reservationId String      @unique
+  startDate     DateTime
+  endDate       DateTime
+  expiresAt     DateTime
+  source        String      @default("CHECKOUT")
+  createdAt     DateTime    @default(now())
+
+  listing       Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, startDate, endDate, expiresAt])
 }
 
 model RoomType {
@@ -290,6 +308,7 @@ model Reservation {
   listing       Listing           @relation(fields: [listingId], references: [id])
   user          User              @relation(fields: [userId], references: [id])
   roomType      RoomType?         @relation(fields: [roomTypeId], references: [id])
+  calendarHold  CalendarHold?
   guests        ReservationGuest[]
   payment       Payment?
   offer         Offer?

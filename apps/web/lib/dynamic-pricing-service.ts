@@ -101,6 +101,15 @@ export const computeOccupancyRateForListing = async ({
     },
     select: { startDate: true, endDate: true }
   });
+  const calendarHolds = await prisma.calendarHold.findMany({
+    where: {
+      listingId,
+      startDate: { lt: to },
+      endDate: { gt: from },
+      expiresAt: { gt: now }
+    },
+    select: { startDate: true, endDate: true }
+  });
 
   const occupiedDays = new Set<string>();
   const markRange = (start: Date, end: Date) => {
@@ -113,6 +122,7 @@ export const computeOccupancyRateForListing = async ({
 
   reservations.forEach((item) => markRange(item.checkIn, item.checkOut));
   calendarBlocks.forEach((item) => markRange(item.startDate, item.endDate));
+  calendarHolds.forEach((item) => markRange(item.startDate, item.endDate));
 
   return Math.min(1, occupiedDays.size / days);
 };

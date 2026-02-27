@@ -22,6 +22,7 @@ export const HostListingForm = () => {
     title: '',
     description: '',
     type: 'APARTMENT',
+    inventoryQty: 1,
     address: '',
     city: '',
     neighborhood: '',
@@ -207,11 +208,37 @@ export const HostListingForm = () => {
         <select
           className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold uppercase tracking-wide"
           value={form.type}
-          onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
+          onChange={(e) =>
+            setForm((f) => ({
+              ...f,
+              type: e.target.value,
+              inventoryQty: e.target.value === 'HOTEL' ? Math.max(1, f.inventoryQty) : 1
+            }))
+          }
         >
           <option value="APARTMENT">APARTMENT</option>
           <option value="HOTEL">HOTEL</option>
         </select>
+        {form.type === 'HOTEL' ? (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Cantidad de habitaciones disponibles (este anuncio)
+            </p>
+            <Input
+              type="number"
+              min={1}
+              placeholder="1"
+              value={form.inventoryQty}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, inventoryQty: Math.max(1, Number(e.target.value) || 1) }))
+              }
+            />
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+            Departamento: inventario fijo en 1 unidad.
+          </div>
+        )}
         <select
           className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold uppercase tracking-wide"
           value={form.cancelPolicy}

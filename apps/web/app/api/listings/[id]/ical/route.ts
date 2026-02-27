@@ -40,6 +40,13 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     },
     select: { id: true, checkIn: true, checkOut: true }
   });
+  const holds = await prisma.calendarHold.findMany({
+    where: {
+      listingId: listing.id,
+      expiresAt: { gt: now }
+    },
+    select: { id: true, startDate: true, endDate: true }
+  });
 
   const manualBlocks = await prisma.calendarBlock.findMany({
     where: {
@@ -54,6 +61,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
           NOT: {
             createdBy: { startsWith: 'ICAL:' }
           }
+        },
+        {
+          NOT: {
+            createdBy: { startsWith: 'reservation-hold:' }
+          }
         }
       ]
     },
@@ -66,6 +78,12 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       startDate: reservation.checkIn,
       endDate: reservation.checkOut,
       summary: `${listing.title} - Reservado`
+    })),
+    ...holds.map((hold) => ({
+      uid: `hostea-hold-${hold.id}`,
+      startDate: hold.startDate,
+      endDate: hold.endDate,
+      summary: `${listing.title} - Pendiente de pago`
     })),
     ...manualBlocks.map((block) => ({
       uid: `hostea-block-${block.id}`,

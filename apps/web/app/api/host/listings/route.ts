@@ -22,6 +22,7 @@ const schema = z
     title: z.preprocess(emptyToUndefined, z.string().min(3).optional()),
     description: z.preprocess(emptyToUndefined, z.string().min(10).optional()),
     type: z.preprocess(emptyToUndefined, z.nativeEnum(ListingType).optional()),
+    propertyType: z.preprocess(emptyToUndefined, z.enum(['apartment', 'hotel']).optional()),
     address: z.preprocess(emptyToUndefined, z.string().optional()),
     city: z.preprocess(emptyToUndefined, z.string().optional()),
     neighborhood: z.preprocess(emptyToUndefined, z.string().optional()),
@@ -29,6 +30,7 @@ const schema = z
     netoDeseadoUsd: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
     precioClienteCalculadoUsd: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
     capacity: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
+    inventoryQty: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).optional()),
     beds: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
     baths: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
     cancelPolicy: z.preprocess(emptyToUndefined, z.nativeEnum(CancelPolicy).optional()),
@@ -63,7 +65,13 @@ export async function POST(req: Request) {
     const title = data.title?.trim() || 'Nuevo alojamiento';
     const description =
       data.description?.trim() || 'Espacio comodo con amenities esenciales y excelente ubicacion.';
-    const type = data.type ?? ListingType.APARTMENT;
+    const type =
+      data.type ??
+      (data.propertyType === 'hotel'
+        ? ListingType.HOTEL
+        : data.propertyType === 'apartment'
+          ? ListingType.APARTMENT
+          : ListingType.APARTMENT);
     const address = data.address?.trim() || 'Direccion pendiente';
     const city = data.city?.trim() || 'Buenos Aires';
     const neighborhood = data.neighborhood?.trim() || 'Palermo';
@@ -80,6 +88,8 @@ export async function POST(req: Request) {
       desiredNet !== null ? desiredNet : calcBreakdown(pricePerNight, pricingParams).hostNet;
     const precioClienteCalculadoUsd = pricePerNight;
     const capacity = Number.isFinite(data.capacity) ? data.capacity! : 4;
+    const inventoryQtyRaw = Number.isFinite(data.inventoryQty) ? data.inventoryQty! : 1;
+    const inventoryQty = type === ListingType.HOTEL ? Math.max(1, inventoryQtyRaw) : 1;
     const beds = Number.isFinite(data.beds) ? data.beds! : 1;
     const baths = Number.isFinite(data.baths) ? data.baths! : 1;
     const cancelPolicy = data.cancelPolicy ?? CancelPolicy.FLEXIBLE;
@@ -104,6 +114,7 @@ export async function POST(req: Request) {
         serviceFee: 0,
         taxRate: 0,
         capacity,
+        inventoryQty,
         beds,
         baths,
         cancelPolicy,

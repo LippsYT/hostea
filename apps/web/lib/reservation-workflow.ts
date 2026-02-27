@@ -9,6 +9,7 @@ export type ReservationWorkflowStatus =
 
 type WorkflowInput = {
   status: ReservationStatus;
+  paymentExpiresAt?: Date | null;
   holdExpiresAt?: Date | null;
   paymentStatus?: PaymentStatus | null;
   now?: Date;
@@ -16,10 +17,23 @@ type WorkflowInput = {
 
 export const getReservationWorkflowStatus = ({
   status,
+  paymentExpiresAt,
   holdExpiresAt,
   paymentStatus,
   now = new Date()
 }: WorkflowInput): ReservationWorkflowStatus => {
+  if (status === ReservationStatus.PENDING_APPROVAL) {
+    return 'pending_approval';
+  }
+
+  if (status === ReservationStatus.AWAITING_PAYMENT) {
+    const expiresAt = paymentExpiresAt || holdExpiresAt || null;
+    if (expiresAt && expiresAt.getTime() <= now.getTime()) {
+      return 'expired';
+    }
+    return 'awaiting_payment';
+  }
+
   if (
     status === ReservationStatus.CONFIRMED ||
     status === ReservationStatus.CHECKED_IN ||
@@ -29,14 +43,23 @@ export const getReservationWorkflowStatus = ({
   }
 
   if (status === ReservationStatus.PENDING_PAYMENT) {
-    if (!holdExpiresAt && !paymentStatus) {
+    if (!holdExpiresAt && !paymentStatus && !paymentExpiresAt) {
       return 'pending_approval';
     }
 
-    if (holdExpiresAt && holdExpiresAt.getTime() > now.getTime()) {
+    const expiresAt = paymentExpiresAt || holdExpiresAt || null;
+    if (expiresAt && expiresAt.getTime() > now.getTime()) {
       return 'awaiting_payment';
     }
 
+    return 'expired';
+  }
+
+  if (status === ReservationStatus.REJECTED) {
+    return 'rejected';
+  }
+
+  if (status === ReservationStatus.EXPIRED) {
     return 'expired';
   }
 

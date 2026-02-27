@@ -56,8 +56,9 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
   const selectedThreadId = selectedThread?.id || '';
   const latestOffer = selectedThread?.offers?.[0] || null;
   const reservationWorkflowStatus = selectedThread?.reservation
-    ? getReservationWorkflowStatus({
+      ? getReservationWorkflowStatus({
         status: selectedThread.reservation.status,
+        paymentExpiresAt: selectedThread.reservation.paymentExpiresAt,
         holdExpiresAt: selectedThread.reservation.holdExpiresAt,
         paymentStatus: selectedThread.reservation.payment?.status || null
       })
@@ -129,7 +130,11 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
               {reservationWorkflowStatus === 'awaiting_payment' && (
                 <ClientReservationPaymentActions
                   reservationId={selectedThread.reservation.id}
-                  paymentExpiresAt={selectedThread.reservation.holdExpiresAt?.toISOString() || null}
+                  paymentExpiresAt={
+                    selectedThread.reservation.paymentExpiresAt?.toISOString() ||
+                    selectedThread.reservation.holdExpiresAt?.toISOString() ||
+                    null
+                  }
                 />
               )}
               {visibleOffer && (

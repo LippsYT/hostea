@@ -3,7 +3,7 @@ import type { ReservationStatus } from '@prisma/client';
 type StatusKey = ReservationStatus | string | undefined | null;
 
 const LABELS: Record<string, string> = {
-  PENDING_APPROVAL: 'Pendiente de aprobacion',
+  PENDING_APPROVAL: 'Pendiente de aprobación',
   AWAITING_PAYMENT: 'Esperando pago',
   PENDING_PAYMENT: 'Pago pendiente',
   CONFIRMED: 'Confirmada',

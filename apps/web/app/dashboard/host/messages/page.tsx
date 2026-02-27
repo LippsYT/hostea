@@ -103,6 +103,7 @@ export default async function HostMessagesPage({
     ? (() => {
         const workflow = getReservationWorkflowStatus({
           status: selectedThread.reservation.status,
+          paymentExpiresAt: selectedThread.reservation.paymentExpiresAt,
           holdExpiresAt: selectedThread.reservation.holdExpiresAt,
           paymentStatus: selectedThread.reservation.payment?.status || null
         });
@@ -229,9 +230,15 @@ export default async function HostMessagesPage({
                 </p>
                 <p>{selectedThread.reservation.guestsCount} huespedes</p>
                 <p>Total: USD {Number(selectedThread.reservation.total).toFixed(2)}</p>
-                {reservationStatus === 'AWAITING_PAYMENT' && selectedThread.reservation.holdExpiresAt && (
+                {reservationStatus === 'AWAITING_PAYMENT' &&
+                  (selectedThread.reservation.paymentExpiresAt ||
+                    selectedThread.reservation.holdExpiresAt) && (
                   <p className="text-xs text-indigo-700">
-                    Pago vence: {selectedThread.reservation.holdExpiresAt.toLocaleString('es-AR')}
+                    Pago vence:{' '}
+                    {(
+                      selectedThread.reservation.paymentExpiresAt ||
+                      selectedThread.reservation.holdExpiresAt
+                    )?.toLocaleString('es-AR')}
                   </p>
                 )}
                 <Badge className={reservationStatusBadgeClass(reservationStatus)}>

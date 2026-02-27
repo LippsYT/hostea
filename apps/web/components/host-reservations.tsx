@@ -28,7 +28,7 @@ export const HostReservations = ({ reservations }: { reservations: HostReservati
 
   const updateStatus = async (id: string, status: string) => {
     let reason: string | undefined;
-    if (status === 'CANCELED') {
+    if (status === 'CANCELED' || status === 'REJECTED') {
       const input = prompt('Motivo del rechazo (opcional):') || '';
       reason = input.trim() || undefined;
     }
@@ -59,10 +59,18 @@ export const HostReservations = ({ reservations }: { reservations: HostReservati
               </Badge>
               {r.status === 'PENDING_APPROVAL' && (
                 <>
-                  <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, 'CONFIRMED')}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => updateStatus(r.id, 'AWAITING_PAYMENT')}
+                  >
                     Aprobar
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, 'CANCELED')}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => updateStatus(r.id, 'REJECTED')}
+                  >
                     Rechazar
                   </Button>
                 </>

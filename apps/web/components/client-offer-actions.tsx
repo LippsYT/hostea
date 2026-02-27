@@ -82,7 +82,7 @@ export const ClientOfferActions = ({
       {checkIn && checkOut ? (
         <p className="text-xs text-indigo-900">
           Estadia: {checkIn} - {checkOut}
-          {guestsCount ? ` · ${guestsCount} huesped${guestsCount > 1 ? 'es' : ''}` : ''}
+          {guestsCount ? ` | ${guestsCount} huesped${guestsCount > 1 ? 'es' : ''}` : ''}
         </p>
       ) : null}
       <div className="mt-3 rounded-xl border border-indigo-200 bg-white p-3 text-sm text-slate-700">

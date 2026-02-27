@@ -71,8 +71,12 @@ export const syncIcalFeedById = async (feedId: string): Promise<SyncResult> => {
           { status: ReservationStatus.CHECKED_IN },
           { status: ReservationStatus.COMPLETED },
           {
+            status: ReservationStatus.AWAITING_PAYMENT,
+            OR: [{ paymentExpiresAt: { gt: now } }, { holdExpiresAt: { gt: now } }]
+          },
+          {
             status: ReservationStatus.PENDING_PAYMENT,
-            holdExpiresAt: { gt: now }
+            OR: [{ paymentExpiresAt: { gt: now } }, { holdExpiresAt: { gt: now } }]
           }
         ]
       },

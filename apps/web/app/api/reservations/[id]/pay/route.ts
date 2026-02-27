@@ -38,6 +38,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
 
     const workflowStatus = getReservationWorkflowStatus({
       status: reservation.status,
+      paymentExpiresAt: reservation.paymentExpiresAt,
       holdExpiresAt: reservation.holdExpiresAt,
       paymentStatus: reservation.payment?.status || null
     });
@@ -62,6 +63,19 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
         { status: 409 }
       );
     }
+
+    await prisma.calendarBlock.deleteMany({
+      where: { listingId: reservation.listingId, createdBy: `reservation-hold:${reservation.id}` }
+    });
+    await prisma.calendarBlock.create({
+      data: {
+        listingId: reservation.listingId,
+        startDate: reservation.checkIn,
+        endDate: reservation.checkOut,
+        reason: 'Hold temporal por pago pendiente',
+        createdBy: `reservation-hold:${reservation.id}`
+      }
+    });
 
     const amount = Number(reservation.total);
     const stripeSession = await stripe.checkout.sessions.create({
@@ -135,7 +149,10 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     return NextResponse.json({
       checkoutUrl: stripeSession.url,
       status: 'awaiting_payment',
-      paymentExpiresAt: reservation.holdExpiresAt?.toISOString() || null
+      paymentExpiresAt:
+        reservation.paymentExpiresAt?.toISOString() ||
+        reservation.holdExpiresAt?.toISOString() ||
+        null
     });
   } catch (error: any) {
     if (error?.message === 'CSRF token invalido') {

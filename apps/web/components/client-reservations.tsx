@@ -64,7 +64,8 @@ export const ClientReservations = ({ reservations }: { reservations: any[] }) =>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
               <p className="mr-4 font-semibold text-slate-900">USD {Number(res.total).toFixed(2)}</p>
-              {res.status === ReservationStatus.PENDING_PAYMENT && (
+              {(res.status === ReservationStatus.PENDING_PAYMENT ||
+                res.status === ReservationStatus.AWAITING_PAYMENT) && (
                 <Button onClick={() => alert('Pago pendiente: usa el botón "Reservar ahora" en el detalle del alojamiento.')}>
                   Pagar
                 </Button>

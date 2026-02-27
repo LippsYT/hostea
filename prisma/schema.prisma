@@ -22,8 +22,12 @@ enum ListingType {
 }
 
 enum ReservationStatus {
+  PENDING_APPROVAL
+  AWAITING_PAYMENT
   PENDING_PAYMENT
   CONFIRMED
+  REJECTED
+  EXPIRED
   CHECKED_IN
   COMPLETED
   CANCELED
@@ -272,12 +276,13 @@ model Reservation {
   listingId     String
   userId        String
   roomTypeId    String?
-  status        ReservationStatus @default(PENDING_PAYMENT)
+  status        ReservationStatus @default(PENDING_APPROVAL)
   checkIn       DateTime
   checkOut      DateTime
   guestsCount   Int
   total         Decimal           @db.Decimal(10,2)
   currency      String            @default("USD")
+  paymentExpiresAt DateTime?
   holdExpiresAt DateTime?
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt

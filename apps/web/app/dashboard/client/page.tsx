@@ -19,6 +19,7 @@ export default async function ClientPage() {
   const mappedReservations = reservations.map((res) => {
     const workflow = getReservationWorkflowStatus({
       status: res.status,
+      paymentExpiresAt: res.paymentExpiresAt,
       holdExpiresAt: res.holdExpiresAt,
       paymentStatus: res.payment?.status || null
     });
@@ -28,6 +29,8 @@ export default async function ClientPage() {
     if (res.status === ReservationStatus.CHECKED_IN) status = 'active';
     if (res.status === ReservationStatus.COMPLETED) status = 'completed';
     if (
+      res.status === ReservationStatus.REJECTED ||
+      res.status === ReservationStatus.EXPIRED ||
       res.status === ReservationStatus.CANCELED ||
       res.status === ReservationStatus.REFUNDED
     ) {
@@ -55,6 +58,8 @@ export default async function ClientPage() {
   });
 
   const upcomingStatuses = new Set<ReservationStatus>([
+    ReservationStatus.PENDING_APPROVAL,
+    ReservationStatus.AWAITING_PAYMENT,
     ReservationStatus.PENDING_PAYMENT,
     ReservationStatus.CONFIRMED
   ]);

@@ -34,17 +34,26 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const nextStatus = parsed.data.status;
   const isPendingApproval =
-    reservation.status === ReservationStatus.PENDING_PAYMENT &&
-    !reservation.holdExpiresAt &&
-    !reservation.payment;
+    reservation.status === ReservationStatus.PENDING_APPROVAL ||
+    (reservation.status === ReservationStatus.PENDING_PAYMENT &&
+      !reservation.holdExpiresAt &&
+      !reservation.payment);
   const actorId = (session.user as any).id as string;
 
   if (isPendingApproval) {
-    if (nextStatus !== ReservationStatus.CONFIRMED && nextStatus !== ReservationStatus.CANCELED) {
+    if (
+      nextStatus !== ReservationStatus.AWAITING_PAYMENT &&
+      nextStatus !== ReservationStatus.CONFIRMED &&
+      nextStatus !== ReservationStatus.REJECTED &&
+      nextStatus !== ReservationStatus.CANCELED
+    ) {
       return NextResponse.json({ error: 'Estado invalido para una solicitud pendiente' }, { status: 400 });
     }
 
-    if (nextStatus === ReservationStatus.CONFIRMED) {
+    if (
+      nextStatus === ReservationStatus.AWAITING_PAYMENT ||
+      nextStatus === ReservationStatus.CONFIRMED
+    ) {
       try {
         const result = await approveReservationRequest(reservation.id, actorId);
         return NextResponse.json({ reservation: result.reservation });

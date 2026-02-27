@@ -54,6 +54,8 @@ export const HostMessageActions = ({
 
   const isClosed =
     reservationStatus === ReservationStatus.CANCELED ||
+    reservationStatus === ReservationStatus.REJECTED ||
+    reservationStatus === ReservationStatus.EXPIRED ||
     reservationStatus === ReservationStatus.REFUNDED ||
     reservationStatus === 'REJECTED' ||
     reservationStatus === 'EXPIRED';

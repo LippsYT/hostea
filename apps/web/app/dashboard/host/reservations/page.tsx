@@ -21,10 +21,20 @@ export default async function HostReservationsPage({ searchParams }: { searchPar
   const view = ['pending', 'confirmed', 'rejected'].includes(rawView) ? rawView : 'pending';
   const statusFilter =
     view === 'rejected'
-      ? { status: { in: [ReservationStatus.CANCELED, ReservationStatus.REFUNDED, ReservationStatus.DISPUTED] } }
+      ? {
+          status: {
+            in: [
+              ReservationStatus.REJECTED,
+              ReservationStatus.EXPIRED,
+              ReservationStatus.CANCELED,
+              ReservationStatus.REFUNDED,
+              ReservationStatus.DISPUTED
+            ]
+          }
+        }
       : view === 'confirmed'
         ? { status: { in: [ReservationStatus.CONFIRMED, ReservationStatus.CHECKED_IN, ReservationStatus.COMPLETED] } }
-        : { status: ReservationStatus.PENDING_PAYMENT };
+        : { status: { in: [ReservationStatus.PENDING_APPROVAL, ReservationStatus.AWAITING_PAYMENT, ReservationStatus.PENDING_PAYMENT] } };
   const reservations = await prisma.reservation.findMany({
     where: { listing: { hostId: userId }, ...statusFilter },
     include: { listing: true, user: { include: { profile: true } }, payment: true },
@@ -35,6 +45,7 @@ export default async function HostReservationsPage({ searchParams }: { searchPar
       ? reservations.filter((reservation) => {
           const workflow = getReservationWorkflowStatus({
             status: reservation.status,
+            paymentExpiresAt: reservation.paymentExpiresAt,
             holdExpiresAt: reservation.holdExpiresAt,
             paymentStatus: reservation.payment?.status || null
           });
@@ -50,6 +61,7 @@ export default async function HostReservationsPage({ searchParams }: { searchPar
     status: (() => {
       const workflow = getReservationWorkflowStatus({
         status: r.status,
+        paymentExpiresAt: r.paymentExpiresAt,
         holdExpiresAt: r.holdExpiresAt,
         paymentStatus: r.payment?.status || null
       });

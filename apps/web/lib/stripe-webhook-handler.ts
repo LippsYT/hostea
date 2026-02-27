@@ -33,6 +33,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
     const session = event.data.object as any;
     const reservationId = session.metadata?.reservationId;
     const offerId = session.metadata?.offerId;
+
     if (offerId) {
       const offer = await prisma.offer.findUnique({
         where: { id: offerId },
@@ -42,6 +43,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
           guest: { include: { profile: true } }
         }
       });
+
       if (offer && offer.status !== 'PAID') {
         const total = Number(offer.clientTotal);
         const reservation = await prisma.reservation.create({
@@ -54,6 +56,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
             total,
             currency: offer.currency || 'USD',
             status: ReservationStatus.CONFIRMED,
+            paymentExpiresAt: null,
             holdExpiresAt: null
           }
         });
@@ -105,12 +108,16 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         }
 
         await sendAutoMessagesOnConfirm(reservation.id);
-        await sendPushToHost(offer.listing.hostId, {
-          title: 'Pago confirmado',
-          body: `Oferta pagada y reserva confirmada en ${offer.listing.title}.`,
-          url: `/dashboard/host/reservations?reservationId=${reservation.id}`,
-          type: 'PAYMENT_CONFIRMED'
-        }, prisma);
+        await sendPushToHost(
+          offer.listing.hostId,
+          {
+            title: 'Pago confirmado',
+            body: `Oferta pagada y reserva confirmada en ${offer.listing.title}.`,
+            url: `/dashboard/host/reservations?reservationId=${reservation.id}`,
+            type: 'PAYMENT_CONFIRMED'
+          },
+          prisma
+        );
 
         if (isCloudbedsEnabled() && getCloudbedsMappingForListing(reservation.listingId)) {
           try {
@@ -150,6 +157,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         }
       }
     }
+
     if (reservationId) {
       await prisma.payment.updateMany({
         where: { reservationId },
@@ -160,7 +168,11 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
       });
       await prisma.reservation.update({
         where: { id: reservationId },
-        data: { status: ReservationStatus.CONFIRMED, holdExpiresAt: null }
+        data: {
+          status: ReservationStatus.CONFIRMED,
+          paymentExpiresAt: null,
+          holdExpiresAt: null
+        }
       });
 
       const reservation = await prisma.reservation.findUnique({
@@ -172,6 +184,13 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         }
       });
       if (reservation) {
+        await prisma.calendarBlock.deleteMany({
+          where: {
+            listingId: reservation.listingId,
+            createdBy: `reservation-hold:${reservation.id}`
+          }
+        });
+
         if (reservation.thread?.id) {
           await prisma.messageThread.update({
             where: { id: reservation.thread.id },
@@ -184,6 +203,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
             '✅ Reserva confirmada.'
           );
         }
+
         await prisma.calendarBlock.create({
           data: {
             listingId: reservation.listingId,
@@ -194,12 +214,16 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
           }
         });
         await sendAutoMessagesOnConfirm(reservation.id);
-        await sendPushToHost(reservation.listing.hostId, {
-          title: 'Pago confirmado',
-          body: `Nueva reserva confirmada en ${reservation.listing.title}.`,
-          url: `/dashboard/host/reservations?reservationId=${reservation.id}`,
-          type: 'PAYMENT_CONFIRMED'
-        }, prisma);
+        await sendPushToHost(
+          reservation.listing.hostId,
+          {
+            title: 'Pago confirmado',
+            body: `Nueva reserva confirmada en ${reservation.listing.title}.`,
+            url: `/dashboard/host/reservations?reservationId=${reservation.id}`,
+            type: 'PAYMENT_CONFIRMED'
+          },
+          prisma
+        );
 
         if (isCloudbedsEnabled() && getCloudbedsMappingForListing(reservation.listingId)) {
           try {
@@ -243,7 +267,9 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
 
   if (event.type === 'charge.refunded') {
     const charge = event.data.object as any;
-    const payment = await prisma.payment.findFirst({ where: { stripePaymentIntentId: charge.payment_intent } });
+    const payment = await prisma.payment.findFirst({
+      where: { stripePaymentIntentId: charge.payment_intent }
+    });
     if (payment) {
       await prisma.payment.update({
         where: { id: payment.id },
@@ -279,8 +305,18 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
       });
       const reservation = await prisma.reservation.update({
         where: { id: reservationId },
-        data: { status: ReservationStatus.CANCELED, holdExpiresAt: null },
+        data: {
+          status: ReservationStatus.EXPIRED,
+          paymentExpiresAt: null,
+          holdExpiresAt: null
+        },
         include: { listing: true, thread: true }
+      });
+      await prisma.calendarBlock.deleteMany({
+        where: {
+          listingId: reservation.listingId,
+          createdBy: `reservation-hold:${reservation.id}`
+        }
       });
       if (reservation.thread?.id) {
         await prisma.messageThread.update({
@@ -291,7 +327,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
           prisma,
           reservation.thread.id,
           reservation.listing.hostId,
-          '⏳ La solicitud vencio.'
+          '⏳ La solicitud venció.'
         );
       }
     }
@@ -307,8 +343,18 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
       });
       const reservation = await prisma.reservation.update({
         where: { id: payment.reservationId },
-        data: { status: ReservationStatus.CANCELED, holdExpiresAt: null },
+        data: {
+          status: ReservationStatus.EXPIRED,
+          paymentExpiresAt: null,
+          holdExpiresAt: null
+        },
         include: { listing: true, thread: true }
+      });
+      await prisma.calendarBlock.deleteMany({
+        where: {
+          listingId: reservation.listingId,
+          createdBy: `reservation-hold:${reservation.id}`
+        }
       });
       if (reservation.thread?.id) {
         await prisma.messageThread.update({
@@ -319,7 +365,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
           prisma,
           reservation.thread.id,
           reservation.listing.hostId,
-          '⏳ La solicitud vencio.'
+          '⏳ La solicitud venció.'
         );
       }
     }

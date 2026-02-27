@@ -10,7 +10,10 @@ import { ReservationStatus, PaymentStatus } from '@prisma/client';
 import { checkListingAvailability } from '@/lib/listing-availability';
 import { buildEffectivePriceOverrides } from '@/lib/dynamic-pricing-service';
 import { sendPushToHost } from '@/lib/push-notifications';
-import { expireAwaitingPaymentReservations } from '@/lib/reservation-request-flow';
+import {
+  buildPaymentExpiresAt,
+  expireAwaitingPaymentReservations
+} from '@/lib/reservation-request-flow';
 
 const schema = z.object({
   listingId: z.string(),
@@ -101,7 +104,8 @@ export async function POST(req: Request) {
           guestsCount,
           total: pricing.total,
           currency: 'USD',
-          status: ReservationStatus.PENDING_PAYMENT,
+          status: ReservationStatus.PENDING_APPROVAL,
+          paymentExpiresAt: null,
           holdExpiresAt: null
         }
       });
@@ -141,6 +145,7 @@ export async function POST(req: Request) {
       });
     }
 
+    const paymentExpiresAt = buildPaymentExpiresAt();
     const reservation = await prisma.reservation.create({
       data: {
         listingId,
@@ -150,8 +155,19 @@ export async function POST(req: Request) {
         guestsCount: guestsCount,
         total: pricing.total,
         currency: 'USD',
-        status: ReservationStatus.PENDING_PAYMENT,
-        holdExpiresAt: new Date(Date.now() + 15 * 60 * 1000)
+        status: ReservationStatus.AWAITING_PAYMENT,
+        paymentExpiresAt,
+        holdExpiresAt: paymentExpiresAt
+      }
+    });
+
+    await prisma.calendarBlock.create({
+      data: {
+        listingId,
+        startDate: checkInDate,
+        endDate: checkOutDate,
+        reason: 'Hold temporal por checkout en curso',
+        createdBy: `reservation-hold:${reservation.id}`
       }
     });
 

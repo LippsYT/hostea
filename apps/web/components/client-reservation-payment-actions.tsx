@@ -11,6 +11,7 @@ export const ClientReservationPaymentActions = ({
   paymentExpiresAt?: string | null;
 }) => {
   const [loading, setLoading] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
 
   const payReservation = async () => {
     try {
@@ -35,6 +36,28 @@ export const ClientReservationPaymentActions = ({
     }
   };
 
+  const rejectReservation = async () => {
+    try {
+      setRejecting(true);
+      const csrfRes = await fetch('/api/security/csrf');
+      const csrfData = await csrfRes.json().catch(() => ({}));
+      const token = csrfData?.token || '';
+
+      const res = await fetch(`/api/reservations/${reservationId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': token }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data?.error || 'No se pudo rechazar la solicitud');
+        return;
+      }
+      window.location.reload();
+    } finally {
+      setRejecting(false);
+    }
+  };
+
   return (
     <div className="mt-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Pago pendiente</p>
@@ -48,6 +71,14 @@ export const ClientReservationPaymentActions = ({
       ) : null}
       <Button className="mt-3 w-full" onClick={payReservation} disabled={loading}>
         {loading ? 'Redirigiendo...' : 'Pagar y confirmar'}
+      </Button>
+      <Button
+        className="mt-2 w-full"
+        variant="outline"
+        onClick={rejectReservation}
+        disabled={rejecting}
+      >
+        {rejecting ? 'Procesando...' : 'Rechazar'}
       </Button>
     </div>
   );

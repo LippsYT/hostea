@@ -78,11 +78,13 @@ export const AdminDashboard = ({
   };
 
   const filteredReservations = reservations.filter((reservation) => {
-    if (reservationTab === 'pending') return reservation.status === 'PENDING_PAYMENT';
+    if (reservationTab === 'pending') {
+      return ['PENDING_APPROVAL', 'AWAITING_PAYMENT', 'PENDING_PAYMENT'].includes(reservation.status);
+    }
     if (reservationTab === 'confirmed') {
       return ['CONFIRMED', 'CHECKED_IN', 'COMPLETED'].includes(reservation.status);
     }
-    return ['CANCELED', 'REFUNDED', 'DISPUTED'].includes(reservation.status);
+    return ['REJECTED', 'EXPIRED', 'CANCELED', 'REFUNDED', 'DISPUTED'].includes(reservation.status);
   });
 
   return (

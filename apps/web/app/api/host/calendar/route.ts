@@ -28,10 +28,10 @@ export async function GET(req: Request) {
     orderBy: { startDate: 'asc' }
   });
   const reservations = await prisma.reservation.findMany({
-    where: {
-      listingId,
-      status: { in: ['CONFIRMED', 'CHECKED_IN', 'COMPLETED'] }
-    },
+      where: {
+        listingId,
+        status: { in: ['CONFIRMED', 'CHECKED_IN', 'COMPLETED', 'AWAITING_PAYMENT'] }
+      },
     select: {
       id: true,
       checkIn: true,

@@ -31,12 +31,12 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon: '/favicon.ico',
-      badge: '/favicon.ico',
-      tag: `${tag}:${url}`,
-      data: { url, tag },
-      vibrate: [180, 60, 180],
+      icon: '/icon-192.png',
+      badge: '/badge-72.png',
+      tag: 'hostea',
       renotify: true,
+      data: { url, tag },
+      vibrate: [200, 100, 200],
       silent: false
     })
   );

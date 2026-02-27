@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { isInAppSoundEnabled, setInAppSoundEnabled } from '@/lib/in-app-notification-sound';
 
 type PushRole = 'host' | 'client';
 
@@ -42,6 +43,7 @@ export const PushSubscribeCard = ({
   const [permissionState, setPermissionState] = useState<string>('default');
   const [isIos, setIsIos] = useState(false);
   const [standalone, setStandalone] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   const permissionLabel = useMemo(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return 'No disponible';
@@ -70,11 +72,20 @@ export const PushSubscribeCard = ({
     if (typeof window !== 'undefined') {
       setIsIos(isIosDevice());
       setStandalone(isStandalone());
+      setSoundEnabled(isInAppSoundEnabled());
       if ('Notification' in window) {
         setPermissionState(Notification.permission);
       }
     }
   }, [role]);
+
+  const toggleInAppSound = () => {
+    setSoundEnabled((prev) => {
+      const next = !prev;
+      setInAppSoundEnabled(next);
+      return next;
+    });
+  };
 
   const requestAndSaveSubscription = async () => {
     if (!status?.vapidPublicKey) {
@@ -220,16 +231,16 @@ export const PushSubscribeCard = ({
           </div>
           {status?.enabled ? (
             <Button size="sm" variant="outline" disabled={busy} onClick={deactivate}>
-              {busy ? 'Desactivando...' : '🔕 Desactivar notificaciones'}
+              {busy ? 'Desactivando...' : 'Desactivar notificaciones'}
             </Button>
           ) : (
             <Button size="sm" disabled={busy} onClick={activate}>
-              {busy ? 'Activando...' : '🔔 Activar notificaciones'}
+              {busy ? 'Activando...' : 'Activar notificaciones'}
             </Button>
           )}
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">Estado</p>
             <p className="mt-1 text-sm font-semibold text-slate-900">
@@ -244,6 +255,27 @@ export const PushSubscribeCard = ({
             <p className="text-xs uppercase tracking-wide text-slate-500">Permiso</p>
             <p className="mt-1 text-sm font-semibold text-slate-900">{permissionLabel}</p>
           </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Sonido dentro de la app</p>
+            <button
+              type="button"
+              className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-slate-900"
+              onClick={toggleInAppSound}
+            >
+              <span
+                className={`inline-block h-5 w-9 rounded-full transition-colors ${
+                  soundEnabled ? 'bg-slate-900' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`mt-0.5 block h-4 w-4 rounded-full bg-white transition-transform ${
+                    soundEnabled ? 'translate-x-4' : 'translate-x-0.5'
+                  }`}
+                />
+              </span>
+              {soundEnabled ? 'Activado' : 'Desactivado'}
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
@@ -257,7 +289,14 @@ export const PushSubscribeCard = ({
 
         {isIos && !standalone && (
           <p className="mt-3 text-xs text-slate-500">
-            iPhone: para recibir push debes abrir Hostea desde “Agregar a pantalla de inicio”.
+            iPhone: para recibir push debes abrir Hostea desde "Agregar a pantalla de inicio".
+          </p>
+        )}
+
+        {isIos && (
+          <p className="mt-2 text-xs text-slate-500">
+            El sonido depende del modo Silencio/Focus y ajustes de iPhone. Activa sonidos en Ajustes &gt;
+            Notificaciones &gt; Hostea.
           </p>
         )}
 
@@ -273,7 +312,9 @@ export const PushSubscribeCard = ({
               Abre Hostea desde el icono y vuelve a activar.
             </p>
             <div className="mt-4 flex justify-end">
-              <Button size="sm" onClick={() => setShowIosHint(false)}>Entendido</Button>
+              <Button size="sm" onClick={() => setShowIosHint(false)}>
+                Entendido
+              </Button>
             </div>
           </div>
         </div>

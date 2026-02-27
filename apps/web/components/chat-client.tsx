@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { emitInAppNotificationSound } from '@/lib/in-app-notification-sound';
 
 let socket: ReturnType<typeof io> | null = null;
 
@@ -47,6 +48,9 @@ export const ChatClient = ({
         if (prev.some((m) => m.id === message.id)) return prev;
         return [...prev, message];
       });
+      if (message.senderId !== currentUserId) {
+        emitInAppNotificationSound('message');
+      }
     });
     socket.on('typing', (payload: { name: string; userId: string; isTyping: boolean }) => {
       if (payload.userId === currentUserId) return;

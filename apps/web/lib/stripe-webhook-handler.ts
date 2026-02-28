@@ -2,6 +2,7 @@ import { PaymentStatus, ReservationStatus } from '@prisma/client';
 import { sendAutoMessagesOnConfirm } from '@/lib/auto-messages';
 import { sendPushToHost } from '@/lib/push-notifications';
 import { deleteReservationHold } from '@/lib/calendar-holds';
+import { ensureReservationNumber } from '@/lib/reservation-number';
 import {
   createCloudbedsReservation,
   getCloudbedsMappingForListing,
@@ -41,29 +42,33 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         include: {
           thread: true,
           listing: true,
-          guest: { include: { profile: true } }
+          guest: { include: { profile: true } },
+          reservation: true
         }
       });
 
       if (offer && offer.status !== 'PAID') {
         const total = Number(offer.clientTotal);
-        const reservation = await prisma.reservation.create({
-          data: {
-            listingId: offer.listingId,
-            userId: offer.guestId,
-            checkIn: offer.checkIn,
-            checkOut: offer.checkOut,
-            guestsCount: offer.guestsCount,
-            total,
-            currency: offer.currency || 'USD',
-            status: ReservationStatus.CONFIRMED,
-            paymentExpiresAt: null,
-            holdExpiresAt: null
-          }
-        });
+        const reservation =
+          offer.reservation ||
+          (await prisma.reservation.create({
+            data: {
+              listingId: offer.listingId,
+              userId: offer.guestId,
+              checkIn: offer.checkIn,
+              checkOut: offer.checkOut,
+              guestsCount: offer.guestsCount,
+              total,
+              currency: offer.currency || 'USD',
+              status: ReservationStatus.CONFIRMED,
+              paymentExpiresAt: null,
+              holdExpiresAt: null
+            }
+          }));
 
-        await prisma.payment.create({
-          data: {
+        await prisma.payment.upsert({
+          where: { reservationId: reservation.id },
+          create: {
             reservationId: reservation.id,
             userId: offer.guestId,
             stripeSessionId: session.id,
@@ -71,8 +76,25 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
             amount: total,
             currency: offer.currency || 'USD',
             status: PaymentStatus.SUCCEEDED
+          },
+          update: {
+            stripeSessionId: session.id,
+            stripePaymentIntentId: session.payment_intent,
+            amount: total,
+            currency: offer.currency || 'USD',
+            status: PaymentStatus.SUCCEEDED
           }
         });
+
+        await prisma.reservation.update({
+          where: { id: reservation.id },
+          data: {
+            status: ReservationStatus.CONFIRMED,
+            paymentExpiresAt: null,
+            holdExpiresAt: null
+          }
+        });
+        await ensureReservationNumber(prisma, reservation.id, reservation.createdAt);
 
         await prisma.offer.update({
           where: { id: offer.id },
@@ -86,6 +108,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         await prisma.calendarBlock.deleteMany({
           where: { listingId: offer.listingId, createdBy: `offer:${offer.id}` }
         });
+        await deleteReservationHold(reservation.id, prisma);
 
         if (!offer.thread.reservationId) {
           await prisma.messageThread.update({
@@ -176,6 +199,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         }
       });
       if (reservation) {
+        await ensureReservationNumber(prisma, reservation.id, reservation.createdAt);
         await deleteReservationHold(reservation.id, prisma);
 
         if (reservation.thread?.id) {
@@ -187,7 +211,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
             prisma,
             reservation.thread.id,
             reservation.listing.hostId,
-            '✅ Reserva confirmada.'
+            'Reserva confirmada.'
           );
         }
 
@@ -267,12 +291,32 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
     if (offerId) {
       const offer = await prisma.offer.findUnique({ where: { id: offerId } });
       if (offer) {
-        await prisma.offer.update({
-          where: { id: offerId },
-          data: { status: 'EXPIRED' }
-        });
-        await prisma.calendarBlock.deleteMany({
-          where: { listingId: offer.listingId, createdBy: `offer:${offerId}` }
+        await prisma.$transaction(async (tx: any) => {
+          await tx.offer.update({
+            where: { id: offerId },
+            data: { status: 'EXPIRED' }
+          });
+          if (offer.reservationId) {
+            await tx.reservation.updateMany({
+              where: {
+                id: offer.reservationId,
+                status: { in: [ReservationStatus.AWAITING_PAYMENT, ReservationStatus.PENDING_PAYMENT] }
+              },
+              data: {
+                status: ReservationStatus.EXPIRED,
+                paymentExpiresAt: null,
+                holdExpiresAt: null
+              }
+            });
+            await tx.payment.updateMany({
+              where: { reservationId: offer.reservationId, status: PaymentStatus.REQUIRES_ACTION },
+              data: { status: PaymentStatus.FAILED }
+            });
+            await deleteReservationHold(offer.reservationId, tx);
+          }
+          await tx.calendarBlock.deleteMany({
+            where: { listingId: offer.listingId, createdBy: `offer:${offerId}` }
+          });
         });
       }
     }
@@ -300,7 +344,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
           prisma,
           reservation.thread.id,
           reservation.listing.hostId,
-          '⏳ La solicitud venció.'
+          'La solicitud vencio.'
         );
       }
     }
@@ -333,7 +377,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
           prisma,
           reservation.thread.id,
           reservation.listing.hostId,
-          '⏳ La solicitud venció.'
+          'La solicitud vencio.'
         );
       }
     }

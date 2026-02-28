@@ -156,7 +156,7 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
     const expiryLabel = offerExpiresAt.toLocaleDateString('es-AR');
     messageBody = `Oferta especial enviada: USD ${offerTotal.toFixed(
       2
-    )}. Válida hasta ${expiryLabel}. Para confirmar, aceptá y pagá desde la plataforma.`;
+    )}. Valida hasta ${expiryLabel}. Para confirmar, acepta y paga desde la plataforma.`;
   } else if (parsed.data.action === 'close') {
     status = thread.reservationId ? thread.status : 'REJECTED';
     messageBody = 'Conversacion cerrada por el anfitrion.';
@@ -219,3 +219,4 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
 
   return NextResponse.json({ ok: true });
 }
+

@@ -48,7 +48,28 @@ export async function POST(req: Request) {
 
     const forwardedFor = req.headers.get('x-forwarded-for') || '';
     const ip = forwardedFor.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
+    const userAgent = req.headers.get('user-agent') || 'unknown';
     const legalVersion = '2026-02-25';
+    await prisma.legalAcceptance.upsert({
+      where: { userId_version: { userId: user.id, version: legalVersion } },
+      update: {
+        termsAccepted: true,
+        privacyAccepted: true,
+        liabilityAccepted: true,
+        ipAddress: ip,
+        userAgent,
+        acceptedAt: new Date()
+      },
+      create: {
+        userId: user.id,
+        version: legalVersion,
+        termsAccepted: true,
+        privacyAccepted: true,
+        liabilityAccepted: true,
+        ipAddress: ip,
+        userAgent
+      }
+    });
     await prisma.settings.upsert({
       where: { key: `legalAcceptance:${user.id}` },
       update: {
@@ -56,6 +77,7 @@ export async function POST(req: Request) {
           version: legalVersion,
           acceptedAt: new Date().toISOString(),
           ip,
+          userAgent,
           terms: true,
           privacy: true,
           liability: true
@@ -67,6 +89,7 @@ export async function POST(req: Request) {
           version: legalVersion,
           acceptedAt: new Date().toISOString(),
           ip,
+          userAgent,
           terms: true,
           privacy: true,
           liability: true

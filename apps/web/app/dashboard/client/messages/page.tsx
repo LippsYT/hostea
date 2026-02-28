@@ -8,6 +8,7 @@ import { ClientOfferActions } from '@/components/client-offer-actions';
 import { ClientReservationPaymentActions } from '@/components/client-reservation-payment-actions';
 import { expireAwaitingPaymentReservations } from '@/lib/reservation-request-flow';
 import { getReservationWorkflowStatus } from '@/lib/reservation-workflow';
+import { backfillReservationNumbers } from '@/lib/reservation-number';
 
 export default async function ClientMessagesPage({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
   const session = await getServerSession(authOptions);
@@ -15,6 +16,7 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
   const userName = (session?.user as any)?.name || (session?.user as any)?.email || 'Usuario';
 
   await expireAwaitingPaymentReservations();
+  await backfillReservationNumbers(prisma, 150);
 
   await prisma.offer.updateMany({
     where: { guestId: userId, status: 'PENDING', expiresAt: { lt: new Date() } },
@@ -26,6 +28,21 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
     include: {
       reservation: { include: { listing: true, user: true, payment: true } },
       participants: { include: { user: { include: { profile: true } } } },
+      messages: {
+        take: 1,
+        orderBy: { createdAt: 'desc' },
+        include: { sender: { include: { profile: true } } }
+      },
+      _count: {
+        select: {
+          messages: {
+            where: {
+              senderId: { not: userId },
+              seenAt: null
+            }
+          }
+        }
+      },
       offers: {
         where: { guestId: userId },
         orderBy: { createdAt: 'desc' },
@@ -51,8 +68,42 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
     : [];
   const inquiryListingMap = new Map(inquiryListings.map((listing) => [listing.id, listing.title]));
 
-  const selected = typeof searchParams.threadId === 'string' ? searchParams.threadId : threads[0]?.id;
-  const selectedThread = threads.find((t) => t.id === selected);
+  const query =
+    typeof searchParams.q === 'string' ? searchParams.q.trim().toLowerCase() : '';
+
+  const filteredThreads = !query
+    ? threads
+    : threads.filter((thread) => {
+        const hostParticipant = thread.participants.find((p) => p.userId !== userId);
+        const hostName = hostParticipant?.user.profile?.name || '';
+        const hostEmail = hostParticipant?.user.email || '';
+        const hostPhone = hostParticipant?.user.profile?.phone || '';
+        const listingTitle =
+          thread.reservation?.listing?.title ||
+          inquiryListingMap.get(thread.subject?.replace('LISTING:', '').trim() || '') ||
+          '';
+        const reservationNumber = thread.reservation?.reservationNumber || '';
+        const dateText = thread.reservation
+          ? `${thread.reservation.checkIn.toISOString().slice(0, 10)} ${thread.reservation.checkOut
+              .toISOString()
+              .slice(0, 10)}`
+          : '';
+        return [
+          hostName,
+          hostEmail,
+          hostPhone,
+          listingTitle,
+          reservationNumber,
+          dateText
+        ]
+          .join(' ')
+          .toLowerCase()
+          .includes(query);
+      });
+
+  const selected =
+    typeof searchParams.threadId === 'string' ? searchParams.threadId : filteredThreads[0]?.id;
+  const selectedThread = filteredThreads.find((t) => t.id === selected) || filteredThreads[0];
   const selectedThreadId = selectedThread?.id || '';
   const latestOffer = selectedThread?.offers?.[0] || null;
   const reservationWorkflowStatus = selectedThread?.reservation
@@ -84,22 +135,72 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
       <div className="grid gap-6 lg:grid-cols-[260px_1fr_320px]">
         <aside className="surface-card p-4">
           <h2 className="text-lg font-semibold text-slate-900">Conversaciones</h2>
+          <p className="mt-1 text-xs text-slate-500">Busca por anfitrion, propiedad o numero de reserva.</p>
+          <form className="mt-3" method="get">
+            {selectedThread?.id ? <input type="hidden" name="threadId" value={selectedThread.id} /> : null}
+            <input
+              name="q"
+              defaultValue={query}
+              placeholder="Buscar conversaciones"
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700"
+            />
+          </form>
           <div className="mt-4 space-y-2">
-            {threads.map((thread) => (
-              <Link key={thread.id} href={`?threadId=${thread.id}`} className="block rounded-2xl border border-slate-200/70 bg-slate-50/80 p-3 text-sm text-slate-700 hover:bg-slate-100">
-                <p className="font-semibold text-slate-900">
-                  {thread.reservation?.listing.title
-                    || inquiryListingMap.get(thread.subject?.replace('LISTING:', '').trim() || '')
-                    || 'Consulta de reserva'}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {thread.reservation
-                    ? `${thread.reservation.checkIn.toISOString().slice(0, 10)} - ${thread.reservation.checkOut.toISOString().slice(0, 10)}`
-                    : 'Sin reserva asociada'}
-                </p>
-              </Link>
-            ))}
-            {threads.length === 0 && <p className="text-sm text-slate-500">Sin mensajes.</p>}
+            {filteredThreads.map((thread) => {
+              const hostParticipant = thread.participants.find((p) => p.userId !== userId);
+              const hostName =
+                hostParticipant?.user.profile?.name || hostParticipant?.user.email || 'Anfitrion';
+              const listingTitle =
+                thread.reservation?.listing.title ||
+                inquiryListingMap.get(thread.subject?.replace('LISTING:', '').trim() || '') ||
+                'Consulta de reserva';
+              const lastMessage = thread.messages[0];
+              const unreadCount = thread._count?.messages || 0;
+              const lastMessageDate = lastMessage?.createdAt
+                ? new Date(lastMessage.createdAt).toLocaleDateString('es-AR', {
+                    day: '2-digit',
+                    month: '2-digit'
+                  })
+                : '';
+              const reservationMeta = thread.reservation?.reservationNumber
+                ? `Reserva ${thread.reservation.reservationNumber}`
+                : thread.reservation
+                  ? `${thread.reservation.checkIn.toISOString().slice(0, 10)} - ${thread.reservation.checkOut
+                      .toISOString()
+                      .slice(0, 10)}`
+                  : 'Sin reserva asociada';
+
+              return (
+                <Link
+                  key={thread.id}
+                  href={`?threadId=${thread.id}`}
+                  className="block rounded-2xl border border-slate-200/70 bg-slate-50/80 p-3 text-sm text-slate-700 hover:bg-slate-100"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700">
+                        {hostName.slice(0, 2).toUpperCase()}
+                      </div>
+                      <p className="truncate font-semibold text-slate-900">{hostName}</p>
+                    </div>
+                    {lastMessageDate ? <span className="text-[11px] text-slate-400">{lastMessageDate}</span> : null}
+                  </div>
+                  <p className="mt-1 truncate text-xs text-slate-500">{listingTitle}</p>
+                  <p className="truncate text-[11px] text-slate-400">{reservationMeta}</p>
+                  {lastMessage && (
+                    <p className="mt-1 truncate text-xs text-slate-400">
+                      {lastMessage.sender.profile?.name || lastMessage.sender.email}: {lastMessage.body}
+                    </p>
+                  )}
+                  {unreadCount > 0 && (
+                    <span className="mt-2 inline-flex rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white">
+                      No leido ({unreadCount})
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+            {filteredThreads.length === 0 && <p className="text-sm text-slate-500">Sin conversaciones para ese filtro.</p>}
           </div>
         </aside>
         <div className="surface-card">
@@ -112,6 +213,9 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
               <p className="font-semibold text-slate-900">{selectedThread.reservation.listing.title}</p>
               <p>{selectedThread.reservation.checkIn.toISOString().slice(0, 10)} - {selectedThread.reservation.checkOut.toISOString().slice(0, 10)}</p>
               <p>{selectedThread.reservation.guestsCount} huespedes</p>
+              {selectedThread.reservation.reservationNumber ? (
+                <p>Nro reserva: {selectedThread.reservation.reservationNumber}</p>
+              ) : null}
               <p>
                 Estado:{' '}
                 {reservationStatusLabel(

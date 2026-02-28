@@ -12,10 +12,12 @@ export const ClientReservationPaymentActions = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [error, setError] = useState('');
 
   const payReservation = async () => {
     try {
       setLoading(true);
+      setError('');
       const csrfRes = await fetch('/api/security/csrf');
       const csrfData = await csrfRes.json().catch(() => ({}));
       const token = csrfData?.token || '';
@@ -30,7 +32,7 @@ export const ClientReservationPaymentActions = ({
         window.location.href = data.checkoutUrl;
         return;
       }
-      alert(data?.error || 'No se pudo iniciar el pago');
+      setError(data?.error || 'No se pudo iniciar el pago');
     } finally {
       setLoading(false);
     }
@@ -39,6 +41,7 @@ export const ClientReservationPaymentActions = ({
   const rejectReservation = async () => {
     try {
       setRejecting(true);
+      setError('');
       const csrfRes = await fetch('/api/security/csrf');
       const csrfData = await csrfRes.json().catch(() => ({}));
       const token = csrfData?.token || '';
@@ -49,7 +52,7 @@ export const ClientReservationPaymentActions = ({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data?.error || 'No se pudo rechazar la solicitud');
+        setError(data?.error || 'No se pudo rechazar la solicitud');
         return;
       }
       window.location.reload();
@@ -80,6 +83,7 @@ export const ClientReservationPaymentActions = ({
       >
         {rejecting ? 'Procesando...' : 'Rechazar'}
       </Button>
+      {error ? <p className="mt-2 text-xs text-rose-700">{error}</p> : null}
     </div>
   );
 };

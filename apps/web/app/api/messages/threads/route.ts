@@ -113,12 +113,16 @@ export async function POST(req: Request) {
         }
       });
       if (!reservationId && listingId) {
-        await sendPushToHost(hostId, {
-          title: 'Nueva consulta',
-          body: `Tienes una nueva consulta en ${subject || 'tu propiedad'}.`,
-          url: `/dashboard/host/messages?threadId=${thread.id}`,
-          type: 'NEW_INQUIRY'
-        });
+        try {
+          await sendPushToHost(hostId, {
+            title: 'Nueva consulta',
+            body: `Tienes una nueva consulta en ${subject || 'tu propiedad'}.`,
+            url: `/dashboard/host/messages?threadId=${thread.id}`,
+            type: 'NEW_INQUIRY'
+          });
+        } catch {
+          // La conversación no debe fallar por un error de push.
+        }
       }
       return NextResponse.json({ thread });
     } catch (error: any) {

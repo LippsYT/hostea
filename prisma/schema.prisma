@@ -116,6 +116,7 @@ model User {
   guestOffers   Offer[]     @relation("OfferGuest")
   auditLogs     AuditLog[]  @relation("AuditActor")
   pushSubscriptions PushSubscription[]
+  legalAcceptances LegalAcceptance[]
 }
 
 model Profile {
@@ -291,6 +292,7 @@ model ListingIcalFeed {
 
 model Reservation {
   id            String            @id @default(cuid())
+  reservationNumber String?       @unique
   listingId     String
   userId        String
   roomTypeId    String?
@@ -507,6 +509,24 @@ model LegalPage {
   content   String
   published Boolean  @default(true)
   updatedAt DateTime @updatedAt
+}
+
+model LegalAcceptance {
+  id                String   @id @default(cuid())
+  userId            String
+  version           String
+  termsAccepted     Boolean  @default(true)
+  privacyAccepted   Boolean  @default(true)
+  liabilityAccepted Boolean  @default(true)
+  ipAddress         String?
+  userAgent         String?
+  acceptedAt        DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, version])
+  @@index([userId, acceptedAt])
 }
 
 model PushSubscription {

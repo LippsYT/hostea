@@ -5,11 +5,13 @@ import { ReservationStatus } from '@prisma/client';
 import ClientDashboard from '../../../claude-ui/ClientDashboard';
 import { getReservationWorkflowStatus } from '@/lib/reservation-workflow';
 import { expireAwaitingPaymentReservations } from '@/lib/reservation-request-flow';
+import { backfillReservationNumbers } from '@/lib/reservation-number';
 
 export default async function ClientPage() {
   const session = await getServerSession(authOptions);
   const userId = (session?.user as any)?.id as string;
   await expireAwaitingPaymentReservations();
+  await backfillReservationNumbers(prisma, 150);
   const reservations = await prisma.reservation.findMany({
     where: { userId },
     include: { listing: { include: { photos: true } }, payment: true },

@@ -46,6 +46,7 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
   const [inventoryQty, setInventoryQty] = useState(1);
   const [occupancyByDate, setOccupancyByDate] = useState<OccupancyByDate>({});
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  const [month, setMonth] = useState(new Date());
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
@@ -173,7 +174,7 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
             {mode === 'PRICE' ? 'Aplicar precio' : 'Bloquear fechas'}
           </Button>
         </div>
-        <div className="mt-6 grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="mt-6 grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
           <div className="space-y-3">
             <select
               className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold uppercase tracking-wide"
@@ -219,14 +220,22 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
               </div>
             )}
           </div>
-          <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 md:p-5">
+          <div className="rounded-3xl border border-slate-200/70 bg-white/95 p-4 md:p-6">
+            <div className="mb-4 flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50/70 px-4 py-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mes activo</p>
+                <p className="text-base font-semibold text-slate-900">{format(month, 'MMMM yyyy')}</p>
+              </div>
+              <p className="text-xs text-slate-500">Un mes por vista</p>
+            </div>
             <DayPicker
               className="host-calendar-picker"
               mode="range"
               selected={range}
               onSelect={setRange}
               onDayClick={(day) => setSelectedDayKey(format(day, 'yyyy-MM-dd'))}
-              showOutsideDays
+              onMonthChange={setMonth}
+              showOutsideDays={false}
               numberOfMonths={1}
               pagedNavigation
               fixedWeeks
@@ -236,13 +245,18 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
                   const key = format(props.day.date, 'yyyy-MM-dd');
                   const meta = dayMeta.get(key);
                   const tooltip = meta
-                    ? `Estado: ${meta.status} | Ocupacion: ${meta.occupied}/${meta.total} | Reservas: ${meta.reservations} | iCal: ${meta.external}`
+                    ? `Estado: ${meta.status} | Ocupacion: ${meta.occupied}/${meta.total} | Reservas: ${meta.reservations} | iCal: ${meta.external} | Holds: ${meta.holds}`
                     : undefined;
                   const { children, ...buttonProps } = props;
                   return (
                     <button {...buttonProps} title={tooltip}>
                       <div className="rdp-day-content">
                         <span className="rdp-day-number">{children}</span>
+                        {meta ? (
+                          <span className="rdp-day-occupancy-badge">
+                            {meta.occupied}/{meta.total}
+                          </span>
+                        ) : null}
                       </div>
                     </button>
                   );
@@ -263,7 +277,7 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
                 external: 'rdp-day_external'
               }}
             />
-            <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-600">
+            <div className="mt-5 flex flex-wrap gap-3 text-xs text-slate-600">
               <span className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-full bg-blue-600" /> Reservado
               </span>
@@ -281,10 +295,10 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
               </span>
             </div>
             {selectedDayKey && selectedDay && (
-              <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/70 bg-slate-50 p-3 text-xs text-slate-700">
+              <div className="mt-5 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/70 bg-slate-50 p-3 text-xs text-slate-700">
                 <span className="rounded-full bg-white px-2 py-1 font-semibold">{selectedDayKey}</span>
                 <span className="rounded-full bg-slate-100 px-2 py-1">Estado: {selectedDay.status}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-1">Ocupacion: {selectedDay.occupied}/{selectedDay.total}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-1">{selectedDay.occupied}/{selectedDay.total}</span>
                 <span className="rounded-full bg-slate-100 px-2 py-1">Reservas: {selectedDay.reservations}</span>
                 <span className="rounded-full bg-slate-100 px-2 py-1">iCal: {selectedDay.external}</span>
                 {selectedDay.priceOverride !== undefined && (

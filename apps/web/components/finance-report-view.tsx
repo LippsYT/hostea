@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 export type FinanceReportRow = {
   id: string;
   reservationId: string;
+  reservationNumber?: string | null;
   guestName: string;
   listingTitle: string;
   status: string;
@@ -122,6 +123,9 @@ export const FinanceReportView = ({
                 <tr key={row.id} className="border-b border-slate-100">
                   <td className="px-3 py-3 align-top">
                     <p className="font-semibold text-slate-900">{row.reservationId.slice(0, 8)}</p>
+                    {row.reservationNumber ? (
+                      <p className="text-xs text-slate-500">{row.reservationNumber}</p>
+                    ) : null}
                     <p className="text-xs text-slate-500">{row.guestName}</p>
                     <p className="text-xs text-slate-500">{row.listingTitle}</p>
                     <Badge className={`mt-2 ${reservationStatusBadgeClass(row.status)}`}>

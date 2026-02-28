@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button';
 
 export const ContactHostButton = ({ listingId }: { listingId: string }) => {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const onContact = async () => {
     try {
       setLoading(true);
+      setError('');
       const csrfRes = await fetch('/api/security/csrf');
       const csrfData = await csrfRes.json().catch(() => ({}));
       const token = csrfData?.token || '';
@@ -30,15 +32,18 @@ export const ContactHostButton = ({ listingId }: { listingId: string }) => {
         return;
       }
 
-      alert(data?.error || 'No se pudo abrir el chat con el anfitrion.');
+      setError(data?.error || 'No se pudo abrir el chat con el anfitrion.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Button variant="outline" className="w-full" onClick={onContact} disabled={loading}>
-      {loading ? 'Abriendo chat...' : 'Contactar anfitrion'}
-    </Button>
+    <div className="space-y-2">
+      <Button variant="outline" className="w-full" onClick={onContact} disabled={loading}>
+        {loading ? 'Abriendo chat...' : 'Contactar anfitrion'}
+      </Button>
+      {error ? <p className="text-xs text-rose-700">{error}</p> : null}
+    </div>
   );
 };

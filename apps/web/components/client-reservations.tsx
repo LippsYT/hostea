@@ -8,6 +8,7 @@ import { ReservationStatus } from '@prisma/client';
 
 export const ClientReservations = ({ reservations }: { reservations: any[] }) => {
   const [csrf, setCsrf] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
@@ -17,6 +18,7 @@ export const ClientReservations = ({ reservations }: { reservations: any[] }) =>
   }, []);
 
   const createThread = async (reservationId: string) => {
+    setError('');
     const res = await fetch('/api/messages/threads', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
@@ -27,7 +29,7 @@ export const ClientReservations = ({ reservations }: { reservations: any[] }) =>
       window.location.href = `/dashboard/client/messages?threadId=${data.thread.id}`;
       return;
     }
-    alert(data.error || 'No se pudo crear el hilo');
+    setError(data.error || 'No se pudo crear el hilo.');
   };
 
   const cancel = async (id: string) => {
@@ -43,6 +45,11 @@ export const ClientReservations = ({ reservations }: { reservations: any[] }) =>
 
   return (
     <div className="mt-6 space-y-4">
+      {error ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {error}
+        </div>
+      ) : null}
       {reservations.map((res) => (
         <div key={res.id} className="surface-card">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -55,6 +62,9 @@ export const ClientReservations = ({ reservations }: { reservations: any[] }) =>
               <div>
                 <p className="text-lg font-semibold text-slate-900">{res.listing.title}</p>
                 <p className="text-sm text-slate-500">{res.checkIn} · {res.checkOut} · {res.guestsCount} huéspedes</p>
+                {res.reservationNumber ? (
+                  <p className="text-xs text-slate-500">Nro reserva: {res.reservationNumber}</p>
+                ) : null}
                 <div className="mt-2">
                   <Badge className={reservationStatusBadgeClass(res.status)}>
                     {reservationStatusLabel(res.status)}
@@ -66,7 +76,7 @@ export const ClientReservations = ({ reservations }: { reservations: any[] }) =>
               <p className="mr-4 font-semibold text-slate-900">USD {Number(res.total).toFixed(2)}</p>
               {(res.status === ReservationStatus.PENDING_PAYMENT ||
                 res.status === ReservationStatus.AWAITING_PAYMENT) && (
-                <Button onClick={() => alert('Pago pendiente: usa el botón "Reservar ahora" en el detalle del alojamiento.')}>
+                <Button onClick={() => setError('Pago pendiente: abre el chat y usa "Pagar y confirmar".')}>
                   Pagar
                 </Button>
               )}

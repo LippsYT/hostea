@@ -104,6 +104,7 @@ export default async function HostFinanceReportPage({
     return {
       id: row.id,
       reservationId: row.id,
+      reservationNumber: reservation?.reservationNumber || null,
       guestName: row.guestName,
       listingTitle: row.listingTitle,
       status: row.status,

@@ -183,7 +183,7 @@ export const BookingForm = ({
     if (data.checkoutUrl) {
       window.location.href = data.checkoutUrl;
     } else {
-      alert(data.error || 'No se pudo iniciar el pago');
+      setGuestError(data.error || 'No se pudo iniciar el pago');
     }
     setLoading(false);
   };

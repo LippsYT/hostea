@@ -111,6 +111,7 @@ export default async function AdminFinanceReportPage({
     return {
       id: row.id,
       reservationId: row.id,
+      reservationNumber: reservation?.reservationNumber || null,
       guestName: row.guestName,
       listingTitle: row.listingTitle,
       status: row.status,

@@ -4,6 +4,8 @@ import { assertCsrf } from '@/lib/csrf';
 import { prisma } from '@/lib/db';
 import { requireSession } from '@/lib/permissions';
 import { rateLimit } from '@/lib/rate-limit';
+import { deleteReservationHold } from '@/lib/calendar-holds';
+import { PaymentStatus, ReservationStatus } from '@prisma/client';
 
 const schema = z.object({
   offerId: z.string()
@@ -47,31 +49,47 @@ export async function POST(
       return NextResponse.json({ error: 'Oferta no disponible para rechazar' }, { status: 400 });
     }
 
-    await prisma.offer.update({
-      where: { id: offer.id },
-      data: { status: 'REJECTED' }
-    });
+    await prisma.$transaction(async (tx) => {
+      await tx.offer.update({
+        where: { id: offer.id },
+        data: { status: 'REJECTED' }
+      });
 
-    await prisma.messageThread.update({
-      where: { id: thread.id },
-      data: {
-        status: 'INQUIRY',
-        offerTotal: null,
-        offerCurrency: null,
-        offerExpiresAt: null
+      if (offer.reservationId) {
+        await tx.reservation.update({
+          where: { id: offer.reservationId },
+          data: {
+            status: ReservationStatus.REJECTED,
+            paymentExpiresAt: null,
+            holdExpiresAt: null
+          }
+        });
+
+        await tx.payment.updateMany({
+          where: { reservationId: offer.reservationId, status: PaymentStatus.REQUIRES_ACTION },
+          data: { status: PaymentStatus.FAILED }
+        });
+
+        await deleteReservationHold(offer.reservationId, tx);
       }
-    });
 
-    await prisma.calendarBlock.deleteMany({
-      where: { listingId: offer.listingId, createdBy: `offer:${offer.id}` }
-    });
+      await tx.messageThread.update({
+        where: { id: thread.id },
+        data: {
+          status: 'INQUIRY',
+          offerTotal: null,
+          offerCurrency: null,
+          offerExpiresAt: null
+        }
+      });
 
-    await prisma.message.create({
-      data: {
-        threadId: thread.id,
-        senderId: userId,
-        body: 'Oferta rechazada.'
-      }
+      await tx.message.create({
+        data: {
+          threadId: thread.id,
+          senderId: userId,
+          body: 'Oferta rechazada.'
+        }
+      });
     });
 
     return NextResponse.json({ ok: true });

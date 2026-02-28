@@ -25,12 +25,14 @@ export const ClientOfferActions = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [rejected, setRejected] = useState(offerStatus === 'REJECTED');
+  const [error, setError] = useState('');
   const breakdown = calcBreakdown(offerTotal);
 
   const acceptOffer = async () => {
     if (rejected) return;
     try {
       setLoading(true);
+      setError('');
       const csrfRes = await fetch('/api/security/csrf');
       const csrfData = await csrfRes.json().catch(() => ({}));
       const token = csrfData?.token || '';
@@ -45,7 +47,7 @@ export const ClientOfferActions = ({
         window.location.href = data.checkoutUrl;
         return;
       }
-      alert(data?.error || 'No se pudo aceptar la oferta');
+      setError(data?.error || 'No se pudo aceptar la oferta.');
     } finally {
       setLoading(false);
     }
@@ -55,6 +57,7 @@ export const ClientOfferActions = ({
     if (rejected) return;
     try {
       setLoading(true);
+      setError('');
       const csrfRes = await fetch('/api/security/csrf');
       const csrfData = await csrfRes.json().catch(() => ({}));
       const token = csrfData?.token || '';
@@ -65,7 +68,7 @@ export const ClientOfferActions = ({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
-        alert(data?.error || 'No se pudo rechazar la oferta');
+        setError(data?.error || 'No se pudo rechazar la oferta.');
         return;
       }
       setRejected(true);
@@ -110,6 +113,7 @@ export const ClientOfferActions = ({
       >
         {rejected ? 'Oferta rechazada' : 'Rechazar oferta'}
       </Button>
+      {error ? <p className="mt-2 text-xs text-rose-700">{error}</p> : null}
     </div>
   );
 };

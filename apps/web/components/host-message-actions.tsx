@@ -34,6 +34,7 @@ export const HostMessageActions = ({
     String(Math.max(1, Number(defaultGuestsCount) || 1))
   );
   const [sending, setSending] = useState(false);
+  const [feedback, setFeedback] = useState<{ tone: 'error' | 'ok'; message: string } | null>(null);
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
@@ -69,6 +70,7 @@ export const HostMessageActions = ({
     action: 'preapprove' | 'offer' | 'close' | 'approve_request' | 'reject_request'
   ) => {
     setSending(true);
+    setFeedback(null);
     try {
       const res = await fetch(`/api/host/messages/${threadId}/actions`, {
         method: 'POST',
@@ -84,12 +86,13 @@ export const HostMessageActions = ({
       });
       const data = await res.json();
       if (data.error) {
-        alert(data.error);
+        setFeedback({ tone: 'error', message: data.error });
         return;
       }
       if (action === 'offer') {
         setOfferHostNet('');
       }
+      setFeedback({ tone: 'ok', message: 'Accion enviada correctamente.' });
       window.location.reload();
     } finally {
       setSending(false);
@@ -98,6 +101,17 @@ export const HostMessageActions = ({
 
   return (
     <div className="space-y-3">
+      {feedback ? (
+        <div
+          className={`rounded-xl border px-3 py-2 text-xs ${
+            feedback.tone === 'error'
+              ? 'border-rose-200 bg-rose-50 text-rose-700'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          }`}
+        >
+          {feedback.message}
+        </div>
+      ) : null}
       {isPendingApproval && (
         <div className="space-y-2 rounded-2xl border border-sky-200 bg-sky-50 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">

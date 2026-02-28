@@ -82,9 +82,19 @@ El uso de la plataforma es bajo responsabilidad del usuario, quien libera expres
   }
 };
 
+const legalSlugAlias: Record<string, string> = {
+  terminos: 'terminos-condiciones',
+  privacidad: 'politica-privacidad',
+  'pagos-cancelaciones': 'politica-pagos-cancelaciones',
+  reembolsos: 'politica-reembolsos',
+  'limitacion-responsabilidad': 'limitacion-responsabilidad',
+  'terminos-anfitriones': 'terminos-anfitriones'
+};
+
 export default async function LegalPage({ params }: { params: { slug: string } }) {
-  const page = await prisma.legalPage.findUnique({ where: { slug: params.slug } });
-  const fallback = legalDefaults[params.slug];
+  const resolvedSlug = legalSlugAlias[params.slug] || params.slug;
+  const page = await prisma.legalPage.findUnique({ where: { slug: resolvedSlug } });
+  const fallback = legalDefaults[resolvedSlug];
   const title = page?.title || fallback?.title;
   const content = page?.content || fallback?.content;
 

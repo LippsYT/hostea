@@ -171,14 +171,14 @@ export default async function HostMessagesPage({
   const selectedLatestOffer = selectedThread?.offers?.[0];
 
   return (
-    <div className="flex min-h-[calc(100dvh-10rem)] flex-col gap-6">
+    <div className="flex h-[calc(100dvh-10rem)] min-h-0 flex-col gap-6 overflow-hidden">
       <div>
         <p className="section-subtitle">Panel Host</p>
         <h1 className="section-title">Mensajes</h1>
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[300px_minmax(0,1fr)_360px]">
-        <aside className="surface-card flex min-h-0 flex-col overflow-hidden p-4">
+      <div className="grid h-full min-h-0 flex-1 gap-6 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)_360px]">
+        <aside className="surface-card flex h-full min-h-0 flex-col overflow-hidden p-4">
           <h2 className="text-lg font-semibold text-slate-900">Conversaciones</h2>
           <p className="mt-1 text-xs text-slate-500">Cliente, propiedad, estado y no leidos.</p>
           <form className="mt-3" method="get">
@@ -259,7 +259,7 @@ export default async function HostMessagesPage({
           </div>
         </aside>
 
-        <section className="surface-card flex min-h-0 flex-col overflow-hidden p-0">
+        <section className="surface-card flex h-full min-h-0 flex-col overflow-hidden p-0">
           {selectedThread ? (
             <>
               <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 bg-white/95 p-4 backdrop-blur">
@@ -288,7 +288,7 @@ export default async function HostMessagesPage({
           )}
         </section>
 
-        <aside className="surface-card flex min-h-0 flex-col space-y-5 overflow-y-auto">
+        <aside className="surface-card flex h-full min-h-0 flex-col space-y-5 overflow-y-auto">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Acciones del host</h2>
             <p className="mt-1 text-xs text-slate-500">

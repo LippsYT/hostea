@@ -45,7 +45,6 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
   const [holds, setHolds] = useState<Hold[]>([]);
   const [inventoryQty, setInventoryQty] = useState(1);
   const [occupancyByDate, setOccupancyByDate] = useState<OccupancyByDate>({});
-  const [monthsToShow, setMonthsToShow] = useState(1);
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,15 +52,6 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
       const data = await res.json();
       setCsrf(data.token);
     });
-  }, []);
-
-  useEffect(() => {
-    const updateMonths = () => {
-      setMonthsToShow(window.innerWidth >= 1280 ? 2 : 1);
-    };
-    updateMonths();
-    window.addEventListener('resize', updateMonths);
-    return () => window.removeEventListener('resize', updateMonths);
   }, []);
 
   const loadBlocks = async (id: string) => {
@@ -237,7 +227,7 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
               onSelect={setRange}
               onDayClick={(day) => setSelectedDayKey(format(day, 'yyyy-MM-dd'))}
               showOutsideDays
-              numberOfMonths={monthsToShow}
+              numberOfMonths={1}
               pagedNavigation
               fixedWeeks
               disabled={disabledRanges}
@@ -270,7 +260,7 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
                 maintenance: 'rdp-day_maintenance',
                 reserved: 'rdp-day_reserved',
                 price: 'rdp-day_price',
-                external: 'rdp-day_blocked'
+                external: 'rdp-day_external'
               }}
             />
             <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-600">

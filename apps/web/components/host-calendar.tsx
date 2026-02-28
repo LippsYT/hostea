@@ -21,13 +21,13 @@ type Hold = {
 };
 type OccupancyByDate = Record<string, { occupied: number; total: number }>;
 type DayMeta = {
-  status: 'Bloqueado' | 'iCal' | 'Reservado' | null;
-  occupancyLabel: string;
+  status: 'Reservado' | 'Bloqueado' | 'Libre';
   reservations: number;
   external: number;
   holds: number;
   occupied: number;
   total: number;
+  priceOverride?: number;
 };
 
 const overlaps = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) =>
@@ -46,6 +46,7 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
   const [inventoryQty, setInventoryQty] = useState(1);
   const [occupancyByDate, setOccupancyByDate] = useState<OccupancyByDate>({});
   const [monthsToShow, setMonthsToShow] = useState(1);
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
@@ -72,6 +73,7 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
     setHolds(data.holds || []);
     setInventoryQty(Math.max(1, Number(data.inventoryQty || 1)));
     setOccupancyByDate(data.occupancyByDate || {});
+    setSelectedDayKey(null);
   };
 
   useEffect(() => {
@@ -149,23 +151,23 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
         overlaps(dayStart, dayEnd, new Date(block.startDate), new Date(block.endDate))
       ).length;
 
-      let status: DayMeta['status'] = null;
-      if (hardBlocksCount > 0) status = 'Bloqueado';
-      else if (externalCount > 0) status = 'iCal';
-      else if (reservationsCount > 0 || holdsCount > 0) status = 'Reservado';
+      const isReserved = reservationsCount > 0 || holdsCount > 0 || Number(value.occupied || 0) >= Number(value.total || 1);
+      const isBlocked = hardBlocksCount > 0 || externalCount > 0;
+      const status: DayMeta['status'] = isReserved ? 'Reservado' : isBlocked ? 'Bloqueado' : 'Libre';
 
       map.set(key, {
         status,
-        occupancyLabel: `${value.occupied}/${value.total}`,
         reservations: reservationsCount,
         external: externalCount,
         holds: holdsCount,
         occupied: value.occupied,
-        total: value.total
+        total: value.total,
+        priceOverride: priceMap.get(key)
       });
     }
     return map;
   }, [occupancyByDate, reservations, externalBlocks, holds, manualBlocks]);
+  const selectedDay = selectedDayKey ? dayMeta.get(selectedDayKey) : null;
 
   return (
     <div className="space-y-4">
@@ -181,7 +183,7 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
             {mode === 'PRICE' ? 'Aplicar precio' : 'Bloquear fechas'}
           </Button>
         </div>
-        <div className="mt-6 grid gap-4 lg:grid-cols-[320px_1fr]">
+        <div className="mt-6 grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
           <div className="space-y-3">
             <select
               className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold uppercase tracking-wide"
@@ -233,6 +235,7 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
               mode="range"
               selected={range}
               onSelect={setRange}
+              onDayClick={(day) => setSelectedDayKey(format(day, 'yyyy-MM-dd'))}
               showOutsideDays
               numberOfMonths={monthsToShow}
               pagedNavigation
@@ -241,33 +244,15 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
               components={{
                 DayButton: (props: DayButtonProps) => {
                   const key = format(props.day.date, 'yyyy-MM-dd');
-                  const price = priceMap.get(key);
                   const meta = dayMeta.get(key);
-                  const statusClass =
-                    meta?.status === 'Bloqueado'
-                      ? 'rdp-day-status-blocked'
-                      : meta?.status === 'iCal'
-                        ? 'rdp-day-status-ical'
-                        : meta?.status === 'Reservado'
-                          ? 'rdp-day-status-reserved'
-                          : '';
                   const tooltip = meta
-                    ? `Reservas: ${meta.reservations} | iCal: ${meta.external} | Holds: ${meta.holds} | Total: ${meta.occupied}/${meta.total}`
+                    ? `Estado: ${meta.status} | Ocupacion: ${meta.occupied}/${meta.total} | Reservas: ${meta.reservations} | iCal: ${meta.external}`
                     : undefined;
                   const { children, ...buttonProps } = props;
                   return (
                     <button {...buttonProps} title={tooltip}>
                       <div className="rdp-day-content">
                         <span className="rdp-day-number">{children}</span>
-                        {meta?.status && (
-                          <span className={`rdp-day-status ${statusClass}`}>{meta.status}</span>
-                        )}
-                        {meta && (
-                          <span className="rdp-day-occupancy">{meta.occupancyLabel}</span>
-                        )}
-                        {price !== undefined && (
-                          <span className="rdp-day-price">USD {price}</span>
-                        )}
                       </div>
                     </button>
                   );
@@ -290,6 +275,9 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
             />
             <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-600">
               <span className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full bg-blue-600" /> Reservado
+              </span>
+              <span className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-full bg-red-500" /> Bloqueado
               </span>
               <span className="flex items-center gap-2">
@@ -299,12 +287,23 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
                 <span className="h-3 w-3 rounded-full bg-slate-400" /> Mantenimiento
               </span>
               <span className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-blue-500" /> Reservado
-              </span>
-              <span className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-full bg-emerald-500" /> Precio personalizado
               </span>
             </div>
+            {selectedDayKey && selectedDay && (
+              <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/70 bg-slate-50 p-3 text-xs text-slate-700">
+                <span className="rounded-full bg-white px-2 py-1 font-semibold">{selectedDayKey}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-1">Estado: {selectedDay.status}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-1">Ocupacion: {selectedDay.occupied}/{selectedDay.total}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-1">Reservas: {selectedDay.reservations}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-1">iCal: {selectedDay.external}</span>
+                {selectedDay.priceOverride !== undefined && (
+                  <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">
+                    Precio: USD {selectedDay.priceOverride}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

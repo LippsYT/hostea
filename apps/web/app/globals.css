@@ -82,43 +82,18 @@ body {
 
 .rdp-day-content {
   display: flex;
-  flex-direction: column;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 4px;
-  min-height: 72px;
+  justify-content: flex-start;
+  min-height: 100px;
   width: 100%;
-  padding: 6px 8px;
+  padding: 10px;
 }
 
 .rdp-day-number {
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 600;
-  line-height: 1;
-}
-
-.rdp-day-status {
-  font-size: 11px;
   line-height: 1.1;
-  font-weight: 500;
-}
-
-.rdp-day-status-blocked {
-  color: #b91c1c;
-}
-
-.rdp-day-status-ical {
-  color: #b45309;
-}
-
-.rdp-day-status-reserved {
-  color: #1d4ed8;
-}
-
-.rdp-day-occupancy {
-  font-size: 10px;
-  line-height: 1;
-  color: #475569;
+  color: #0f172a;
 }
 
 .rdp-day-price {
@@ -130,11 +105,15 @@ body {
 .host-calendar-picker .rdp-months {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 18px;
+  gap: 20px;
   width: 100%;
 }
 
 .host-calendar-picker .rdp-month {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.92);
   width: 100%;
   max-width: none;
 }
@@ -152,8 +131,8 @@ body {
 }
 
 .host-calendar-picker .rdp-day_button {
-  min-width: 90px;
-  min-height: 92px;
+  min-width: 100px;
+  min-height: 100px;
   width: 100%;
   border-radius: 14px;
   border: 1px solid rgba(148, 163, 184, 0.22);
@@ -161,23 +140,23 @@ body {
 
 @media (min-width: 1024px) {
   .host-calendar-picker .rdp-month_grid {
-    border-spacing: 12px 12px;
+    border-spacing: 14px 14px;
   }
 
   .host-calendar-picker .rdp-day_button {
-    min-width: 116px;
-    min-height: 108px;
+    min-width: 120px;
+    min-height: 112px;
   }
 
   .rdp-day-content {
-    min-height: 84px;
+    min-height: 100px;
   }
 }
 
 @media (min-width: 1280px) {
   .host-calendar-picker .rdp-months {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 22px;
+    gap: 24px;
   }
 }
 
@@ -188,27 +167,13 @@ body {
 
   .host-calendar-picker .rdp-day_button {
     min-width: 40px;
-    min-height: 62px;
+    min-height: 68px;
     border-radius: 10px;
   }
 
   .rdp-day-content {
-    min-height: 52px;
-    padding: 4px;
-    gap: 3px;
-  }
-
-  .rdp-day-status {
-    display: none;
-  }
-
-  .rdp-day-occupancy {
-    align-self: flex-end;
-    border-radius: 999px;
-    background: rgba(15, 23, 42, 0.08);
-    padding: 2px 6px;
-    font-size: 9px;
-    font-weight: 600;
+    min-height: 60px;
+    padding: 6px;
   }
 
   .rdp-day-price {

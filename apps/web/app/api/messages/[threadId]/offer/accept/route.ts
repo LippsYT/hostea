@@ -7,6 +7,9 @@ import { rateLimit } from '@/lib/rate-limit';
 import { stripe } from '@/lib/stripe';
 import { checkListingAvailability } from '@/lib/listing-availability';
 import { sendPushToHost } from '@/lib/push-notifications';
+import { PaymentStatus, ReservationStatus } from '@prisma/client';
+import { buildPaymentExpiresAt } from '@/lib/reservation-request-flow';
+import { createOrRefreshReservationHold } from '@/lib/calendar-holds';
 
 const schema = z.object({
   offerId: z.string().optional()
@@ -70,11 +73,19 @@ export async function POST(
       return NextResponse.json({ error: 'Monto de oferta invalido' }, { status: 400 });
     }
 
+    const existingReservation = offer.reservationId
+      ? await prisma.reservation.findUnique({
+          where: { id: offer.reservationId },
+          include: { payment: true, thread: true }
+        })
+      : null;
+
     const availability = await checkListingAvailability({
       listingId: offer.listingId,
       checkIn: offer.checkIn,
       checkOut: offer.checkOut,
-      guests: offer.guestsCount
+      guests: offer.guestsCount,
+      excludeReservationId: existingReservation?.id
     });
     if (!availability.available) {
       return NextResponse.json(
@@ -83,25 +94,46 @@ export async function POST(
       );
     }
 
-    const holdOwner = `offer:${offer.id}`;
-    await prisma.calendarBlock.deleteMany({
-      where: { listingId: offer.listingId, createdBy: holdOwner }
-    });
-    await prisma.calendarBlock.create({
+    const paymentExpiresAt = buildPaymentExpiresAt();
+    const reservation =
+      existingReservation ||
+      (await prisma.reservation.create({
+        data: {
+          listingId: offer.listingId,
+          userId: offer.guestId,
+          checkIn: offer.checkIn,
+          checkOut: offer.checkOut,
+          guestsCount: offer.guestsCount,
+          total: offer.clientTotal,
+          currency: offer.currency || 'USD',
+          status: ReservationStatus.AWAITING_PAYMENT,
+          paymentExpiresAt,
+          holdExpiresAt: paymentExpiresAt
+        }
+      }));
+
+    await prisma.reservation.update({
+      where: { id: reservation.id },
       data: {
-        listingId: offer.listingId,
-        startDate: offer.checkIn,
-        endDate: offer.checkOut,
-        reason: 'Oferta pendiente pago',
-        createdBy: holdOwner
+        status: ReservationStatus.AWAITING_PAYMENT,
+        paymentExpiresAt,
+        holdExpiresAt: paymentExpiresAt
       }
+    });
+
+    await createOrRefreshReservationHold({
+      listingId: offer.listingId,
+      reservationId: reservation.id,
+      checkIn: offer.checkIn,
+      checkOut: offer.checkOut,
+      expiresAt: paymentExpiresAt
     });
 
     const stripeSession = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
-      success_url: `${process.env.APP_URL}/success?offerId=${offer.id}`,
-      cancel_url: `${process.env.APP_URL}/cancel?offerId=${offer.id}`,
+      success_url: `${process.env.APP_URL}/success?offerId=${offer.id}&reservationId=${reservation.id}`,
+      cancel_url: `${process.env.APP_URL}/cancel?offerId=${offer.id}&reservationId=${reservation.id}`,
       line_items: [
         {
           price_data: {
@@ -117,7 +149,8 @@ export async function POST(
         offerId: offer.id,
         threadId: thread.id,
         listingId: offer.listingId,
-        guestId: userId
+        guestId: userId,
+        reservationId: reservation.id
       }
     });
 
@@ -130,15 +163,52 @@ export async function POST(
       data: {
         status: 'ACCEPTED',
         acceptedAt: new Date(),
-        paymentSessionId: stripeSession.id
+        paymentSessionId: stripeSession.id,
+        reservationId: reservation.id
       }
     });
+
+    await prisma.messageThread.update({
+      where: { id: thread.id },
+      data: {
+        status: 'PREAPPROVED',
+        reservationId: reservation.id,
+        offerTotal: offer.clientTotal,
+        offerCurrency: offer.currency || 'USD',
+        offerExpiresAt: paymentExpiresAt
+      }
+    });
+
+    if (existingReservation?.payment) {
+      await prisma.payment.update({
+        where: { id: existingReservation.payment.id },
+        data: {
+          stripeSessionId: stripeSession.id,
+          amount: offer.clientTotal,
+          currency: offer.currency || 'USD',
+          status: PaymentStatus.REQUIRES_ACTION
+        }
+      });
+    } else {
+      await prisma.payment.create({
+        data: {
+          reservationId: reservation.id,
+          userId: offer.guestId,
+          stripeSessionId: stripeSession.id,
+          amount: offer.clientTotal,
+          currency: offer.currency || 'USD',
+          status: PaymentStatus.REQUIRES_ACTION
+        }
+      });
+    }
 
     await prisma.message.create({
       data: {
         threadId: thread.id,
         senderId: userId,
-        body: `El cliente inicio checkout para la oferta de USD ${offerAmount.toFixed(2)}.`
+        body: `Oferta aceptada. Checkout iniciado por USD ${offerAmount.toFixed(
+          2
+        )}. Completa el pago en los proximos 30 minutos.`
       }
     });
 
@@ -149,7 +219,11 @@ export async function POST(
       type: 'OFFER_ACCEPTED'
     });
 
-    return NextResponse.json({ checkoutUrl: stripeSession.url });
+    return NextResponse.json({
+      checkoutUrl: stripeSession.url,
+      reservationId: reservation.id,
+      paymentExpiresAt: paymentExpiresAt.toISOString()
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Error' }, { status: 500 });
   }

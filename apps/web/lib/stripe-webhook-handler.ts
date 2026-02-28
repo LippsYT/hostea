@@ -8,6 +8,7 @@ import {
   getCloudbedsMappingForListing,
   isCloudbedsEnabled
 } from '@/lib/cloudbeds';
+import { enqueueReservationPrintJob } from '@/lib/print-jobs';
 
 const ensureThreadMessage = async (
   prisma: any,
@@ -123,6 +124,9 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         }
 
         await sendAutoMessagesOnConfirm(reservation.id);
+        try {
+          await enqueueReservationPrintJob(prisma, reservation.id, 'paid');
+        } catch {}
         await sendPushToHost(
           offer.listing.hostId,
           {
@@ -216,6 +220,9 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         }
 
         await sendAutoMessagesOnConfirm(reservation.id);
+        try {
+          await enqueueReservationPrintJob(prisma, reservation.id, 'paid');
+        } catch {}
         await sendPushToHost(
           reservation.listing.hostId,
           {

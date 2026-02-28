@@ -38,6 +38,25 @@ export type AdminPayoutRow = {
   createdAt: string;
 };
 
+export type AdminPrintSettingsRow = {
+  autoPrintEnabled: boolean;
+  autoPrintOnlyPaid: boolean;
+  printerName: string | null;
+  copies: number;
+};
+
+export type AdminPrintJobRow = {
+  id: string;
+  reservationId: string | null;
+  reservationCode: string | null;
+  status: string;
+  attempts: number;
+  error: string | null;
+  type: string;
+  createdAt: string;
+  printedAt: string | null;
+};
+
 const buildPeriods = (rows: FinanceRow[]) => {
   const unique = Array.from(new Set(rows.map((r) => r.period))).sort().reverse();
   return unique.length > 0 ? unique : [new Date().toISOString().slice(0, 7)];
@@ -47,18 +66,25 @@ export const AdminFinance = ({
   rows,
   hosts,
   payouts,
-  archiveMap
+  archiveMap,
+  printSettings,
+  printJobs
 }: {
   rows: FinanceRow[];
   hosts: FinanceHostRow[];
   payouts: AdminPayoutRow[];
   archiveMap: Record<string, string[]>;
+  printSettings: AdminPrintSettingsRow;
+  printJobs: AdminPrintJobRow[];
 }) => {
   const [csrf, setCsrf] = useState('');
   const [selectedHost, setSelectedHost] = useState('all');
   const [metric, setMetric] = useState<'gross' | 'hostNet' | 'commission' | 'adjustments'>('gross');
   const [selectedPeriod, setSelectedPeriod] = useState(buildPeriods(rows)[0]);
   const [showArchived, setShowArchived] = useState(false);
+  const [printConfig, setPrintConfig] = useState<AdminPrintSettingsRow>(printSettings);
+  const [printBusy, setPrintBusy] = useState(false);
+  const [printFeedback, setPrintFeedback] = useState('');
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
@@ -144,6 +170,66 @@ export const AdminFinance = ({
       body: JSON.stringify({ reservationId })
     });
     window.location.reload();
+  };
+
+  const savePrintSettings = async () => {
+    setPrintBusy(true);
+    setPrintFeedback('');
+    const res = await fetch('/api/admin/print/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify(printConfig)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setPrintFeedback(data?.error || 'No se pudo guardar configuracion de impresion.');
+      setPrintBusy(false);
+      return;
+    }
+    setPrintConfig({
+      autoPrintEnabled: Boolean(data.settings?.autoPrintEnabled),
+      autoPrintOnlyPaid: Boolean(data.settings?.autoPrintOnlyPaid),
+      printerName: data.settings?.printerName || null,
+      copies: Number(data.settings?.copies || 1)
+    });
+    setPrintBusy(false);
+    setPrintFeedback('Configuracion de impresion guardada.');
+  };
+
+  const createPrintTest = async () => {
+    setPrintBusy(true);
+    setPrintFeedback('');
+    const res = await fetch('/api/admin/print/test', {
+      method: 'POST',
+      headers: { 'x-csrf-token': csrf }
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setPrintFeedback(data?.error || 'No se pudo crear job de prueba.');
+      setPrintBusy(false);
+      return;
+    }
+    setPrintFeedback('Job de prueba creado.');
+    setPrintBusy(false);
+    window.location.reload();
+  };
+
+  const retryJob = async (jobId: string) => {
+    const res = await fetch('/api/admin/print/retry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify({ jobId })
+    });
+    if (res.ok) window.location.reload();
+  };
+
+  const reprintReservation = async (reservationId: string) => {
+    const res = await fetch('/api/admin/print/reprint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify({ reservationId })
+    });
+    if (res.ok) window.location.reload();
   };
 
   return (
@@ -237,6 +323,133 @@ export const AdminFinance = ({
           </div>
           <div className="mt-6">
             <FinanceChart data={chartData} metric={metric} />
+          </div>
+        </div>
+      </div>
+
+      <div className="surface-card">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">Impresion automatica</h2>
+            <p className="text-sm text-slate-500">
+              Crea tickets termicos para reservas segun configuracion del admin.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={createPrintTest} disabled={printBusy}>
+              Probar impresion
+            </Button>
+            <Button size="sm" onClick={savePrintSettings} disabled={printBusy}>
+              Guardar impresion
+            </Button>
+          </div>
+        </div>
+        {printFeedback ? <p className="mt-3 text-sm text-slate-600">{printFeedback}</p> : null}
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <label className="surface-muted flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={printConfig.autoPrintEnabled}
+              onChange={(e) =>
+                setPrintConfig((prev) => ({ ...prev, autoPrintEnabled: e.target.checked }))
+              }
+            />
+            Activar impresion automatica
+          </label>
+          <label className="surface-muted flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={printConfig.autoPrintOnlyPaid}
+              onChange={(e) =>
+                setPrintConfig((prev) => ({ ...prev, autoPrintOnlyPaid: e.target.checked }))
+              }
+            />
+            Solo reservas pagadas
+          </label>
+          <div className="surface-muted">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Nombre impresora Bluetooth
+            </p>
+            <input
+              className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={printConfig.printerName || ''}
+              onChange={(e) =>
+                setPrintConfig((prev) => ({ ...prev, printerName: e.target.value }))
+              }
+              placeholder="Ej: MTP-58"
+            />
+            <p className="mt-1 text-[11px] text-slate-500">
+              Debe coincidir con el nombre emparejado en el mini PC.
+            </p>
+          </div>
+          <div className="surface-muted">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Copias</p>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={printConfig.copies}
+              onChange={(e) =>
+                setPrintConfig((prev) => ({
+                  ...prev,
+                  copies: Math.max(1, Math.min(10, Number(e.target.value) || 1))
+                }))
+              }
+            />
+          </div>
+        </div>
+        <div className="mt-5">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            Ultimos trabajos (20)
+          </h3>
+          <div className="mt-3 space-y-2 text-sm">
+            {printJobs.map((job) => (
+              <div
+                key={job.id}
+                className="surface-muted flex flex-wrap items-center justify-between gap-3"
+              >
+                <div>
+                  <p className="font-semibold text-slate-900">
+                    {job.reservationCode || (job.type === 'test' ? 'Ticket de prueba' : 'Sin codigo')}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {new Date(job.createdAt).toLocaleString('es-AR')} · Intentos {job.attempts}
+                  </p>
+                  {job.error ? <p className="text-xs text-rose-600">{job.error}</p> : null}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    className={
+                      job.status === 'printed'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : job.status === 'failed'
+                          ? 'border-rose-200 bg-rose-50 text-rose-700'
+                          : 'border-slate-200 bg-slate-100 text-slate-700'
+                    }
+                  >
+                    {job.status}
+                  </Badge>
+                  {job.status === 'failed' ? (
+                    <Button size="sm" variant="outline" onClick={() => retryJob(job.id)}>
+                      Reintentar
+                    </Button>
+                  ) : null}
+                  {job.reservationId ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => reprintReservation(job.reservationId as string)}
+                    >
+                      Reimprimir
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+            {printJobs.length === 0 ? (
+              <p className="text-sm text-slate-500">No hay trabajos de impresion recientes.</p>
+            ) : null}
           </div>
         </div>
       </div>

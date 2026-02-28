@@ -10,6 +10,7 @@ import { sendPushToHost } from '@/lib/push-notifications';
 import { PaymentStatus, ReservationStatus } from '@prisma/client';
 import { buildPaymentExpiresAt } from '@/lib/reservation-request-flow';
 import { createOrRefreshReservationHold } from '@/lib/calendar-holds';
+import { enqueueReservationPrintJob } from '@/lib/print-jobs';
 
 const schema = z.object({
   offerId: z.string().optional()
@@ -218,6 +219,9 @@ export async function POST(
       url: `/dashboard/host/messages?threadId=${thread.id}`,
       type: 'OFFER_ACCEPTED'
     });
+    try {
+      await enqueueReservationPrintJob(prisma, reservation.id, 'created');
+    } catch {}
 
     return NextResponse.json({
       checkoutUrl: stripeSession.url,

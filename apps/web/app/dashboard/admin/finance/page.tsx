@@ -12,6 +12,7 @@ import {
   getPeriodKey,
   isPaymentCaptured
 } from '@/lib/finance-report';
+import { getAdminPrintSettings } from '@/lib/print-jobs';
 
 export default async function AdminFinancePage({
   searchParams
@@ -121,6 +122,12 @@ export default async function AdminFinancePage({
     return acc;
   }, {});
 
+  const printSettings = await getAdminPrintSettings(prisma);
+  const printJobs = await prisma.printJob.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 20
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -140,6 +147,21 @@ export default async function AdminFinancePage({
           createdAt: p.createdAt.toISOString().slice(0, 10)
         }))}
         archiveMap={archiveMap}
+        printSettings={printSettings}
+        printJobs={printJobs.map((job) => {
+          const payload = (job.payload || {}) as Record<string, any>;
+          return {
+            id: job.id,
+            reservationId: job.reservationId,
+            reservationCode: payload.reservationCode || null,
+            status: job.status,
+            attempts: job.attempts,
+            error: job.error || null,
+            type: job.type,
+            createdAt: job.createdAt.toISOString(),
+            printedAt: job.printedAt ? job.printedAt.toISOString() : null
+          };
+        })}
       />
     </div>
   );

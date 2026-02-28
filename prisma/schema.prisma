@@ -117,6 +117,7 @@ model User {
   auditLogs     AuditLog[]  @relation("AuditActor")
   pushSubscriptions PushSubscription[]
   legalAcceptances LegalAcceptance[]
+  printJobs      PrintJob[]        @relation("PrintJobHost")
 }
 
 model Profile {
@@ -316,6 +317,7 @@ model Reservation {
   offer         Offer?
   thread        MessageThread?
   review        Review?
+  printJobs     PrintJob[]
 }
 
 model ReservationGuest {
@@ -545,4 +547,38 @@ model PushSubscription {
 
   @@index([hostId, role, isActive])
   @@map("push_subscriptions")
+}
+
+model AdminSettings {
+  id                  Int      @id @default(1)
+  autoPrintEnabled    Boolean  @default(false) @map("auto_print_enabled")
+  autoPrintOnlyPaid   Boolean  @default(true)  @map("auto_print_only_paid")
+  printerName         String?  @map("printer_name")
+  copies              Int      @default(1)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_settings")
+}
+
+model PrintJob {
+  id            String       @id @default(uuid())
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  reservationId String?      @map("reservation_id")
+  hostId        String?      @map("host_id")
+  status        String       @default("pending")
+  attempts      Int          @default(0)
+  error         String?
+  payload       Json
+  printedAt     DateTime?    @map("printed_at")
+  type          String       @default("reservation")
+
+  reservation   Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  host          User?        @relation("PrintJobHost", fields: [hostId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([reservationId])
+  @@index([hostId])
+  @@map("print_jobs")
 }

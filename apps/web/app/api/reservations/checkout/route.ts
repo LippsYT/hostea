@@ -15,6 +15,7 @@ import {
   expireAwaitingPaymentReservations
 } from '@/lib/reservation-request-flow';
 import { createOrRefreshReservationHold } from '@/lib/calendar-holds';
+import { enqueueReservationPrintJob } from '@/lib/print-jobs';
 
 const schema = z.object({
   listingId: z.string(),
@@ -136,6 +137,9 @@ export async function POST(req: Request) {
         url: `/dashboard/host/reservations?view=pending&reservationId=${reservation.id}`,
         type: 'NEW_INQUIRY'
       });
+      try {
+        await enqueueReservationPrintJob(prisma, reservation.id, 'created');
+      } catch {}
 
       return NextResponse.json({
         pendingApproval: true,
@@ -209,6 +213,9 @@ export async function POST(req: Request) {
       url: `/dashboard/host/reservations?reservationId=${reservation.id}`,
       type: 'NEW_RESERVATION'
     });
+    try {
+      await enqueueReservationPrintJob(prisma, reservation.id, 'created');
+    } catch {}
 
     return NextResponse.json({ checkoutUrl: stripeSession.url });
   } catch (error: any) {

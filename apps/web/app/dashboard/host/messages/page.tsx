@@ -171,14 +171,14 @@ export default async function HostMessagesPage({
   const selectedLatestOffer = selectedThread?.offers?.[0];
 
   return (
-    <div className="space-y-6">
+    <div className="flex min-h-[calc(100dvh-10rem)] flex-col gap-6">
       <div>
         <p className="section-subtitle">Panel Host</p>
         <h1 className="section-title">Mensajes</h1>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)_360px]">
-        <aside className="surface-card p-4">
+      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[300px_minmax(0,1fr)_360px]">
+        <aside className="surface-card flex min-h-0 flex-col overflow-hidden p-4">
           <h2 className="text-lg font-semibold text-slate-900">Conversaciones</h2>
           <p className="mt-1 text-xs text-slate-500">Cliente, propiedad, estado y no leidos.</p>
           <form className="mt-3" method="get">
@@ -190,7 +190,7 @@ export default async function HostMessagesPage({
               className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700"
             />
           </form>
-          <div className="mt-4 space-y-2">
+          <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             {filteredThreads.map((thread) => {
               const other = thread.participants.find((p) => p.userId !== userId);
               const otherName = other?.user.profile?.name || other?.user.email || 'Huesped';
@@ -259,10 +259,10 @@ export default async function HostMessagesPage({
           </div>
         </aside>
 
-        <section className="surface-card p-4">
+        <section className="surface-card flex min-h-0 flex-col overflow-hidden p-0">
           {selectedThread ? (
             <>
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3">
+              <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 bg-white/95 p-4 backdrop-blur">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">{selectedGuestName}</p>
                   <p className="text-xs text-slate-500">{selectedListingTitle}</p>
@@ -273,18 +273,22 @@ export default async function HostMessagesPage({
                   </span>
                 )}
               </div>
-              <ChatClient
-                initialThreadId={selected}
-                currentUserId={userId}
-                currentUserName={userName}
-              />
+              <div className="min-h-0 flex-1">
+                <ChatClient
+                  initialThreadId={selected}
+                  currentUserId={userId}
+                  currentUserName={userName}
+                />
+              </div>
             </>
           ) : (
-            <p className="text-sm text-slate-500">Selecciona una conversacion.</p>
+            <div className="flex h-full min-h-0 items-center justify-center p-4 text-sm text-slate-500">
+              Selecciona una conversacion.
+            </div>
           )}
         </section>
 
-        <aside className="surface-card sticky top-24 h-fit space-y-5">
+        <aside className="surface-card flex min-h-0 flex-col space-y-5 overflow-y-auto">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Acciones del host</h2>
             <p className="mt-1 text-xs text-slate-500">

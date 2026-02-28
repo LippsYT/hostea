@@ -112,12 +112,16 @@ export const ChatClient = ({
   const grouped = useMemo(() => messages, [messages]);
 
   if (!threadId) {
-    return <div className="text-sm text-slate-500">Selecciona una conversacion.</div>;
+    return (
+      <div className="flex h-full min-h-0 items-center justify-center text-sm text-slate-500">
+        Selecciona una conversacion.
+      </div>
+    );
   }
 
   return (
-    <div className="flex h-[620px] flex-col">
-      <div className="flex-1 space-y-3 overflow-y-auto rounded-3xl border border-slate-200/70 bg-white/80 p-4">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {grouped.map((msg) => {
           const mine = msg.senderId === currentUserId;
           const createdAt = new Date(msg.createdAt);
@@ -149,7 +153,7 @@ export const ChatClient = ({
         )}
         <div ref={bottomRef} />
       </div>
-      <div className="mt-3 rounded-2xl border border-slate-200/70 bg-white/90 p-3">
+      <div className="border-t border-slate-200/70 bg-white/95 p-3 backdrop-blur">
         <div className="flex gap-2">
           <Input
             value={body}

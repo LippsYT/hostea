@@ -45,12 +45,22 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
   const [holds, setHolds] = useState<Hold[]>([]);
   const [inventoryQty, setInventoryQty] = useState(1);
   const [occupancyByDate, setOccupancyByDate] = useState<OccupancyByDate>({});
+  const [monthsToShow, setMonthsToShow] = useState(1);
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
       const data = await res.json();
       setCsrf(data.token);
     });
+  }, []);
+
+  useEffect(() => {
+    const updateMonths = () => {
+      setMonthsToShow(window.innerWidth >= 1280 ? 2 : 1);
+    };
+    updateMonths();
+    window.addEventListener('resize', updateMonths);
+    return () => window.removeEventListener('resize', updateMonths);
   }, []);
 
   const loadBlocks = async (id: string) => {
@@ -224,6 +234,9 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
               selected={range}
               onSelect={setRange}
               showOutsideDays
+              numberOfMonths={monthsToShow}
+              pagedNavigation
+              fixedWeeks
               disabled={disabledRanges}
               components={{
                 DayButton: (props: DayButtonProps) => {

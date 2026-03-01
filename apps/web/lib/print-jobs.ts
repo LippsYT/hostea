@@ -6,9 +6,6 @@ export type AdminPrintSettingsShape = {
   autoPrintEnabled: boolean;
   autoPrintOnlyPaid: boolean;
   printerName: string | null;
-  printerAgentIp: string | null;
-  printApiKey: string | null;
-  hasPrintApiKey: boolean;
   copies: number;
 };
 
@@ -38,9 +35,6 @@ const DEFAULT_SETTINGS: AdminPrintSettingsShape = {
   autoPrintEnabled: false,
   autoPrintOnlyPaid: true,
   printerName: null,
-  printerAgentIp: null,
-  printApiKey: null,
-  hasPrintApiKey: false,
   copies: 1
 };
 
@@ -64,36 +58,20 @@ export const getAdminPrintSettings = async (
     autoPrintEnabled: row.autoPrintEnabled,
     autoPrintOnlyPaid: row.autoPrintOnlyPaid,
     printerName: row.printerName || null,
-    printerAgentIp: row.printerAgentIp || null,
-    printApiKey: row.printApiKey || null,
-    hasPrintApiKey: Boolean(row.printApiKey),
     copies: Math.max(1, Number(row.copies) || 1)
   };
 };
 
 export const updateAdminPrintSettings = async (
   db: PrismaClient | any,
-  input: Partial<AdminPrintSettingsShape> & { printApiKey?: string | null }
+  input: Partial<AdminPrintSettingsShape>
 ) => {
-  const current = await db.adminSettings.findUnique({ where: { id: 1 } });
-  const normalizedApiKeyInput = typeof input.printApiKey === 'string'
-    ? input.printApiKey.trim()
-    : input.printApiKey;
-  const nextApiKey =
-    normalizedApiKeyInput === undefined
-      ? current?.printApiKey || null
-      : normalizedApiKeyInput === ''
-        ? current?.printApiKey || null
-        : normalizedApiKeyInput;
-
   return db.adminSettings.upsert({
     where: { id: 1 },
     update: {
       autoPrintEnabled: input.autoPrintEnabled,
       autoPrintOnlyPaid: input.autoPrintOnlyPaid,
       printerName: input.printerName?.trim() || null,
-      printerAgentIp: input.printerAgentIp?.trim() || null,
-      printApiKey: nextApiKey,
       copies: input.copies ? Math.max(1, Math.min(10, Number(input.copies) || 1)) : undefined
     },
     create: {
@@ -101,8 +79,6 @@ export const updateAdminPrintSettings = async (
       autoPrintEnabled: input.autoPrintEnabled ?? DEFAULT_SETTINGS.autoPrintEnabled,
       autoPrintOnlyPaid: input.autoPrintOnlyPaid ?? DEFAULT_SETTINGS.autoPrintOnlyPaid,
       printerName: input.printerName?.trim() || null,
-      printerAgentIp: input.printerAgentIp?.trim() || null,
-      printApiKey: nextApiKey,
       copies: input.copies ? Math.max(1, Math.min(10, Number(input.copies) || 1)) : 1
     }
   });

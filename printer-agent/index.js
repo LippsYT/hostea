@@ -7,7 +7,7 @@ const { printer: ThermalPrinter, types: PrinterTypes } = require("node-thermal-p
 const SB_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SB_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const PRINTER_INTERFACE = process.env.PRINTER_INTERFACE || "";
-const POLL_MS = Number(process.env.POLL_MS || 2000);
+const POLL_MS = Number(process.env.POLL_MS || 3000);
 const MAX_ATTEMPTS = Number(process.env.MAX_ATTEMPTS || 3);
 const PRINTER_TYPE = process.env.PRINTER_TYPE || "EPSON";
 const DRY_RUN = String(process.env.DRY_RUN || "false").toLowerCase() === "true";
@@ -34,6 +34,13 @@ const toDateText = (value) => {
 };
 
 const ticketRowsFromPayload = (payload) => {
+  if (typeof payload?.text === "string" && payload.text.trim().length > 0) {
+    return payload.text
+      .split(/\r?\n/)
+      .map((line) => line.trimEnd())
+      .filter((line) => line.length > 0);
+  }
+
   if (payload?.type === "test" || payload?.title || Array.isArray(payload?.lines)) {
     const lines = Array.isArray(payload?.lines) ? payload.lines : [];
     return [
@@ -92,7 +99,7 @@ const fetchPendingJobs = async () => {
     .select("id, status, attempts, payload, reservation_id, type, created_at")
     .eq("status", "pending")
     .order("created_at", { ascending: true })
-    .limit(5);
+    .limit(1);
   if (error) throw error;
   return data || [];
 };

@@ -42,9 +42,6 @@ export type AdminPrintSettingsRow = {
   autoPrintEnabled: boolean;
   autoPrintOnlyPaid: boolean;
   printerName: string | null;
-  printerAgentIp: string | null;
-  printApiKey: string | null;
-  hasPrintApiKey: boolean;
   copies: number;
 };
 
@@ -86,7 +83,6 @@ export const AdminFinance = ({
   const [selectedPeriod, setSelectedPeriod] = useState(buildPeriods(rows)[0]);
   const [showArchived, setShowArchived] = useState(false);
   const [printConfig, setPrintConfig] = useState<AdminPrintSettingsRow>(printSettings);
-  const [printApiKeyInput, setPrintApiKeyInput] = useState('');
   const [printBusy, setPrintBusy] = useState(false);
   const [printFeedback, setPrintFeedback] = useState('');
 
@@ -182,10 +178,7 @@ export const AdminFinance = ({
     const res = await fetch('/api/admin/print/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
-      body: JSON.stringify({
-        ...printConfig,
-        printApiKey: printApiKeyInput.trim() || undefined
-      })
+      body: JSON.stringify(printConfig)
     });
     const data = await res.json();
     if (!res.ok) {
@@ -197,12 +190,8 @@ export const AdminFinance = ({
       autoPrintEnabled: Boolean(data.settings?.autoPrintEnabled),
       autoPrintOnlyPaid: Boolean(data.settings?.autoPrintOnlyPaid),
       printerName: data.settings?.printerName || null,
-      printerAgentIp: data.settings?.printerAgentIp || null,
-      printApiKey: null,
-      hasPrintApiKey: Boolean(data.settings?.hasPrintApiKey),
       copies: Number(data.settings?.copies || 1)
     });
-    setPrintApiKeyInput('');
     setPrintBusy(false);
     setPrintFeedback('Configuracion de impresion guardada.');
   };
@@ -356,7 +345,7 @@ export const AdminFinance = ({
           </div>
         </div>
         {printFeedback ? <p className="mt-3 text-sm text-slate-600">{printFeedback}</p> : null}
-        <div className="mt-4 grid gap-3 md:grid-cols-5">
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
           <label className="surface-muted flex items-center gap-2 text-sm text-slate-700">
             <input
               type="checkbox"
@@ -377,35 +366,6 @@ export const AdminFinance = ({
             />
             Solo reservas pagadas
           </label>
-          <div className="surface-muted">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">IP / URL agente</p>
-            <input
-              className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
-              value={printConfig.printerAgentIp || ''}
-              onChange={(e) =>
-                setPrintConfig((prev) => ({ ...prev, printerAgentIp: e.target.value }))
-              }
-              placeholder="192.168.0.105"
-            />
-            <p className="mt-1 text-[11px] text-slate-500">
-              Se usara como destino POST (ej: http://IP:3333/print).
-            </p>
-          </div>
-          <div className="surface-muted">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">PRINT_API_KEY</p>
-            <input
-              type="password"
-              className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
-              value={printApiKeyInput}
-              onChange={(e) => setPrintApiKeyInput(e.target.value)}
-              placeholder={printConfig.hasPrintApiKey ? '******** (guardada)' : 'Ingresar clave'}
-            />
-            <p className="mt-1 text-[11px] text-slate-500">
-              {printConfig.hasPrintApiKey
-                ? 'Clave guardada. Completa este campo solo para reemplazarla.'
-                : 'La clave se envia en header x-api-key.'}
-            </p>
-          </div>
           <div className="surface-muted">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Copias</p>
             <input

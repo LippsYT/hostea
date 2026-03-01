@@ -8,8 +8,7 @@ import {
   getCloudbedsMappingForListing,
   isCloudbedsEnabled
 } from '@/lib/cloudbeds';
-import { buildReservationPrintPayload, enqueueReservationPrintJob } from '@/lib/print-jobs';
-import { sendReservationPrintToAgent } from '@/lib/print-agent';
+import { enqueueReservationPrintJob } from '@/lib/print-jobs';
 
 const ensureThreadMessage = async (
   prisma: any,
@@ -32,36 +31,8 @@ const ensureThreadMessage = async (
   });
 };
 
-const sendAutoPrintIfEnabled = async (prisma: any, reservationId: string) => {
-  const job = await enqueueReservationPrintJob(prisma, reservationId, 'paid');
-  if (!job || job.status === 'printed') return;
-
-  const payload = await buildReservationPrintPayload(prisma, reservationId);
-  if (!payload) return;
-
-  try {
-    const dispatched = await sendReservationPrintToAgent(prisma, payload);
-    if (dispatched.ok) {
-      await prisma.printJob.update({
-        where: { id: job.id },
-        data: {
-          status: 'printed',
-          printedAt: new Date(),
-          attempts: { increment: 1 },
-          error: null
-        }
-      });
-    }
-  } catch (error: any) {
-    await prisma.printJob.update({
-      where: { id: job.id },
-      data: {
-        status: 'failed',
-        attempts: { increment: 1 },
-        error: error?.message || 'No se pudo enviar al agente de impresion'
-      }
-    });
-  }
+const enqueuePaidPrint = async (prisma: any, reservationId: string) => {
+  await enqueueReservationPrintJob(prisma, reservationId, 'paid');
 };
 
 export const handleStripeWebhook = async (event: any, prisma: any) => {
@@ -158,7 +129,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
 
         await sendAutoMessagesOnConfirm(reservation.id);
         try {
-          await sendAutoPrintIfEnabled(prisma, reservation.id);
+          await enqueuePaidPrint(prisma, reservation.id);
         } catch {}
         await sendPushToHost(
           offer.listing.hostId,
@@ -254,7 +225,7 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
 
         await sendAutoMessagesOnConfirm(reservation.id);
         try {
-          await sendAutoPrintIfEnabled(prisma, reservation.id);
+          await enqueuePaidPrint(prisma, reservation.id);
         } catch {}
         await sendPushToHost(
           reservation.listing.hostId,

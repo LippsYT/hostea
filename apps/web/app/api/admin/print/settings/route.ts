@@ -12,8 +12,6 @@ const schema = z.object({
   autoPrintEnabled: z.coerce.boolean(),
   autoPrintOnlyPaid: z.coerce.boolean(),
   printerName: z.string().max(120).optional().nullable(),
-  printerAgentIp: z.string().max(200).optional().nullable(),
-  printApiKey: z.string().max(250).optional().nullable(),
   copies: z.coerce.number().int().min(1).max(10)
 });
 
@@ -21,13 +19,7 @@ export async function GET() {
   try {
     await requireRole('ADMIN');
     const settings = await getAdminPrintSettings(prisma);
-    return NextResponse.json({
-      settings: {
-        ...settings,
-        printApiKey: null,
-        hasPrintApiKey: settings.hasPrintApiKey
-      }
-    });
+    return NextResponse.json({ settings });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'No autorizado' }, { status: 403 });
   }
@@ -44,13 +36,7 @@ export async function POST(req: Request) {
     }
     await updateAdminPrintSettings(prisma, parsed.data);
     const settings = await getAdminPrintSettings(prisma);
-    return NextResponse.json({
-      settings: {
-        ...settings,
-        printApiKey: null,
-        hasPrintApiKey: settings.hasPrintApiKey
-      }
-    });
+    return NextResponse.json({ settings });
   } catch (error: any) {
     const status = error?.message?.includes('autoriz') ? 403 : 500;
     return NextResponse.json({ error: error.message || 'Error' }, { status });

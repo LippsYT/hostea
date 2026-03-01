@@ -147,10 +147,7 @@ export default async function AdminFinancePage({
           createdAt: p.createdAt.toISOString().slice(0, 10)
         }))}
         archiveMap={archiveMap}
-        printSettings={{
-          ...printSettings,
-          printApiKey: null
-        }}
+        printSettings={printSettings}
         printJobs={printJobs.map((job) => {
           const payload = (job.payload || {}) as Record<string, any>;
           return {

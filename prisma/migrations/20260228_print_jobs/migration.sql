@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS "admin_settings" (
   "auto_print_enabled" BOOLEAN NOT NULL DEFAULT false,
   "auto_print_only_paid" BOOLEAN NOT NULL DEFAULT true,
   "printer_name" TEXT,
+  "printer_agent_ip" TEXT,
+  "print_api_key" TEXT,
   "copies" INTEGER NOT NULL DEFAULT 1,
   "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -12,6 +14,10 @@ CREATE TABLE IF NOT EXISTS "admin_settings" (
 INSERT INTO "admin_settings" ("id")
 VALUES (1)
 ON CONFLICT ("id") DO NOTHING;
+
+ALTER TABLE "admin_settings"
+  ADD COLUMN IF NOT EXISTS "printer_agent_ip" TEXT,
+  ADD COLUMN IF NOT EXISTS "print_api_key" TEXT;
 
 CREATE TABLE IF NOT EXISTS "print_jobs" (
   "id" TEXT NOT NULL,

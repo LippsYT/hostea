@@ -554,6 +554,8 @@ model AdminSettings {
   autoPrintEnabled    Boolean  @default(false) @map("auto_print_enabled")
   autoPrintOnlyPaid   Boolean  @default(true)  @map("auto_print_only_paid")
   printerName         String?  @map("printer_name")
+  printerAgentIp      String?  @map("printer_agent_ip")
+  printApiKey         String?  @map("print_api_key")
   copies              Int      @default(1)
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")

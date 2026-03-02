@@ -18,7 +18,7 @@ export default async function HomePage() {
   return (
     <div className="gradient-hero">
       <PricePopout />
-      <section className="px-8 pb-16 pt-10">
+      <section className="px-4 pb-16 pt-10 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl">
           <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
             <div>
@@ -34,7 +34,7 @@ export default async function HomePage() {
                 <Button size="lg" variant="outline">Ser anfitrión</Button>
               </div>
             </div>
-            <div className="card-glass rounded-3xl p-6 shadow-soft">
+            <div className="card-glass w-full max-w-full min-w-0 overflow-hidden rounded-3xl p-6 shadow-soft">
               <h3 className="text-lg font-semibold">Buscar hospedaje</h3>
               <SearchForm />
             </div>

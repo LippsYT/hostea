@@ -217,59 +217,45 @@ export const BookingForm = ({
       <div className="space-y-2 min-w-0">
         <label className="flex min-w-0 flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           <span>Check-in</span>
-          <div className="relative min-w-0">
-            <Input
-              type="date"
-              lang="es-AR"
-              placeholder="dd/mm/aaaa"
-              aria-label="Check-in"
-              required
-              className="peer date-input min-w-0 w-full max-w-full overflow-hidden text-slate-900"
-              {...checkInField}
-              onFocus={(e) => openPickerOnFocus(e.currentTarget)}
-              onChange={(e) => {
-                checkInField.onChange(e);
-                const next = e.target.value;
-                if (checkOut && next && checkOut < next) {
-                  setValue('checkOut', '');
-                }
-                if (next) {
-                  openCheckoutPicker();
-                }
-              }}
-            />
-            {!checkIn ? (
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm normal-case tracking-normal text-slate-400 peer-focus:opacity-0">
-                dd/mm/aaaa
-              </span>
-            ) : null}
-          </div>
+          <Input
+            type="date"
+            lang="es-AR"
+            placeholder="dd/mm/aaaa"
+            aria-label="Check-in"
+            required
+            className="date-input min-w-0 w-full max-w-full overflow-hidden text-slate-900"
+            {...checkInField}
+            onFocus={(e) => openPickerOnFocus(e.currentTarget)}
+            onChange={(e) => {
+              checkInField.onChange(e);
+              const next = e.target.value;
+              if (checkOut && next && checkOut < next) {
+                setValue('checkOut', '');
+              }
+              if (next) {
+                openCheckoutPicker();
+              }
+            }}
+          />
         </label>
         <label className="flex min-w-0 flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           <span>Check-out</span>
-          <div className="relative min-w-0">
-            <Input
-              type="date"
-              lang="es-AR"
-              placeholder="dd/mm/aaaa"
-              aria-label="Check-out"
-              required
-              min={checkIn || undefined}
-              className="peer date-input min-w-0 w-full max-w-full overflow-hidden text-slate-900"
-              {...checkOutField}
-              ref={(node) => {
-                checkOutField.ref(node);
-                checkOutRef.current = node;
-              }}
-              onFocus={(e) => openPickerOnFocus(e.currentTarget)}
-              onChange={(e) => checkOutField.onChange(e)}
-            />
-            {!checkOut ? (
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm normal-case tracking-normal text-slate-400 peer-focus:opacity-0">
-                dd/mm/aaaa
-              </span>
-            ) : null}
-          </div>
+          <Input
+            type="date"
+            lang="es-AR"
+            placeholder="dd/mm/aaaa"
+            aria-label="Check-out"
+            required
+            min={checkIn || undefined}
+            className="date-input min-w-0 w-full max-w-full overflow-hidden text-slate-900"
+            {...checkOutField}
+            ref={(node) => {
+              checkOutField.ref(node);
+              checkOutRef.current = node;
+            }}
+            onFocus={(e) => openPickerOnFocus(e.currentTarget)}
+            onChange={(e) => checkOutField.onChange(e)}
+          />
         </label>
       </div>
 

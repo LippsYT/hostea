@@ -49,61 +49,47 @@ export const SearchForm = () => {
   return (
     <form onSubmit={onSubmit} className="mt-4 grid min-w-0 gap-3">
       <Input placeholder="Destino o zona" value={city} onChange={(e) => setCity(e.target.value)} />
-      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
         <label className="flex min-w-0 flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           <span>Check-in</span>
-          <div className="relative min-w-0">
-            <Input
-              className="peer date-input w-full max-w-full min-w-0 overflow-hidden text-slate-900"
-              type="date"
-              lang="es-AR"
-              placeholder="dd/mm/aaaa"
-              aria-label="Check-in"
-              required
-              value={checkIn}
-              onFocus={(e) => openPickerOnFocus(e.currentTarget)}
-              onChange={(e) => {
-                const next = e.target.value;
-                setCheckIn(next);
+          <Input
+            className="date-input w-full max-w-full min-w-0 overflow-hidden text-slate-900"
+            type="date"
+            lang="es-AR"
+            placeholder="dd/mm/aaaa"
+            aria-label="Check-in"
+            required
+            value={checkIn}
+            onFocus={(e) => openPickerOnFocus(e.currentTarget)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setCheckIn(next);
 
-                if (checkOut && next && checkOut < next) {
-                  setCheckOut('');
-                }
+              if (checkOut && next && checkOut < next) {
+                setCheckOut('');
+              }
 
-                if (next) {
-                  openCheckOutPicker();
-                }
-              }}
-            />
-            {!checkIn ? (
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm normal-case tracking-normal text-slate-400 peer-focus:opacity-0">
-                dd/mm/aaaa
-              </span>
-            ) : null}
-          </div>
+              if (next) {
+                openCheckOutPicker();
+              }
+            }}
+          />
         </label>
         <label className="flex min-w-0 flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           <span>Check-out</span>
-          <div className="relative min-w-0">
-            <Input
-              ref={checkOutRef}
-              className="peer date-input w-full max-w-full min-w-0 overflow-hidden text-slate-900"
-              type="date"
-              lang="es-AR"
-              placeholder="dd/mm/aaaa"
-              aria-label="Check-out"
-              required
-              min={checkIn || undefined}
-              value={checkOut}
-              onFocus={(e) => openPickerOnFocus(e.currentTarget)}
-              onChange={(e) => setCheckOut(e.target.value)}
-            />
-            {!checkOut ? (
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm normal-case tracking-normal text-slate-400 peer-focus:opacity-0">
-                dd/mm/aaaa
-              </span>
-            ) : null}
-          </div>
+          <Input
+            ref={checkOutRef}
+            className="date-input w-full max-w-full min-w-0 overflow-hidden text-slate-900"
+            type="date"
+            lang="es-AR"
+            placeholder="dd/mm/aaaa"
+            aria-label="Check-out"
+            required
+            min={checkIn || undefined}
+            value={checkOut}
+            onFocus={(e) => openPickerOnFocus(e.currentTarget)}
+            onChange={(e) => setCheckOut(e.target.value)}
+          />
         </label>
       </div>
       <Input placeholder="Huespedes" value={guests} onChange={(e) => setGuests(e.target.value)} />

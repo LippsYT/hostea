@@ -17,7 +17,7 @@ export const Navbar = async () => {
     : 'U';
 
   return (
-    <header className="flex items-center justify-between px-8 py-6">
+    <header className="flex items-center justify-between px-4 py-6 sm:px-8">
       <Link href="/" className="text-2xl font-semibold tracking-tight">
         HOSTEA
       </Link>
@@ -35,7 +35,7 @@ export const Navbar = async () => {
           Legal
         </Link>
       </nav>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {session ? (
           <Link
             href="/dashboard"

@@ -11,19 +11,28 @@
   --card: 0 0% 100%;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))] antialiased;
   overflow-x: hidden;
+  max-width: 100%;
 }
 
 html {
   overflow-x: hidden;
+  max-width: 100%;
 }
 
 .gradient-hero {
   background: radial-gradient(1200px 500px at 20% 10%, rgba(255, 173, 120, 0.35), transparent),
     radial-gradient(800px 400px at 80% 20%, rgba(108, 171, 255, 0.2), transparent),
     linear-gradient(180deg, #fff8f2 0%, #ffffff 65%);
+  overflow-x: clip;
 }
 
 .card-glass {

@@ -16,7 +16,7 @@ export default async function HomePage() {
   });
 
   return (
-    <div className="gradient-hero">
+    <div className="gradient-hero w-full max-w-full overflow-x-clip">
       <PricePopout />
       <section className="px-4 pb-16 pt-10 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl">
@@ -42,7 +42,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="px-8 pb-20">
+      <section className="px-4 pb-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold">Destinos destacados</h2>
@@ -56,7 +56,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="px-8 pb-24">
+      <section className="px-4 pb-24 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold">Legal</h2>

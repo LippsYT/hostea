@@ -47,10 +47,15 @@ export const SearchForm = () => {
   };
 
   return (
-    <form onSubmit={onSubmit} className="mt-4 grid min-w-0 gap-3">
-      <Input placeholder="Destino o zona" value={city} onChange={(e) => setCity(e.target.value)} />
-      <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
-        <label className="flex min-w-0 flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+    <form onSubmit={onSubmit} className="mt-4 grid w-full max-w-full min-w-0 gap-3 overflow-hidden">
+      <Input
+        className="w-full max-w-full min-w-0"
+        placeholder="Destino o zona"
+        value={city}
+        onChange={(e) => setCity(e.target.value)}
+      />
+      <div className="grid w-full max-w-full min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
+        <label className="flex w-full max-w-full min-w-0 flex-col gap-2 overflow-hidden text-xs font-semibold uppercase tracking-wide text-slate-500">
           <span>Check-in</span>
           <Input
             className="date-input w-full max-w-full min-w-0 overflow-hidden text-slate-900"
@@ -75,7 +80,7 @@ export const SearchForm = () => {
             }}
           />
         </label>
-        <label className="flex min-w-0 flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <label className="flex w-full max-w-full min-w-0 flex-col gap-2 overflow-hidden text-xs font-semibold uppercase tracking-wide text-slate-500">
           <span>Check-out</span>
           <Input
             ref={checkOutRef}
@@ -92,7 +97,12 @@ export const SearchForm = () => {
           />
         </label>
       </div>
-      <Input placeholder="Huespedes" value={guests} onChange={(e) => setGuests(e.target.value)} />
+      <Input
+        className="w-full max-w-full min-w-0"
+        placeholder="Huespedes"
+        value={guests}
+        onChange={(e) => setGuests(e.target.value)}
+      />
       <Button type="submit" className="w-full">
         Buscar
       </Button>

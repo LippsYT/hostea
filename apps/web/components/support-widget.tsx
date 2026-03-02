@@ -33,9 +33,9 @@ export const SupportWidget = () => {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-6 left-4 right-4 z-50 sm:left-auto sm:right-6">
       {open && (
-        <div className="mb-3 w-80 rounded-3xl border border-neutral-100 bg-white p-4 shadow-soft">
+        <div className="mb-3 ml-auto w-full max-w-sm rounded-3xl border border-neutral-100 bg-white p-4 shadow-soft sm:w-80">
           <h4 className="text-sm font-semibold">Soporte HOSTEA</h4>
           <div className="mt-3 space-y-2">
             <Input placeholder="Asunto" value={subject} onChange={(e) => setSubject(e.target.value)} />

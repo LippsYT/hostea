@@ -295,12 +295,19 @@ input[type='date'].date-input {
   min-width: 0;
   max-width: 100%;
   width: 100%;
+  display: block;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
   box-sizing: border-box;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
   color: #0f172a;
   background-color: #fff;
   color-scheme: light;
+  padding-right: 2.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
   -webkit-text-fill-color: currentColor;
 }
 
@@ -309,11 +316,23 @@ input[type='date'].date-input:invalid {
 }
 
 input[type='date'].date-input::-webkit-datetime-edit {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
   min-height: 1.2em;
   text-align: left;
 }
 
+input[type='date'].date-input::-webkit-datetime-edit-fields-wrapper {
+  min-width: 0;
+}
+
+input[type='date'].date-input::-webkit-date-and-time-value {
+  text-align: left;
+}
+
 input[type='date'].date-input::-webkit-calendar-picker-indicator {
+  margin-left: auto;
   opacity: 0.9;
   cursor: pointer;
 }

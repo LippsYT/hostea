@@ -2,6 +2,7 @@
 import next from 'next';
 import { Server as SocketIOServer } from 'socket.io';
 import { parse } from 'url';
+import { getAllowedOrigins } from './lib/origins.mjs';
 
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev, dir: '.' });
@@ -16,7 +17,7 @@ app.prepare().then(() => {
   const io = new SocketIOServer(server, {
     path: '/socket.io',
     cors: {
-      origin: process.env.APP_URL || 'http://localhost:3000',
+      origin: getAllowedOrigins(),
       credentials: true
     }
   });

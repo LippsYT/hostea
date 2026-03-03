@@ -325,12 +325,12 @@ input[type='date'].date-input {
   -webkit-text-fill-color: currentColor;
   appearance: none;
   -webkit-appearance: none;
-  caret-color: transparent;
+  caret-color: currentColor;
 }
 
 input[type='date'].date-input:invalid {
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+  color: #94a3b8;
+  -webkit-text-fill-color: #94a3b8;
 }
 
 input[type='date'].date-input::-webkit-datetime-edit {
@@ -339,20 +339,38 @@ input[type='date'].date-input::-webkit-datetime-edit {
   min-width: 0;
   min-height: 1.2em;
   text-align: left;
-  color: transparent;
 }
 
 input[type='date'].date-input::-webkit-datetime-edit-fields-wrapper {
   min-width: 0;
-  color: transparent;
 }
 
 input[type='date'].date-input::-webkit-date-and-time-value {
   text-align: left;
-  color: transparent;
 }
 
 input[type='date'].date-input::-webkit-calendar-picker-indicator {
+  margin-left: auto;
+  opacity: 0.9;
+  cursor: pointer;
+}
+
+input[type='date'].date-input.date-input-overlay {
+  caret-color: transparent;
+}
+
+input[type='date'].date-input.date-input-overlay:invalid {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+input[type='date'].date-input.date-input-overlay::-webkit-datetime-edit,
+input[type='date'].date-input.date-input-overlay::-webkit-datetime-edit-fields-wrapper,
+input[type='date'].date-input.date-input-overlay::-webkit-date-and-time-value {
+  color: transparent;
+}
+
+input[type='date'].date-input.date-input-overlay::-webkit-calendar-picker-indicator {
   margin-left: auto;
   opacity: 0;
   cursor: pointer;

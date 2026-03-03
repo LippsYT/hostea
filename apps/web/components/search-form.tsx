@@ -79,7 +79,7 @@ export const SearchForm = () => {
               className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
             />
             <Input
-              className="date-input w-full max-w-full min-w-0 overflow-hidden text-transparent"
+              className="date-input date-input-overlay w-full max-w-full min-w-0 overflow-hidden text-slate-900"
               type="date"
               lang="es-AR"
               aria-label="Check-in"
@@ -118,7 +118,7 @@ export const SearchForm = () => {
             />
             <Input
               ref={checkOutRef}
-              className="date-input w-full max-w-full min-w-0 overflow-hidden text-transparent"
+              className="date-input date-input-overlay w-full max-w-full min-w-0 overflow-hidden text-slate-900"
               type="date"
               lang="es-AR"
               aria-label="Check-out"

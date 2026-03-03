@@ -132,13 +132,13 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
     'Anfitrion';
 
   return (
-    <div className="flex h-[calc(100dvh-10rem)] min-h-0 flex-col gap-6 overflow-hidden">
+    <div className="flex min-h-0 flex-col gap-6 lg:h-[calc(100dvh-10rem)] lg:overflow-hidden">
       <div>
         <p className="section-subtitle">Panel Cliente</p>
         <h1 className="section-title">Mensajeria</h1>
       </div>
-      <div className="grid h-full min-h-0 flex-1 gap-6 overflow-hidden lg:grid-cols-[260px_minmax(0,1fr)_320px]">
-        <aside className="surface-card flex h-full min-h-0 flex-col overflow-hidden p-4">
+      <div className="grid min-h-0 flex-1 gap-4 lg:h-full lg:gap-6 lg:overflow-hidden lg:grid-cols-[260px_minmax(0,1fr)_320px]">
+        <aside className="surface-card flex min-h-0 flex-col p-4 lg:h-full lg:overflow-hidden">
           <h2 className="text-lg font-semibold text-slate-900">Conversaciones</h2>
           <p className="mt-1 text-xs text-slate-500">Busca por anfitrion, propiedad o numero de reserva.</p>
           <form className="mt-3" method="get">
@@ -150,7 +150,7 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
               className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700"
             />
           </form>
-          <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+          <div className="mt-4 space-y-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
             {filteredThreads.map((thread) => {
               const hostParticipant = thread.participants.find((p) => p.userId !== userId);
               const hostName =
@@ -208,7 +208,7 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
             {filteredThreads.length === 0 && <p className="text-sm text-slate-500">Sin conversaciones para ese filtro.</p>}
           </div>
         </aside>
-        <section className="surface-card flex h-full min-h-0 flex-col overflow-hidden p-0">
+        <section className="surface-card flex min-h-[58vh] min-h-0 flex-col overflow-hidden p-0 lg:h-full">
           <div className="sticky top-0 z-10 border-b border-slate-200/70 bg-white/95 p-4 backdrop-blur">
             <p className="text-sm font-semibold text-slate-900">{selectedHostName}</p>
             <p className="text-xs text-slate-500">{selectedListingTitle}</p>
@@ -216,8 +216,45 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
           <div className="min-h-0 flex-1">
             <ChatClient initialThreadId={selected} currentUserId={userId} currentUserName={userName} />
           </div>
+          <div className="border-t border-slate-200/70 bg-white p-4 lg:hidden">
+            <h2 className="text-base font-semibold text-slate-900">Reserva</h2>
+            {selectedThread?.reservation ? (
+              <div className="mt-3 space-y-2 text-sm text-slate-600">
+                <p className="font-semibold text-slate-900">{selectedThread.reservation.listing.title}</p>
+                <p>{selectedThread.reservation.checkIn.toISOString().slice(0, 10)} - {selectedThread.reservation.checkOut.toISOString().slice(0, 10)}</p>
+                <p>{selectedThread.reservation.guestsCount} huespedes</p>
+                <p>Total: USD {Number(selectedThread.reservation.total).toFixed(2)}</p>
+                {reservationWorkflowStatus === 'awaiting_payment' && (
+                  <ClientReservationPaymentActions
+                    reservationId={selectedThread.reservation.id}
+                    paymentExpiresAt={
+                      selectedThread.reservation.paymentExpiresAt?.toISOString() ||
+                      selectedThread.reservation.holdExpiresAt?.toISOString() ||
+                      null
+                    }
+                  />
+                )}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-slate-500">Sin reserva asociada.</p>
+            )}
+            {visibleOffer && (
+              <div className="mt-3">
+                <ClientOfferActions
+                  threadId={selectedThreadId}
+                  offerId={visibleOffer.id}
+                  offerTotal={Number(visibleOffer.clientTotal)}
+                  offerStatus={visibleOffer.status}
+                  listingTitle={selectedListingTitle}
+                  checkIn={visibleOffer.checkIn.toISOString().slice(0, 10)}
+                  checkOut={visibleOffer.checkOut.toISOString().slice(0, 10)}
+                  guestsCount={visibleOffer.guestsCount}
+                />
+              </div>
+            )}
+          </div>
         </section>
-        <aside className="surface-card flex h-full min-h-0 flex-col overflow-y-auto">
+        <aside className="surface-card hidden h-full min-h-0 flex-col overflow-y-auto lg:flex">
           <h2 className="text-lg font-semibold text-slate-900">Reserva</h2>
           {selectedThread?.reservation ? (
             <div className="mt-4 space-y-3 text-sm text-slate-600">

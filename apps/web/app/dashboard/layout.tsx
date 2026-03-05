@@ -40,7 +40,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .filter((item, index, arr) => arr.findIndex((x) => x.href === item.href) === index);
 
   return (
-    <div className="min-h-screen bg-slate-950/5">
+    <div className="min-h-screen bg-transparent">
       <ReservationAlerts roles={roles} />
       <DashboardShell navItems={allowedNavItems} displayName={displayName} roleLabel={roleLabel}>
         {children}

@@ -4,7 +4,7 @@ import { SupportWidget } from '@/components/support-widget';
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-transparent">
       <Navbar />
       <main>{children}</main>
       <Footer />

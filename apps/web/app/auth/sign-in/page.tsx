@@ -12,6 +12,18 @@ export default function SignInPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const getSafeRedirect = (rawUrl?: string | null) => {
+    if (!rawUrl) return '/dashboard';
+    try {
+      const currentOrigin = window.location.origin;
+      const parsed = new URL(rawUrl, currentOrigin);
+      if (parsed.origin !== currentOrigin) return '/dashboard';
+      return `${parsed.pathname}${parsed.search}${parsed.hash}` || '/dashboard';
+    } catch {
+      return '/dashboard';
+    }
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -31,7 +43,7 @@ export default function SignInPage() {
       setError('Credenciales incorrectas o problema de servidor.');
       return;
     }
-    window.location.href = res.url || '/dashboard';
+    window.location.href = getSafeRedirect(res.url);
   };
 
   return (

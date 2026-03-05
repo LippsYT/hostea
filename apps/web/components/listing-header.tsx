@@ -59,7 +59,7 @@ export const ListingHeader = () => {
             Volver
           </Link>
           <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-900">
-            <Image src="/brand/hostea-logo.svg" alt="Hostea" width={24} height={24} className="h-6 w-6 rounded-md" />
+            <Image src="/brand/hostea-logo.jpeg" alt="Hostea" width={24} height={24} className="h-6 w-6 rounded-md" />
             <span>HOSTEA</span>
           </Link>
         </div>

@@ -39,7 +39,7 @@ export const DashboardShell = ({
       <aside className="hidden border-r border-slate-200/70 bg-white/80 p-6 backdrop-blur md:block">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-xl font-semibold tracking-tight text-slate-900">
-            <Image src="/brand/hostea-logo.svg" alt="Hostea" width={28} height={28} className="h-7 w-7 rounded-lg" />
+            <Image src="/brand/hostea-logo.jpeg" alt="Hostea" width={28} height={28} className="h-7 w-7 rounded-lg" />
             <span>HOSTEA</span>
           </Link>
           <span className="rounded-full bg-fuchsia-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-fuchsia-700">
@@ -134,7 +134,7 @@ export const DashboardShell = ({
         >
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-900" onClick={() => setMobileOpen(false)}>
-              <Image src="/brand/hostea-logo.svg" alt="Hostea" width={24} height={24} className="h-6 w-6 rounded-md" />
+              <Image src="/brand/hostea-logo.jpeg" alt="Hostea" width={24} height={24} className="h-6 w-6 rounded-md" />
               <span>HOSTEA</span>
             </Link>
             <button

@@ -10,9 +10,9 @@
   "lang": "es",
   "icons": [
     {
-      "src": "/brand/hostea-logo.svg",
+      "src": "/brand/hostea-logo.jpeg",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/jpeg",
       "purpose": "any"
     },
     {

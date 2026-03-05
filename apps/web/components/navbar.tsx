@@ -20,7 +20,7 @@ export const Navbar = async () => {
   return (
     <header className="flex items-center justify-between px-4 py-6 sm:px-8">
       <Link href="/" className="flex items-center gap-3 text-2xl font-semibold tracking-tight text-slate-900">
-        <Image src="/brand/hostea-logo.svg" alt="Hostea" width={36} height={36} className="h-9 w-9 rounded-xl" />
+        <Image src="/brand/hostea-logo.jpeg" alt="Hostea" width={36} height={36} className="h-9 w-9 rounded-xl" />
         <span>HOSTEA</span>
       </Link>
       <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Hostea logo">
+  <defs>
+    <linearGradient id="hosteaGradient" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#ff8a3d" />
+      <stop offset="50%" stop-color="#ff4d8d" />
+      <stop offset="100%" stop-color="#6c2bff" />
+    </linearGradient>
+  </defs>
+  <rect x="56" y="40" width="132" height="432" rx="26" fill="url(#hosteaGradient)" />
+  <rect x="324" y="40" width="132" height="432" rx="26" fill="url(#hosteaGradient)" />
+  <rect x="56" y="328" width="400" height="144" rx="26" fill="url(#hosteaGradient)" />
+  <path d="M80 250L256 122l176 128v92H80z" fill="#fff" />
+  <rect x="188" y="240" width="136" height="78" rx="8" fill="#fff" />
+  <rect x="236" y="262" width="16" height="16" rx="2" fill="url(#hosteaGradient)" />
+  <rect x="260" y="262" width="16" height="16" rx="2" fill="url(#hosteaGradient)" />
+  <rect x="236" y="286" width="16" height="16" rx="2" fill="url(#hosteaGradient)" />
+  <rect x="260" y="286" width="16" height="16" rx="2" fill="url(#hosteaGradient)" />
+</svg>

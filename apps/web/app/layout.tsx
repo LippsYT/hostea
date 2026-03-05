@@ -1,4 +1,5 @@
 ﻿import './globals.css';
+import './theme.css';
 import type { Metadata, Viewport } from 'next';
 import { Newsreader, Space_Grotesk } from 'next/font/google';
 import { Providers } from '@/components/providers';
@@ -20,11 +21,19 @@ const body = Space_Grotesk({
 export const metadata: Metadata = {
   title: 'HOSTEA | Hospedajes premium',
   description: 'Plataforma tipo Airbnb para reservas, pagos y gestion de propiedades.',
-  manifest: '/manifest.webmanifest'
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: [
+      { url: '/brand/hostea-logo.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico' }
+    ],
+    shortcut: ['/favicon.ico'],
+    apple: [{ url: '/brand/hostea-logo.svg', type: 'image/svg+xml' }]
+  }
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0b1736'
+  themeColor: '#ff4d8d'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -57,8 +58,9 @@ export const ListingHeader = () => {
             <ArrowLeft className="h-4 w-4" />
             Volver
           </Link>
-          <Link href="/" className="text-lg font-semibold tracking-tight text-slate-900">
-            HOSTEA
+          <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-900">
+            <Image src="/brand/hostea-logo.svg" alt="Hostea" width={24} height={24} className="h-6 w-6 rounded-md" />
+            <span>HOSTEA</span>
           </Link>
         </div>
 
@@ -71,7 +73,7 @@ export const ListingHeader = () => {
             <button
               key={item.key}
               onClick={() => setTab(item.key as typeof tab)}
-              className={`flex items-center gap-2 rounded-full px-3 py-1 transition ${tab === item.key ? 'bg-slate-900 text-white' : 'hover:text-slate-900'}`}
+              className={`flex items-center gap-2 rounded-full px-3 py-1 transition ${tab === item.key ? 'brand-gradient-bg text-white' : 'hover:text-slate-900'}`}
             >
               <item.icon className={`h-4 w-4 ${tab === item.key ? '' : 'float-slow'}`} />
               {item.label}
@@ -124,7 +126,7 @@ export const ListingHeader = () => {
           <span className="text-slate-600">{checkIn && checkOut ? `${checkIn} · ${checkOut}` : 'Semana flexible'}</span>
           <span className="h-5 w-px bg-slate-200" />
           <span className="text-slate-600">{guestSummary}</span>
-          <span className="ml-2 flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-white">
+          <span className="brand-gradient-bg ml-2 flex h-8 w-8 items-center justify-center rounded-full text-white">
             <Search className="h-4 w-4" />
           </span>
         </button>
@@ -204,7 +206,7 @@ export const ListingHeader = () => {
               <button
                 type="button"
                 onClick={onSearch}
-                className="flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                className="brand-gradient-bg flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-white"
               >
                 <Search className="h-4 w-4" />
                 Buscar

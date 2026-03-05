@@ -1,1 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#111827"/><path d="M18 44V20h6l8 12 8-12h6v24h-6V30l-8 12-8-12v14h-6z" fill="#f7b278"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff8a3d" />
+      <stop offset="50%" stop-color="#ff4d8d" />
+      <stop offset="100%" stop-color="#6c2bff" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="24" fill="#fff" />
+  <rect x="16" y="12" width="28" height="104" rx="8" fill="url(#g)" />
+  <rect x="84" y="12" width="28" height="104" rx="8" fill="url(#g)" />
+  <rect x="16" y="80" width="96" height="36" rx="8" fill="url(#g)" />
+  <path d="M22 62L64 32l42 30v18H22z" fill="#fff" />
+  <rect x="47" y="57" width="34" height="20" rx="3" fill="#fff" />
+  <rect x="58" y="61" width="4" height="4" rx="1" fill="url(#g)" />
+  <rect x="66" y="61" width="4" height="4" rx="1" fill="url(#g)" />
+  <rect x="58" y="68" width="4" height="4" rx="1" fill="url(#g)" />
+  <rect x="66" y="68" width="4" height="4" rx="1" fill="url(#g)" />
+</svg>

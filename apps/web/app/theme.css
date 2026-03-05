@@ -1,0 +1,38 @@
+:root {
+  --brand-1: #ff8a3d;
+  --brand-2: #ff4d8d;
+  --brand-3: #6c2bff;
+  --brand-gradient: linear-gradient(90deg, var(--brand-1), var(--brand-2), var(--brand-3));
+
+  --background: 220 20% 98%;
+  --foreground: 222 47% 11%;
+  --muted: 215 20% 95%;
+  --accent: 18 100% 60%;
+  --primary: 222 47% 11%;
+  --card: 0 0% 100%;
+
+  --text-primary: #0f172a;
+  --border-soft: #dbe2ea;
+  --focus-ring: #ff4d8d;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+}
+
+.brand-gradient-bg {
+  background-image: var(--brand-gradient);
+  color: #fff;
+  border: 0;
+}
+
+.brand-gradient-text {
+  background-image: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.brand-focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 0 0 4px var(--focus-ring);
+}

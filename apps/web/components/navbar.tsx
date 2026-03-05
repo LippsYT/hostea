@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { Button } from './ui/button';
@@ -18,20 +19,21 @@ export const Navbar = async () => {
 
   return (
     <header className="flex items-center justify-between px-4 py-6 sm:px-8">
-      <Link href="/" className="text-2xl font-semibold tracking-tight">
-        HOSTEA
+      <Link href="/" className="flex items-center gap-3 text-2xl font-semibold tracking-tight text-slate-900">
+        <Image src="/brand/hostea-logo.svg" alt="Hostea" width={36} height={36} className="h-9 w-9 rounded-xl" />
+        <span>HOSTEA</span>
       </Link>
-      <nav className="hidden items-center gap-6 text-sm text-neutral-600 md:flex">
-        <Link href="/search" className="flex items-center gap-2">
-          <Home className="h-4 w-4 text-neutral-500 float-slow" />
+      <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">
+        <Link href="/search" className="flex items-center gap-2 hover:text-slate-900">
+          <Home className="float-slow h-4 w-4 text-[var(--brand-2)]" />
           Explorar
         </Link>
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <Briefcase className="h-4 w-4 text-neutral-500 float-mid" />
+        <Link href="/dashboard" className="flex items-center gap-2 hover:text-slate-900">
+          <Briefcase className="float-mid h-4 w-4 text-[var(--brand-2)]" />
           Panel
         </Link>
-        <Link href="/legal/terms" className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-neutral-500 float-fast" />
+        <Link href="/legal/terms" className="flex items-center gap-2 hover:text-slate-900">
+          <Sparkles className="float-fast h-4 w-4 text-[var(--brand-2)]" />
           Legal
         </Link>
       </nav>

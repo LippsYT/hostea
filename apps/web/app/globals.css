@@ -2,15 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: 30 35% 98%;
-  --foreground: 222 47% 11%;
-  --muted: 210 20% 96%;
-  --accent: 15 85% 58%;
-  --primary: 222 47% 11%;
-  --card: 0 0% 100%;
-}
-
 *,
 *::before,
 *::after {
@@ -29,9 +20,9 @@ html {
 }
 
 .gradient-hero {
-  background: radial-gradient(1200px 500px at 20% 10%, rgba(255, 173, 120, 0.35), transparent),
-    radial-gradient(800px 400px at 80% 20%, rgba(108, 171, 255, 0.2), transparent),
-    linear-gradient(180deg, #fff8f2 0%, #ffffff 65%);
+  background: radial-gradient(1200px 560px at 12% 6%, rgba(255, 138, 61, 0.2), transparent),
+    radial-gradient(800px 400px at 86% 18%, rgba(255, 77, 141, 0.15), transparent),
+    linear-gradient(180deg, #fff8f4 0%, #ffffff 66%);
   overflow-x: clip;
 }
 
@@ -43,23 +34,28 @@ html {
 
 @layer components {
   .surface-card {
-    @apply rounded-3xl border border-slate-200/70 bg-white/85 p-6 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.6)] backdrop-blur;
+    @apply rounded-3xl border bg-white/90 p-6 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.55)] backdrop-blur;
+    border-color: var(--border-soft);
   }
 
   .surface-muted {
-    @apply rounded-2xl border border-slate-200/70 bg-slate-50/80 p-4;
+    @apply rounded-2xl border bg-slate-50/85 p-4;
+    border-color: var(--border-soft);
   }
 
     .pill-link {
-      @apply rounded-full border border-slate-200/70 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:bg-slate-100 hover:text-slate-900;
+      @apply rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:bg-slate-100 hover:text-slate-900;
+      border-color: var(--border-soft);
     }
 
     .pill-link-active {
-      @apply border-slate-900 bg-slate-900 text-white hover:bg-slate-900 hover:text-white;
+      @apply border-transparent text-white hover:text-white;
+      background-image: var(--brand-gradient);
     }
 
   .stat-card {
-    @apply rounded-3xl border border-slate-200/70 bg-white/90 p-5 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.6)];
+    @apply rounded-3xl border bg-white/90 p-5 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.6)];
+    border-color: var(--border-soft);
   }
 
   .section-title {

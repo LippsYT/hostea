@@ -102,6 +102,7 @@ const localAvailability = async (
       endDate: { gt: args.checkIn },
       NOT: [
         { reason: { startsWith: 'PRICE:' } },
+        { reason: { startsWith: 'AVAIL:' } },
         { createdBy: { startsWith: 'ICAL:' } },
         { createdBy: { startsWith: 'reservation-hold:' } },
         { reason: { startsWith: 'Reserva confirmada' } },
@@ -119,6 +120,24 @@ const localAvailability = async (
       endDate: { gt: args.checkIn }
     },
     select: { startDate: true, endDate: true }
+  });
+
+  const availabilityOverrideBlocks = await prisma.calendarBlock.findMany({
+    where: {
+      listingId: args.listingId,
+      reason: { startsWith: 'AVAIL:' },
+      startDate: { lt: args.checkOut },
+      endDate: { gt: args.checkIn }
+    },
+    select: { startDate: true, endDate: true, reason: true }
+  });
+
+  const availabilityOverrideByDate = new Map<string, number>();
+  availabilityOverrideBlocks.forEach((block) => {
+    const value = Number((block.reason || '').replace('AVAIL:', ''));
+    if (!Number.isFinite(value)) return;
+    const key = block.startDate.toISOString().slice(0, 10);
+    availabilityOverrideByDate.set(key, Math.max(0, Math.trunc(value)));
   });
 
   const holdReservationIds = new Set(activeHolds.map((hold) => hold.reservationId));
@@ -142,6 +161,8 @@ const localAvailability = async (
   const nights = buildNightWindows(args.checkIn, args.checkOut);
 
   for (const night of nights) {
+    const nightKey = night.start.toISOString().slice(0, 10);
+    const totalForDay = availabilityOverrideByDate.get(nightKey) ?? inventoryQty;
     const isHardBlocked = hardBlocks.some((block) =>
       overlaps(night.start, night.end, block.startDate, block.endDate)
     );
@@ -172,7 +193,7 @@ const localAvailability = async (
       overlaps(night.start, night.end, block.startDate, block.endDate)
     ).length;
 
-    const availableUnits = inventoryQty - confirmedCount - pendingCount - holdCount - externalCount;
+    const availableUnits = totalForDay - confirmedCount - pendingCount - holdCount - externalCount;
     if (availableUnits <= 0) {
       return { available: false, source: 'local', message: 'Fechas no disponibles' };
     }

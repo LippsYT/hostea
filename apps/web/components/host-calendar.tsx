@@ -20,6 +20,7 @@ type Hold = {
   expiresAt: string;
 };
 type OccupancyByDate = Record<string, { occupied: number; total: number }>;
+type AvailabilityOverridesByDate = Record<string, number>;
 type DayMeta = {
   status: 'Reservado' | 'Bloqueado' | 'Libre';
   reservations: number;
@@ -28,6 +29,7 @@ type DayMeta = {
   occupied: number;
   total: number;
   priceOverride?: number;
+  availabilityOverride?: number;
 };
 
 const overlaps = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) =>
@@ -45,7 +47,11 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
   const [holds, setHolds] = useState<Hold[]>([]);
   const [inventoryQty, setInventoryQty] = useState(1);
   const [occupancyByDate, setOccupancyByDate] = useState<OccupancyByDate>({});
+  const [availabilityOverridesByDate, setAvailabilityOverridesByDate] = useState<AvailabilityOverridesByDate>({});
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  const [selectedDayAvailableUnits, setSelectedDayAvailableUnits] = useState<string>('');
+  const [savingAvailability, setSavingAvailability] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState('');
   const [month, setMonth] = useState(new Date());
 
   useEffect(() => {
@@ -64,7 +70,10 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
     setHolds(data.holds || []);
     setInventoryQty(Math.max(1, Number(data.inventoryQty || 1)));
     setOccupancyByDate(data.occupancyByDate || {});
+    setAvailabilityOverridesByDate(data.availabilityOverrides || {});
     setSelectedDayKey(null);
+    setSelectedDayAvailableUnits('');
+    setAvailabilityError('');
   };
 
   useEffect(() => {
@@ -100,7 +109,8 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
   };
 
   const priceBlocks = blocks.filter((b) => (b.reason || '').startsWith('PRICE:'));
-  const blockOnly = blocks.filter((b) => !priceBlocks.includes(b));
+  const availabilityBlocks = blocks.filter((b) => (b.reason || '').startsWith('AVAIL:'));
+  const blockOnly = blocks.filter((b) => !priceBlocks.includes(b) && !availabilityBlocks.includes(b));
   const fullOccupancyDays = Object.entries(occupancyByDate)
     .filter(([, value]) => Number(value?.occupied || 0) >= Number(value?.total || 1))
     .map(([key]) => new Date(`${key}T00:00:00.000Z`));
@@ -142,8 +152,11 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
         overlaps(dayStart, dayEnd, new Date(block.startDate), new Date(block.endDate))
       ).length;
 
-      const isReserved = reservationsCount > 0 || holdsCount > 0 || Number(value.occupied || 0) >= Number(value.total || 1);
-      const isBlocked = hardBlocksCount > 0 || externalCount > 0;
+      const hasNoUnits = Number(value.total || 0) <= 0;
+      const isReserved =
+        !hasNoUnits &&
+        (reservationsCount > 0 || holdsCount > 0 || Number(value.occupied || 0) >= Number(value.total || 1));
+      const isBlocked = hasNoUnits || hardBlocksCount > 0 || externalCount > 0;
       const status: DayMeta['status'] = isReserved ? 'Reservado' : isBlocked ? 'Bloqueado' : 'Libre';
 
       map.set(key, {
@@ -153,12 +166,50 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
         holds: holdsCount,
         occupied: value.occupied,
         total: value.total,
-        priceOverride: priceMap.get(key)
+        priceOverride: priceMap.get(key),
+        availabilityOverride: availabilityOverridesByDate[key]
       });
     }
     return map;
-  }, [occupancyByDate, reservations, externalBlocks, holds, manualBlocks]);
+  }, [occupancyByDate, reservations, externalBlocks, holds, manualBlocks, priceMap, availabilityOverridesByDate]);
   const selectedDay = selectedDayKey ? dayMeta.get(selectedDayKey) : null;
+
+  useEffect(() => {
+    if (!selectedDayKey) return;
+    const override = availabilityOverridesByDate[selectedDayKey];
+    setSelectedDayAvailableUnits(String(override ?? inventoryQty));
+    setAvailabilityError('');
+  }, [selectedDayKey, availabilityOverridesByDate, inventoryQty]);
+
+  const saveDayAvailability = async () => {
+    if (!selectedDayKey) return;
+    const dayKey = selectedDayKey;
+    const parsed = Number(selectedDayAvailableUnits);
+    if (!Number.isFinite(parsed)) {
+      setAvailabilityError('Ingresa un numero valido.');
+      return;
+    }
+    setAvailabilityError('');
+    setSavingAvailability(true);
+    const response = await fetch('/api/host/calendar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify({
+        listingId,
+        date: `${selectedDayKey}T00:00:00.000Z`,
+        availableUnits: Math.max(0, Math.trunc(parsed))
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setAvailabilityError(data?.error || 'No se pudo guardar la disponibilidad diaria.');
+      setSavingAvailability(false);
+      return;
+    }
+    await loadBlocks(listingId);
+    setSelectedDayKey(dayKey);
+    setSavingAvailability(false);
+  };
 
   return (
     <div className="space-y-4">
@@ -295,16 +346,53 @@ export const HostCalendar = ({ listings }: { listings: ListingOption[] }) => {
               </span>
             </div>
             {selectedDayKey && selectedDay && (
-              <div className="mt-5 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/70 bg-slate-50 p-3 text-xs text-slate-700">
-                <span className="rounded-full bg-white px-2 py-1 font-semibold">{selectedDayKey}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-1">Estado: {selectedDay.status}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-1">{selectedDay.occupied}/{selectedDay.total}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-1">Reservas: {selectedDay.reservations}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-1">iCal: {selectedDay.external}</span>
-                {selectedDay.priceOverride !== undefined && (
-                  <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">
-                    Precio: USD {selectedDay.priceOverride}
-                  </span>
+              <div className="mt-5 rounded-2xl border border-slate-200/70 bg-slate-50 p-3 text-xs text-slate-700">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-white px-2 py-1 font-semibold">{selectedDayKey}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-1">Estado: {selectedDay.status}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-1">{selectedDay.occupied}/{selectedDay.total}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-1">Reservas: {selectedDay.reservations}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-1">iCal: {selectedDay.external}</span>
+                  {selectedDay.priceOverride !== undefined && (
+                    <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">
+                      Precio: USD {selectedDay.priceOverride}
+                    </span>
+                  )}
+                </div>
+                {inventoryQty > 1 && (
+                  <div className="space-y-2 rounded-xl border border-slate-200 bg-white/80 p-3">
+                    <p className="font-semibold text-slate-900">Habitaciones disponibles para ese dia</p>
+                    <p className="text-[11px] text-slate-500">
+                      Inventario base: {inventoryQty}. Define cuantas unidades quieres vender solo para esta fecha.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={inventoryQty}
+                        className="h-10 w-36"
+                        value={selectedDayAvailableUnits}
+                        onChange={(event) => setSelectedDayAvailableUnits(event.target.value)}
+                      />
+                      <Button size="sm" onClick={saveDayAvailability} disabled={savingAvailability}>
+                        {savingAvailability ? 'Guardando...' : 'Guardar disponibilidad'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedDayAvailableUnits(String(inventoryQty))}
+                        disabled={savingAvailability}
+                      >
+                        Restablecer ({inventoryQty})
+                      </Button>
+                    </div>
+                    {selectedDay.availabilityOverride !== undefined && (
+                      <p className="text-[11px] text-emerald-700">
+                        Este dia tiene override manual: {selectedDay.availabilityOverride} habitaciones.
+                      </p>
+                    )}
+                    {availabilityError && <p className="text-[11px] text-red-600">{availabilityError}</p>}
+                  </div>
                 )}
               </div>
             )}

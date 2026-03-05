@@ -24,10 +24,9 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
   icons: {
     icon: [
-      { url: '/brand/hostea-logo.jpeg', type: 'image/jpeg' },
-      { url: '/favicon.ico' }
+      { url: '/brand/hostea_nav_32.png', type: 'image/png', sizes: '32x32' }
     ],
-    shortcut: ['/favicon.ico'],
+    shortcut: ['/brand/hostea_nav_32.png'],
     apple: [{ url: '/brand/hostea-logo.jpeg', type: 'image/jpeg' }]
   }
 };
@@ -43,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div aria-hidden className="hostea-bg">
           <div className="hostea-blob-1" />
           <div className="hostea-blob-2" />
+          <div className="hostea-blob-3" />
         </div>
         <div className="relative z-10">
           <Providers>

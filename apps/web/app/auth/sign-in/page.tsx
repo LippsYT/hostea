@@ -49,6 +49,9 @@ export default function SignInPage() {
   return (
     <div className="min-h-screen bg-neutral-50 flex items-center justify-center px-6">
       <form onSubmit={onSubmit} className="w-full max-w-md rounded-3xl bg-white p-8 shadow-soft">
+        <Link href="/" className="inline-flex items-center text-sm text-neutral-500 hover:text-neutral-800">
+          ← Volver al inicio
+        </Link>
         <h1 className="text-2xl font-semibold">Ingresar</h1>
         <p className="mt-2 text-sm text-neutral-500">Accede con tus credenciales.</p>
         <div className="mt-6 space-y-4">

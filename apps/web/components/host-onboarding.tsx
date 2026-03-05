@@ -65,6 +65,16 @@ export const HostOnboarding = () => {
     title: '',
     description: ''
   });
+  const [stayTimes, setStayTimes] = useState({
+    checkInTime: '15:00',
+    checkOutTime: '11:00'
+  });
+  const [rules, setRules] = useState({
+    allowChildren: true,
+    allowPets: false,
+    allowSmoking: false,
+    allowParties: false
+  });
   const [pricing, setPricing] = useState({
     pricePerNight: 70,
     cancelPolicy: 'FLEXIBLE'
@@ -182,7 +192,14 @@ export const HostOnboarding = () => {
         capacity: counts.guests,
         beds: counts.beds,
         baths: counts.baths,
-        cancelPolicy: pricing.cancelPolicy
+        cancelPolicy: pricing.cancelPolicy,
+        amenityNames: amenities,
+        checkInTime: stayTimes.checkInTime,
+        checkOutTime: stayTimes.checkOutTime,
+        allowChildren: rules.allowChildren,
+        allowPets: rules.allowPets,
+        allowSmoking: rules.allowSmoking,
+        allowParties: rules.allowParties
       };
 
       const res = await fetch('/api/host/listings', {
@@ -427,6 +444,59 @@ export const HostOnboarding = () => {
                       {amenity}
                     </button>
                   ))}
+                </div>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Check-in (hora)
+                    </p>
+                    <Input
+                      type="time"
+                      value={stayTimes.checkInTime}
+                      onChange={(e) =>
+                        setStayTimes((prev) => ({ ...prev, checkInTime: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Check-out (hora)
+                    </p>
+                    <Input
+                      type="time"
+                      value={stayTimes.checkOutTime}
+                      onChange={(e) =>
+                        setStayTimes((prev) => ({ ...prev, checkOutTime: e.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Que se permite
+                  </p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {[
+                      { key: 'allowChildren' as const, label: 'Ninos permitidos' },
+                      { key: 'allowPets' as const, label: 'Mascotas permitidas' },
+                      { key: 'allowSmoking' as const, label: 'Fumar permitido' },
+                      { key: 'allowParties' as const, label: 'Eventos permitidos' }
+                    ].map((rule) => (
+                      <label
+                        key={rule.key}
+                        className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={rules[rule.key]}
+                          onChange={(e) =>
+                            setRules((prev) => ({ ...prev, [rule.key]: e.target.checked }))
+                          }
+                        />
+                        {rule.label}
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </section>
             )}

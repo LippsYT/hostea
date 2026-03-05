@@ -33,6 +33,15 @@ const schema = z
     inventoryQty: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).optional()),
     beds: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
     baths: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
+    checkInTime: z
+      .preprocess(emptyToUndefined, z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional()),
+    checkOutTime: z
+      .preprocess(emptyToUndefined, z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional()),
+    allowChildren: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+    allowPets: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+    allowSmoking: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+    allowParties: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+    amenityNames: z.array(z.string().min(1)).optional(),
     cancelPolicy: z.preprocess(emptyToUndefined, z.nativeEnum(CancelPolicy).optional()),
     instantBook: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
     bookingMode: z.preprocess(
@@ -41,6 +50,37 @@ const schema = z
     )
   })
   .passthrough();
+
+const syncListingAmenities = async (listingId: string, amenityNames: string[]) => {
+  const normalized = Array.from(
+    new Set(
+      amenityNames
+        .map((name) => name.trim())
+        .filter(Boolean)
+    )
+  );
+
+  await prisma.listingAmenity.deleteMany({ where: { listingId } });
+  if (normalized.length === 0) return;
+
+  const amenities = await Promise.all(
+    normalized.map((name) =>
+      prisma.amenity.upsert({
+        where: { name },
+        update: {},
+        create: { name }
+      })
+    )
+  );
+
+  await prisma.listingAmenity.createMany({
+    data: amenities.map((amenity) => ({
+      listingId,
+      amenityId: amenity.id
+    })),
+    skipDuplicates: true
+  });
+};
 
 export async function POST(req: Request) {
   try {
@@ -101,6 +141,13 @@ export async function POST(req: Request) {
     const inventoryQty = type === ListingType.HOTEL ? Math.max(1, inventoryQtyRaw) : 1;
     const beds = Number.isFinite(data.beds) ? data.beds! : 1;
     const baths = Number.isFinite(data.baths) ? data.baths! : 1;
+    const checkInTime = data.checkInTime ?? '15:00';
+    const checkOutTime = data.checkOutTime ?? '11:00';
+    const allowChildren = data.allowChildren ?? true;
+    const allowPets = data.allowPets ?? false;
+    const allowSmoking = data.allowSmoking ?? false;
+    const allowParties = data.allowParties ?? false;
+    const amenityNames = data.amenityNames ?? [];
     const cancelPolicy = data.cancelPolicy ?? CancelPolicy.FLEXIBLE;
     const bookingMode = data.bookingMode as BookingMode | undefined;
     const instantBook =
@@ -126,10 +173,17 @@ export async function POST(req: Request) {
         inventoryQty,
         beds,
         baths,
+        checkInTime,
+        checkOutTime,
+        allowChildren,
+        allowPets,
+        allowSmoking,
+        allowParties,
         cancelPolicy,
         instantBook
       }
     });
+    await syncListingAmenities(listing.id, amenityNames);
     return NextResponse.json({ listing });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Error' }, { status: 401 });

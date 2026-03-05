@@ -189,6 +189,12 @@ model Listing {
   inventoryQty  Int             @default(1)
   beds          Int
   baths         Int
+  checkInTime   String          @default("15:00")
+  checkOutTime  String          @default("11:00")
+  allowChildren Boolean         @default(true)
+  allowPets     Boolean         @default(false)
+  allowSmoking  Boolean         @default(false)
+  allowParties  Boolean         @default(false)
   instantBook   Boolean         @default(true)
   cancelPolicy  CancelPolicy    @default(MODERATE)
   status        String          @default("ACTIVE")

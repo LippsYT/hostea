@@ -49,9 +49,9 @@ export default async function ListingDetail({ params }: { params: { id: string }
   ];
 
   const houseRules = [
-    { icon: Clock, label: 'Check-in desde 15:00 · Check-out 11:00' },
-    { icon: Ban, label: 'No fumar dentro de la propiedad' },
-    { icon: PawPrint, label: 'Mascotas bajo consulta' }
+    { icon: Clock, label: `Check-in desde ${listing.checkInTime} · Check-out ${listing.checkOutTime}` },
+    { icon: Ban, label: listing.allowSmoking ? 'Se permite fumar' : 'No fumar dentro de la propiedad' },
+    { icon: PawPrint, label: listing.allowPets ? 'Mascotas permitidas' : 'No se permiten mascotas' }
   ];
 
   const fullAddress = `${listing.address}, ${listing.neighborhood}, ${listing.city}`;
@@ -161,6 +161,8 @@ export default async function ListingDetail({ params }: { params: { id: string }
                   <h3 className="text-lg font-semibold text-slate-900">Politicas</h3>
                   <p className="mt-2 text-sm text-slate-600">Cancelacion: {listing.cancelPolicy}</p>
                   <p className="text-sm text-slate-600">Reserva inmediata: {listing.instantBook ? 'Si' : 'No'}</p>
+                  <p className="text-sm text-slate-600">Ninos: {listing.allowChildren ? 'Permitidos' : 'No permitidos'}</p>
+                  <p className="text-sm text-slate-600">Eventos: {listing.allowParties ? 'Permitidos' : 'No permitidos'}</p>
                 </div>
               </div>
 

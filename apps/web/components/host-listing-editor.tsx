@@ -42,6 +42,16 @@ type DynamicPreview = {
   finalPrice: number;
 };
 
+const amenityOptions = [
+  'Wifi',
+  'Cocina',
+  'Espacios comunes',
+  'Aire acondicionado',
+  'Estacionamiento',
+  'TV',
+  'Zona de trabajo'
+];
+
 export type ListingEditorProps = {
   listing: {
     id: string;
@@ -61,6 +71,13 @@ export type ListingEditorProps = {
     capacity: number;
     beds: number;
     baths: number;
+    checkInTime: string;
+    checkOutTime: string;
+    allowChildren: boolean;
+    allowPets: boolean;
+    allowSmoking: boolean;
+    allowParties: boolean;
+    amenityNames: string[];
     cancelPolicy: string;
     instantBook: boolean;
     photos: Photo[];
@@ -109,6 +126,13 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
     capacity: listing.capacity,
     beds: listing.beds,
     baths: listing.baths,
+    checkInTime: listing.checkInTime || '15:00',
+    checkOutTime: listing.checkOutTime || '11:00',
+    allowChildren: listing.allowChildren ?? true,
+    allowPets: listing.allowPets ?? false,
+    allowSmoking: listing.allowSmoking ?? false,
+    allowParties: listing.allowParties ?? false,
+    amenityNames: listing.amenityNames || [],
     cancelPolicy: listing.cancelPolicy,
     bookingMode: bookingModeFromInstantBook(listing.instantBook)
   });
@@ -523,6 +547,22 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
               onChange={(e) => setForm((f) => ({ ...f, baths: Number(e.target.value) }))}
             />
           </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Check-in (hora)</p>
+            <Input
+              type="time"
+              value={form.checkInTime}
+              onChange={(e) => setForm((f) => ({ ...f, checkInTime: e.target.value }))}
+            />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Check-out (hora)</p>
+            <Input
+              type="time"
+              value={form.checkOutTime}
+              onChange={(e) => setForm((f) => ({ ...f, checkOutTime: e.target.value }))}
+            />
+          </div>
           <select
             className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold uppercase tracking-wide"
             value={form.type}
@@ -594,6 +634,60 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
                   </button>
                 );
               })}
+            </div>
+          </div>
+          <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Comodidades</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {amenityOptions.map((amenity) => {
+                const selected = form.amenityNames.includes(amenity);
+                return (
+                  <button
+                    key={amenity}
+                    type="button"
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        amenityNames: selected
+                          ? prev.amenityNames.filter((item) => item !== amenity)
+                          : [...prev.amenityNames, amenity]
+                      }))
+                    }
+                    className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                      selected
+                        ? 'border-slate-900 bg-slate-50 text-slate-900'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    {amenity}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reglas del alojamiento</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {[
+                { key: 'allowChildren' as const, label: 'Se permiten ninos' },
+                { key: 'allowPets' as const, label: 'Se permiten mascotas' },
+                { key: 'allowSmoking' as const, label: 'Se permite fumar' },
+                { key: 'allowParties' as const, label: 'Se permiten eventos' }
+              ].map((rule) => (
+                <label
+                  key={rule.key}
+                  className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                >
+                  <input
+                    type="checkbox"
+                    checked={form[rule.key]}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, [rule.key]: e.target.checked }))
+                    }
+                  />
+                  {rule.label}
+                </label>
+              ))}
             </div>
           </div>
         </div>

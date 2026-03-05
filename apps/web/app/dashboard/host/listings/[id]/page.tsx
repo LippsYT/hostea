@@ -13,7 +13,10 @@ export default async function HostListingEditPage({ params }: { params: { id: st
   const userId = (session?.user as any)?.id as string;
   const listing = await prisma.listing.findUnique({
     where: { id: params.id },
-    include: { photos: { orderBy: { sortOrder: 'asc' } } }
+    include: {
+      photos: { orderBy: { sortOrder: 'asc' } },
+      amenities: { include: { amenity: true } }
+    }
   });
   if (!listing || listing.hostId !== userId) {
     redirect('/dashboard/host/listings');
@@ -51,6 +54,13 @@ export default async function HostListingEditPage({ params }: { params: { id: st
           capacity: listing.capacity,
           beds: listing.beds,
           baths: listing.baths,
+          checkInTime: listing.checkInTime,
+          checkOutTime: listing.checkOutTime,
+          allowChildren: listing.allowChildren,
+          allowPets: listing.allowPets,
+          allowSmoking: listing.allowSmoking,
+          allowParties: listing.allowParties,
+          amenityNames: listing.amenities.map((item) => item.amenity.name),
           cancelPolicy: listing.cancelPolicy,
           instantBook: listing.instantBook,
           photos: listing.photos.map((p) => ({ id: p.id, url: p.url, sortOrder: p.sortOrder }))

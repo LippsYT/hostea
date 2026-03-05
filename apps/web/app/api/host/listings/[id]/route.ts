@@ -30,10 +30,48 @@ const schema = z.object({
   inventoryQty: z.coerce.number().int().min(1).optional(),
   beds: z.coerce.number(),
   baths: z.coerce.number(),
+  checkInTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
+  checkOutTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
+  allowChildren: z.coerce.boolean().optional(),
+  allowPets: z.coerce.boolean().optional(),
+  allowSmoking: z.coerce.boolean().optional(),
+  allowParties: z.coerce.boolean().optional(),
+  amenityNames: z.array(z.string().min(1)).optional(),
   cancelPolicy: z.nativeEnum(CancelPolicy),
   instantBook: z.coerce.boolean().optional(),
   bookingMode: z.enum(['instant', 'approval']).optional()
 });
+
+const syncListingAmenities = async (listingId: string, amenityNames: string[]) => {
+  const normalized = Array.from(
+    new Set(
+      amenityNames
+        .map((name) => name.trim())
+        .filter(Boolean)
+    )
+  );
+
+  await prisma.listingAmenity.deleteMany({ where: { listingId } });
+  if (normalized.length === 0) return;
+
+  const amenities = await Promise.all(
+    normalized.map((name) =>
+      prisma.amenity.upsert({
+        where: { name },
+        update: {},
+        create: { name }
+      })
+    )
+  );
+
+  await prisma.listingAmenity.createMany({
+    data: amenities.map((amenity) => ({
+      listingId,
+      amenityId: amenity.id
+    })),
+    skipDuplicates: true
+  });
+};
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
   const session = await requireSession();
@@ -93,6 +131,12 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       ? data.inventoryQty
       : listing.inventoryQty;
   const inventoryQty = type === ListingType.HOTEL ? Math.max(1, inventoryQtyRaw) : 1;
+  const checkInTime = data.checkInTime ?? listing.checkInTime ?? '15:00';
+  const checkOutTime = data.checkOutTime ?? listing.checkOutTime ?? '11:00';
+  const allowChildren = data.allowChildren ?? listing.allowChildren;
+  const allowPets = data.allowPets ?? listing.allowPets;
+  const allowSmoking = data.allowSmoking ?? listing.allowSmoking;
+  const allowParties = data.allowParties ?? listing.allowParties;
   const updated = await prisma.listing.update({
     where: { id: params.id },
     data: {
@@ -112,9 +156,18 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       inventoryQty,
       beds: data.beds,
       baths: data.baths,
+      checkInTime,
+      checkOutTime,
+      allowChildren,
+      allowPets,
+      allowSmoking,
+      allowParties,
       cancelPolicy: data.cancelPolicy,
       instantBook
     }
   });
+  if (Array.isArray(data.amenityNames)) {
+    await syncListingAmenities(updated.id, data.amenityNames);
+  }
   return NextResponse.json({ listing: updated });
 }

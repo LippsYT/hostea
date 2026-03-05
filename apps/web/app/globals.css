@@ -9,14 +9,58 @@
 }
 
 body {
-  @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))] antialiased;
+  @apply text-[hsl(var(--foreground))] antialiased;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 140, 90, 0.18) 0%,
+      rgba(255, 110, 160, 0.14) 42%,
+      rgba(140, 90, 255, 0.18) 100%
+    ),
+    #f9fafb;
   overflow-x: hidden;
   max-width: 100%;
 }
 
 html {
+  background: #f9fafb;
   overflow-x: hidden;
   max-width: 100%;
+}
+
+.global-bg {
+  overflow: hidden;
+}
+
+.global-bg-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(120px);
+  transform: translateZ(0);
+}
+
+.global-bg-blob-1 {
+  width: min(55vw, 680px);
+  height: min(55vw, 680px);
+  top: -220px;
+  left: -160px;
+  background: radial-gradient(circle, rgba(255, 130, 85, 0.30) 0%, rgba(255, 130, 85, 0) 72%);
+}
+
+.global-bg-blob-2 {
+  width: min(50vw, 620px);
+  height: min(50vw, 620px);
+  top: 14vh;
+  right: -200px;
+  background: radial-gradient(circle, rgba(172, 99, 255, 0.28) 0%, rgba(172, 99, 255, 0) 72%);
+}
+
+.global-bg-blob-3 {
+  width: min(48vw, 560px);
+  height: min(48vw, 560px);
+  bottom: -180px;
+  left: 24vw;
+  background: radial-gradient(circle, rgba(255, 95, 170, 0.22) 0%, rgba(255, 95, 170, 0) 70%);
 }
 
 .gradient-hero {

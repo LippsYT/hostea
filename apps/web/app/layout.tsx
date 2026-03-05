@@ -39,11 +39,18 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className={`${display.variable} ${body.variable} font-body`}>
-        <Providers>
-          <PwaRegister />
-          {children}
-        </Providers>
+      <body className={`${display.variable} ${body.variable} font-body relative min-h-screen`}>
+        <div aria-hidden className="global-bg fixed inset-0 -z-10 pointer-events-none">
+          <div className="global-bg-blob global-bg-blob-1" />
+          <div className="global-bg-blob global-bg-blob-2" />
+          <div className="global-bg-blob global-bg-blob-3" />
+        </div>
+        <div className="relative z-10">
+          <Providers>
+            <PwaRegister />
+            {children}
+          </Providers>
+        </div>
       </body>
     </html>
   );

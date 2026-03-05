@@ -41,6 +41,21 @@ export const authOptions: NextAuthOptions = {
         token.id = (user as any).id;
         token.roles = (user as any).roles || [];
       }
+      if (token.id) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: String(token.id) },
+            include: { roles: { include: { role: true } }, profile: true }
+          });
+          if (dbUser) {
+            token.roles = dbUser.roles.map((r) => r.role.name);
+            token.email = dbUser.email;
+            token.name = dbUser.profile?.name || dbUser.email;
+          }
+        } catch {
+          // Evita romper el login si hay un error temporal de DB.
+        }
+      }
       return token;
     },
     async session({ session, token }) {

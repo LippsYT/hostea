@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -70,6 +70,8 @@ export const HostOnboarding = () => {
     cancelPolicy: 'FLEXIBLE'
   });
   const [errorMsg, setErrorMsg] = useState('');
+  const [photos, setPhotos] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
@@ -96,6 +98,72 @@ export const HostOnboarding = () => {
 
   const toggleList = (list: string[], value: string) =>
     list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+
+  const onSelectPhotos = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setPhotos((prev) => {
+      const map = new Map(prev.map((file) => [`${file.name}:${file.size}:${file.lastModified}`, file] as const));
+      for (const file of Array.from(files)) {
+        map.set(`${file.name}:${file.size}:${file.lastModified}`, file);
+      }
+      return Array.from(map.values()).slice(0, 20);
+    });
+  };
+
+  const removePhoto = (file: File) => {
+    setPhotos((prev) =>
+      prev.filter(
+        (item) =>
+          !(
+            item.name === file.name &&
+            item.size === file.size &&
+            item.lastModified === file.lastModified
+          )
+      )
+    );
+  };
+
+  const uploadOnboardingPhotos = async (listingId: string) => {
+    if (!photos.length) return;
+    for (const file of photos) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const key = `listings/${listingId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
+      const signRes = await fetch('/api/uploads/presign', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrf
+        },
+        body: JSON.stringify({ key })
+      });
+      const signed = await signRes.json();
+      if (!signRes.ok || !signed?.signedUrl || !signed?.publicUrl) {
+        throw new Error(signed?.error || 'No se pudo firmar la subida de fotos');
+      }
+
+      const putRes = await fetch(signed.signedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file
+      });
+      if (!putRes.ok) {
+        throw new Error('No se pudo subir una foto');
+      }
+
+      const photoRes = await fetch(`/api/host/listings/${listingId}/photos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrf
+        },
+        body: JSON.stringify({ url: signed.publicUrl })
+      });
+      if (!photoRes.ok) {
+        const err = await photoRes.json().catch(() => ({}));
+        throw new Error(err?.error || 'No se pudo guardar una foto');
+      }
+    }
+  };
 
   const createListing = async () => {
     setErrorMsg('');
@@ -130,7 +198,14 @@ export const HostOnboarding = () => {
         setErrorMsg(data?.error || 'No se pudo crear el anuncio.');
         return;
       }
-      if (data.listing?.id) router.push(`/dashboard/host/listings/${data.listing.id}`);
+      if (data.listing?.id) {
+        try {
+          await uploadOnboardingPhotos(data.listing.id);
+        } catch (error: any) {
+          setErrorMsg(error?.message || 'Anuncio creado, pero hubo un problema al subir fotos.');
+        }
+        router.push(`/dashboard/host/listings/${data.listing.id}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -360,11 +435,52 @@ export const HostOnboarding = () => {
               <section className="animate-fade-up">
                 <p className="text-sm text-slate-500">Paso 4</p>
                 <h2 className="mt-2 text-3xl font-semibold">Mostra tu espacio</h2>
-                <p className="mt-3 text-sm text-slate-500">Vas a poder subir fotos en el editor final.</p>
-                <div className="mt-6 rounded-3xl border border-dashed border-slate-300 p-10 text-center">
+                <p className="mt-3 text-sm text-slate-500">Subi fotos ahora o completalo luego en el editor final.</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => onSelectPhotos(e.target.files)}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="mt-6 w-full rounded-3xl border border-dashed border-slate-300 p-10 text-center transition hover:border-slate-400 hover:bg-slate-50"
+                >
                   <Camera className="mx-auto h-10 w-10 text-slate-400" />
                   <p className="mt-3 text-sm text-slate-500">Subi al menos 5 fotos para destacar.</p>
+                  <p className="mt-2 text-xs text-slate-400">Formatos: JPG, PNG, WEBP.</p>
+                </button>
+                <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
+                  <p>{photos.length} foto(s) seleccionada(s)</p>
+                  {!!photos.length && (
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+                      onClick={() => setPhotos([])}
+                    >
+                      Limpiar
+                    </button>
+                  )}
                 </div>
+                {!!photos.length && (
+                  <div className="mt-3 max-h-44 space-y-2 overflow-auto rounded-2xl border border-slate-200 p-3 text-xs">
+                    {photos.map((file) => (
+                      <div key={`${file.name}:${file.size}:${file.lastModified}`} className="flex items-center justify-between gap-3">
+                        <p className="truncate text-slate-600">{file.name}</p>
+                        <button
+                          type="button"
+                          className="text-red-500 hover:text-red-700"
+                          onClick={() => removePhoto(file)}
+                        >
+                          Quitar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
 

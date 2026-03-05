@@ -46,11 +46,20 @@ export async function POST(req: Request) {
   try {
     assertCsrf(req);
     const session = await requireSession();
-    const roles = (session.user as any).roles as string[];
+    const userId = (session.user as any).id as string;
+    const roles = ((session.user as any).roles || []) as string[];
     if (!roles.includes('HOST') && !roles.includes('ADMIN')) {
-      return NextResponse.json({ error: 'Sin permisos' }, { status: 403 });
+      const hostRole = await prisma.role.findUnique({ where: { name: 'HOST' } });
+      if (!hostRole) {
+        return NextResponse.json({ error: 'No se encontro el rol HOST' }, { status: 500 });
+      }
+      await prisma.userRole.upsert({
+        where: { userId_roleId: { userId, roleId: hostRole.id } },
+        update: {},
+        create: { userId, roleId: hostRole.id }
+      });
     }
-    const ok = await rateLimit(`host:create:${(session.user as any).id}`, 10, 60);
+    const ok = await rateLimit(`host:create:${userId}`, 10, 60);
     if (!ok) return NextResponse.json({ error: 'Rate limit' }, { status: 429 });
 
     const body = await req.json();
@@ -100,7 +109,7 @@ export async function POST(req: Request) {
         : data.instantBook ?? true;
     const listing = await prisma.listing.create({
       data: {
-        hostId: (session.user as any).id,
+        hostId: userId,
         title,
         description,
         type,

@@ -11,6 +11,7 @@
     "lint": "npm --prefix apps/web run lint",
     "prisma:migrate": "npx prisma migrate dev",
     "prisma:seed": "npx prisma db seed",
+    "auth:reset": "tsx scripts/reset-auth-data.ts",
     "test": "vitest run"
   },
   "prisma": {

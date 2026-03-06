@@ -10,9 +10,9 @@ export default async function HomePage() {
   const { prisma } = await import('@/lib/db');
   const listings = await prisma.listing.findMany({
     where: { status: 'ACTIVE' },
-    take: 4,
+    take: 20,
     include: { photos: { orderBy: { sortOrder: 'asc' } } },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { updatedAt: 'desc' }
   });
 
   return (
@@ -48,7 +48,7 @@ export default async function HomePage() {
             <h2 className="text-2xl font-semibold">Destinos destacados</h2>
             <span className="text-sm text-neutral-500">Curado por HOSTEA</span>
           </div>
-          <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {listings.map((listing) => (
               <ListingCard key={listing.id} listing={listing} />
             ))}

@@ -35,8 +35,12 @@ export const DashboardShell = ({
     return matched?.key || null;
   }, [pathname, navItems]);
 
-  const handleSignOut = () => {
-    void signOut({ callbackUrl: '/' });
+  const handleSignOut = async () => {
+    try {
+      await signOut({ redirect: false });
+    } finally {
+      window.location.href = '/';
+    }
   };
 
   return (

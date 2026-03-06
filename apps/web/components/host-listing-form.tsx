@@ -11,7 +11,16 @@ import {
   withSmartPricingParams
 } from '@/lib/intelligent-pricing';
 import { type BookingMode, bookingModeLabel } from '@/lib/booking-mode';
-import { getCitiesByCountry, getCountries, getNeighborhoods } from '@/lib/location-presets';
+import {
+  getFallbackCitiesByCountry,
+  getFallbackCountries,
+  getFallbackNeighborhoods
+} from '@/lib/location-presets';
+import {
+  fetchCityOptions,
+  fetchCountryOptions,
+  fetchNeighborhoodOptions
+} from '@/lib/location-options';
 
 const amenityOptions = [
   'Wifi',
@@ -27,10 +36,17 @@ const money = (value: number) => `USD ${Number(value || 0).toFixed(2)}`;
 
 export const HostListingForm = () => {
   const router = useRouter();
-  const countries = getCountries();
-  const initialCountry = countries[0] || 'Argentina';
-  const initialCity = getCitiesByCountry(initialCountry)[0] || '';
-  const initialNeighborhood = getNeighborhoods(initialCountry, initialCity)[0] || '';
+  const fallbackCountries = getFallbackCountries();
+  const initialCountry = fallbackCountries[0] || 'Argentina';
+  const fallbackCities = getFallbackCitiesByCountry(initialCountry);
+  const initialCity = fallbackCities[0] || '';
+  const fallbackNeighborhoods = getFallbackNeighborhoods(initialCountry, initialCity);
+  const initialNeighborhood = fallbackNeighborhoods[0] || '';
+  const [countries, setCountries] = useState<string[]>(fallbackCountries);
+  const [cities, setCities] = useState<string[]>(fallbackCities);
+  const [neighborhoods, setNeighborhoods] = useState<string[]>(fallbackNeighborhoods);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingNeighborhoods, setLoadingNeighborhoods] = useState(false);
   const [csrf, setCsrf] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [saving, setSaving] = useState(false);
@@ -83,21 +99,101 @@ export const HostListingForm = () => {
   }, []);
 
   useEffect(() => {
-    const availableCities = getCitiesByCountry(form.country);
-    if (!availableCities.includes(form.city)) {
-      const nextCity = availableCities[0] || '';
-      const nextNeighborhood = getNeighborhoods(form.country, nextCity)[0] || '';
-      setForm((prev) => ({ ...prev, city: nextCity, neighborhood: nextNeighborhood }));
+    let cancelled = false;
+    const loadCountries = async () => {
+      try {
+        const options = await fetchCountryOptions();
+        if (cancelled || options.length === 0) return;
+        setCountries(options);
+        setForm((prev) => {
+          if (options.includes(prev.country)) return prev;
+          return { ...prev, country: options[0], city: '', neighborhood: '' };
+        });
+      } catch {
+        // fallback already loaded
+      }
+    };
+    void loadCountries();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!form.country) return;
+    let cancelled = false;
+    const loadCities = async () => {
+      setLoadingCities(true);
+      try {
+        const options = await fetchCityOptions(form.country);
+        if (cancelled) return;
+        const resolved = options.length > 0 ? options : getFallbackCitiesByCountry(form.country);
+        setCities(resolved);
+        setForm((prev) => ({
+          ...prev,
+          city: resolved.includes(prev.city) ? prev.city : resolved[0] || prev.city || '',
+          neighborhood: ''
+        }));
+      } catch {
+        if (!cancelled) {
+          const fallback = getFallbackCitiesByCountry(form.country);
+          setCities(fallback);
+          setForm((prev) => ({
+            ...prev,
+            city: fallback.includes(prev.city) ? prev.city : fallback[0] || prev.city || '',
+            neighborhood: ''
+          }));
+        }
+      } finally {
+        if (!cancelled) setLoadingCities(false);
+      }
+    };
+    void loadCities();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.country]);
+
+  useEffect(() => {
+    if (!form.country || !form.city) {
+      setNeighborhoods([]);
       return;
     }
-    const availableNeighborhoods = getNeighborhoods(form.country, form.city);
-    if (!availableNeighborhoods.includes(form.neighborhood)) {
-      setForm((prev) => ({
-        ...prev,
-        neighborhood: availableNeighborhoods[0] || ''
-      }));
-    }
-  }, [form.country, form.city, form.neighborhood]);
+    let cancelled = false;
+    const loadNeighborhoods = async () => {
+      setLoadingNeighborhoods(true);
+      try {
+        const options = await fetchNeighborhoodOptions(form.country, form.city);
+        if (cancelled) return;
+        const resolved =
+          options.length > 0 ? options : getFallbackNeighborhoods(form.country, form.city);
+        setNeighborhoods(resolved);
+        setForm((prev) => ({
+          ...prev,
+          neighborhood: resolved.includes(prev.neighborhood)
+            ? prev.neighborhood
+            : resolved[0] || prev.neighborhood || ''
+        }));
+      } catch {
+        if (!cancelled) {
+          const fallback = getFallbackNeighborhoods(form.country, form.city);
+          setNeighborhoods(fallback);
+          setForm((prev) => ({
+            ...prev,
+            neighborhood: fallback.includes(prev.neighborhood)
+              ? prev.neighborhood
+              : fallback[0] || prev.neighborhood || ''
+          }));
+        }
+      } finally {
+        if (!cancelled) setLoadingNeighborhoods(false);
+      }
+    };
+    void loadNeighborhoods();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.country, form.city]);
 
   const calculatedPrice = useMemo(
     () => calcClientPriceFromHostNet(form.netoDeseadoUsd, pricingParams),
@@ -186,7 +282,9 @@ export const HostListingForm = () => {
           <select
             className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm"
             value={form.country}
-            onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, country: e.target.value, city: '', neighborhood: '' }))
+            }
           >
             {countries.map((country) => (
               <option key={country} value={country}>
@@ -201,8 +299,9 @@ export const HostListingForm = () => {
             className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm"
             value={form.city}
             onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+            disabled={loadingCities}
           >
-            {getCitiesByCountry(form.country).map((city) => (
+            {cities.map((city) => (
               <option key={city} value={city}>
                 {city}
               </option>
@@ -215,13 +314,19 @@ export const HostListingForm = () => {
             className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm"
             value={form.neighborhood}
             onChange={(e) => setForm((f) => ({ ...f, neighborhood: e.target.value }))}
+            disabled={loadingNeighborhoods || neighborhoods.length === 0}
           >
-            {getNeighborhoods(form.country, form.city).map((neighborhood) => (
+            {neighborhoods.map((neighborhood) => (
               <option key={neighborhood} value={neighborhood}>
                 {neighborhood}
               </option>
             ))}
           </select>
+          {neighborhoods.length === 0 && (
+            <p className="mt-1 text-xs text-slate-500">
+              Sin barrios automáticos para esta ciudad. Puedes escribir barrio en Dirección.
+            </p>
+          )}
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">

@@ -4,7 +4,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { getCitiesByCountry, getCountries, getNeighborhoods } from '@/lib/location-presets';
+import {
+  getFallbackCitiesByCountry,
+  getFallbackCountries,
+  getFallbackNeighborhoods
+} from '@/lib/location-presets';
+import {
+  fetchCityOptions,
+  fetchCountryOptions,
+  fetchNeighborhoodOptions
+} from '@/lib/location-options';
 import {
   ArrowRight,
   CheckCircle,
@@ -48,10 +57,17 @@ type GuestCounts = {
 
 export const HostOnboarding = () => {
   const router = useRouter();
-  const countries = getCountries();
-  const initialCountry = countries[0] || 'Argentina';
-  const initialCity = getCitiesByCountry(initialCountry)[0] || 'Buenos Aires';
-  const initialNeighborhood = getNeighborhoods(initialCountry, initialCity)[0] || 'Palermo';
+  const fallbackCountries = getFallbackCountries();
+  const initialCountry = fallbackCountries[0] || 'Argentina';
+  const fallbackCities = getFallbackCitiesByCountry(initialCountry);
+  const initialCity = fallbackCities[0] || 'Buenos Aires';
+  const fallbackNeighborhoods = getFallbackNeighborhoods(initialCountry, initialCity);
+  const initialNeighborhood = fallbackNeighborhoods[0] || 'Palermo';
+  const [countries, setCountries] = useState<string[]>(fallbackCountries);
+  const [cities, setCities] = useState<string[]>(fallbackCities);
+  const [neighborhoods, setNeighborhoods] = useState<string[]>(fallbackNeighborhoods);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingNeighborhoods, setLoadingNeighborhoods] = useState(false);
   const [step, setStep] = useState(0);
   const [showOffer, setShowOffer] = useState(true);
   const [csrf, setCsrf] = useState('');
@@ -97,18 +113,104 @@ export const HostOnboarding = () => {
   }, []);
 
   useEffect(() => {
-    const cities = getCitiesByCountry(address.country);
-    if (!cities.includes(address.city)) {
-      const nextCity = cities[0] || '';
-      const nextNeighborhood = getNeighborhoods(address.country, nextCity)[0] || '';
-      setAddress((prev) => ({ ...prev, city: nextCity, neighborhood: nextNeighborhood }));
+    let cancelled = false;
+    const loadCountries = async () => {
+      try {
+        const options = await fetchCountryOptions();
+        if (cancelled || options.length === 0) return;
+        setCountries(options);
+        setAddress((prev) =>
+          options.includes(prev.country)
+            ? prev
+            : { ...prev, country: options[0], city: '', neighborhood: '' }
+        );
+      } catch {
+        // fallback already applied
+      }
+    };
+    void loadCountries();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!address.country) return;
+    let cancelled = false;
+    const loadCities = async () => {
+      setLoadingCities(true);
+      try {
+        const options = await fetchCityOptions(address.country);
+        if (cancelled) return;
+        const resolved = options.length > 0 ? options : getFallbackCitiesByCountry(address.country);
+        setCities(resolved);
+        setAddress((prev) => ({
+          ...prev,
+          city: resolved.includes(prev.city) ? prev.city : resolved[0] || prev.city || '',
+          neighborhood: ''
+        }));
+      } catch {
+        if (!cancelled) {
+          const fallback = getFallbackCitiesByCountry(address.country);
+          setCities(fallback);
+          setAddress((prev) => ({
+            ...prev,
+            city: fallback.includes(prev.city) ? prev.city : fallback[0] || prev.city || '',
+            neighborhood: ''
+          }));
+        }
+      } finally {
+        if (!cancelled) setLoadingCities(false);
+      }
+    };
+    void loadCities();
+    return () => {
+      cancelled = true;
+    };
+  }, [address.country]);
+
+  useEffect(() => {
+    if (!address.country || !address.city) {
+      setNeighborhoods([]);
       return;
     }
-    const neighborhoods = getNeighborhoods(address.country, address.city);
-    if (!neighborhoods.includes(address.neighborhood)) {
-      setAddress((prev) => ({ ...prev, neighborhood: neighborhoods[0] || '' }));
-    }
-  }, [address.country, address.city, address.neighborhood]);
+    let cancelled = false;
+    const loadNeighborhoods = async () => {
+      setLoadingNeighborhoods(true);
+      try {
+        const options = await fetchNeighborhoodOptions(address.country, address.city);
+        if (cancelled) return;
+        const resolved =
+          options.length > 0
+            ? options
+            : getFallbackNeighborhoods(address.country, address.city);
+        setNeighborhoods(resolved);
+        setAddress((prev) => ({
+          ...prev,
+          neighborhood: resolved.includes(prev.neighborhood)
+            ? prev.neighborhood
+            : resolved[0] || prev.neighborhood || ''
+        }));
+      } catch {
+        if (!cancelled) {
+          const fallback = getFallbackNeighborhoods(address.country, address.city);
+          setNeighborhoods(fallback);
+          setAddress((prev) => ({
+            ...prev,
+            neighborhood: fallback.includes(prev.neighborhood)
+              ? prev.neighborhood
+              : fallback[0] || prev.neighborhood || ''
+          }));
+        }
+      } finally {
+        if (!cancelled) setLoadingNeighborhoods(false);
+      }
+    };
+    void loadNeighborhoods();
+    return () => {
+      cancelled = true;
+    };
+  }, [address.country, address.city]);
 
   const totalSteps = 6;
 
@@ -406,7 +508,14 @@ export const HostOnboarding = () => {
                   <select
                     className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm"
                     value={address.country}
-                    onChange={(e) => setAddress((prev) => ({ ...prev, country: e.target.value }))}
+                    onChange={(e) =>
+                      setAddress((prev) => ({
+                        ...prev,
+                        country: e.target.value,
+                        city: '',
+                        neighborhood: ''
+                      }))
+                    }
                   >
                     {countries.map((country) => (
                       <option key={country} value={country}>
@@ -418,8 +527,9 @@ export const HostOnboarding = () => {
                     className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm"
                     value={address.city}
                     onChange={(e) => setAddress((prev) => ({ ...prev, city: e.target.value }))}
+                    disabled={loadingCities}
                   >
-                    {getCitiesByCountry(address.country).map((city) => (
+                    {cities.map((city) => (
                       <option key={city} value={city}>
                         {city}
                       </option>
@@ -429,13 +539,19 @@ export const HostOnboarding = () => {
                     className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm"
                     value={address.neighborhood}
                     onChange={(e) => setAddress((prev) => ({ ...prev, neighborhood: e.target.value }))}
+                    disabled={loadingNeighborhoods || neighborhoods.length === 0}
                   >
-                    {getNeighborhoods(address.country, address.city).map((neighborhood) => (
+                    {neighborhoods.map((neighborhood) => (
                       <option key={neighborhood} value={neighborhood}>
                         {neighborhood}
                       </option>
                     ))}
                   </select>
+                  {neighborhoods.length === 0 && (
+                    <p className="text-xs text-slate-500">
+                      No hay barrios automaticos para esta ciudad. Puedes completar zona en Direccion.
+                    </p>
+                  )}
                 </div>
                 <div className="mt-6 rounded-3xl border border-slate-200 p-6">
                   <div className="flex items-center gap-2 text-sm text-slate-500">

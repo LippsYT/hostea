@@ -9,16 +9,32 @@ type NavItem = { href: string; label: string; roles?: string[] };
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Resumen' },
   { href: '/dashboard/host', label: 'Host', roles: ['HOST', 'ADMIN'] },
-  { href: '/dashboard/host/explore', label: 'Explorar', roles: ['HOST', 'ADMIN'] },
-  { href: '/dashboard/host/messages', label: 'Mensajes', roles: ['HOST', 'ADMIN'] },
+  {
+    href: '/dashboard/host/explore',
+    label: 'Explorar',
+    roles: ['HOST', 'EXPERIENCE_HOST', 'ADMIN']
+  },
+  {
+    href: '/dashboard/host/messages',
+    label: 'Mensajes',
+    roles: ['HOST', 'EXPERIENCE_HOST', 'ADMIN']
+  },
   { href: '/dashboard/host/listings', label: 'Propiedades', roles: ['HOST', 'ADMIN'] },
   { href: '/dashboard/host/reservations', label: 'Reservas', roles: ['HOST', 'ADMIN'] },
   { href: '/dashboard/host/calendar', label: 'Calendario', roles: ['HOST', 'ADMIN'] },
   { href: '/dashboard/host/finance', label: 'Finanzas', roles: ['HOST', 'ADMIN'] },
   { href: '/dashboard/host/notifications', label: 'Notificaciones', roles: ['HOST', 'ADMIN'] },
   { href: '/dashboard/client', label: 'Reservar', roles: ['CLIENT', 'ADMIN'] },
-  { href: '/dashboard/client/messages', label: 'Mensajes', roles: ['CLIENT', 'HOST', 'ADMIN'] },
-  { href: '/dashboard/client/profile', label: 'Perfil y KYC', roles: ['CLIENT', 'HOST', 'ADMIN'] },
+  {
+    href: '/dashboard/client/messages',
+    label: 'Mensajes',
+    roles: ['CLIENT', 'HOST', 'EXPERIENCE_HOST', 'ADMIN']
+  },
+  {
+    href: '/dashboard/client/profile',
+    label: 'Perfil y KYC',
+    roles: ['CLIENT', 'HOST', 'EXPERIENCE_HOST', 'ADMIN']
+  },
   { href: '/dashboard/support', label: 'Soporte', roles: ['SUPPORT', 'MODERATOR', 'ADMIN'] },
   { href: '/dashboard/admin', label: 'Admin', roles: ['ADMIN'] },
   { href: '/dashboard/admin/finance', label: 'Admin Finanzas', roles: ['ADMIN'] }

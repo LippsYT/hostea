@@ -26,7 +26,7 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
   assertCsrf(req);
   const session = await requireSession();
   const roles = (session.user as any).roles || [];
-  if (!roles.includes('HOST') && !roles.includes('ADMIN')) {
+  if (!roles.includes('HOST') && !roles.includes('EXPERIENCE_HOST') && !roles.includes('ADMIN')) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
 

@@ -1,9 +1,7 @@
 import Link from 'next/link';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { getEffectiveRoles } from '@/lib/server-roles';
-import { redirect } from 'next/navigation';
-import { Compass, PlusCircle, Ticket, CalendarDays, MessageCircle, BarChart3 } from 'lucide-react';
+import { Compass, PlusCircle, Ticket, CalendarDays, Wallet } from 'lucide-react';
+import { requireExperienceHostAccess } from '@/lib/experience-access';
+import { prisma } from '@/lib/db';
 
 const actions = [
   {
@@ -31,26 +29,30 @@ const actions = [
     icon: CalendarDays
   },
   {
-    href: '/dashboard/host/explore/reviews',
-    title: 'Resenas',
-    description: 'Opiniones y calificacion de los clientes.',
-    icon: MessageCircle
-  },
-  {
-    href: '/dashboard/host/explore/stats',
-    title: 'Estadisticas',
-    description: 'Conversion, ingresos y actividad por ciudad.',
-    icon: BarChart3
+    href: '/dashboard/host/explore/payments',
+    title: 'Pagos',
+    description: 'Estado de cobros y total generado por experiencias.',
+    icon: Wallet
   }
 ];
 
 export default async function HostExplorePage() {
-  const session = await getServerSession(authOptions);
-  const sessionUserId = (session?.user as any)?.id as string | undefined;
-  const roles = await getEffectiveRoles(sessionUserId, (session?.user as any)?.roles);
-  if (!roles.includes('HOST') && !roles.includes('ADMIN')) {
-    redirect('/dashboard');
-  }
+  const { userId } = await requireExperienceHostAccess();
+  const [experienceCount, bookingCount, paidTotal] = await Promise.all([
+    prisma.experience.count({ where: { hostId: userId } }),
+    prisma.experienceBooking.count({
+      where: {
+        experience: { hostId: userId }
+      }
+    }),
+    prisma.experienceBooking.aggregate({
+      where: {
+        experience: { hostId: userId },
+        status: 'PAID'
+      },
+      _sum: { total: true }
+    })
+  ]);
 
   return (
     <div className="space-y-8">
@@ -60,6 +62,26 @@ export default async function HostExplorePage() {
         <p className="mt-2 text-sm text-slate-500">
           Gestiona actividades turisticas globales y convierte consultas en reservas.
         </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="surface-card">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Actividades</p>
+          <p className="mt-2 text-3xl font-semibold text-slate-900">{experienceCount}</p>
+          <p className="text-sm text-slate-500">Publicadas por tu cuenta</p>
+        </div>
+        <div className="surface-card">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reservas</p>
+          <p className="mt-2 text-3xl font-semibold text-slate-900">{bookingCount}</p>
+          <p className="text-sm text-slate-500">Solicitudes y confirmaciones</p>
+        </div>
+        <div className="surface-card">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pagos</p>
+          <p className="mt-2 text-3xl font-semibold text-slate-900">
+            USD {Number(paidTotal._sum.total || 0).toFixed(2)}
+          </p>
+          <p className="text-sm text-slate-500">Total pagado en experiencias</p>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

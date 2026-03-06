@@ -20,7 +20,7 @@ const toggleSchema = z.object({
 const requireHostSession = async () => {
   const session = await requireSession();
   const roles = ((session.user as any).roles || []) as string[];
-  if (!roles.includes('HOST') && !roles.includes('ADMIN')) {
+  if (!roles.includes('HOST') && !roles.includes('EXPERIENCE_HOST') && !roles.includes('ADMIN')) {
     throw new Error('No autorizado');
   }
   return session;

@@ -1,15 +1,7 @@
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { getEffectiveRoles } from '@/lib/server-roles';
-import { redirect } from 'next/navigation';
+import { requireExperienceHostAccess } from '@/lib/experience-access';
 
 export default async function HostExploreReviewsPage() {
-  const session = await getServerSession(authOptions);
-  const sessionUserId = (session?.user as any)?.id as string | undefined;
-  const roles = await getEffectiveRoles(sessionUserId, (session?.user as any)?.roles);
-  if (!roles.includes('HOST') && !roles.includes('ADMIN')) {
-    redirect('/dashboard');
-  }
+  await requireExperienceHostAccess();
 
   return (
     <div className="space-y-6">

@@ -10,5 +10,6 @@ export default async function DashboardRoot() {
   if (roles.includes('ADMIN')) redirect('/dashboard/admin');
   if (roles.includes('SUPPORT') || roles.includes('MODERATOR')) redirect('/dashboard/support');
   if (roles.includes('HOST')) redirect('/dashboard/host');
+  if (roles.includes('EXPERIENCE_HOST')) redirect('/dashboard/host/explore');
   redirect('/dashboard/client');
 }

@@ -26,6 +26,7 @@ const seedRoles = async () => {
   const roleMap: Record<RoleName, string[]> = {
     ADMIN: permissions,
     HOST: ['LISTING_MANAGE', 'RESERVATION_MANAGE', 'FINANCE_VIEW'],
+    EXPERIENCE_HOST: ['RESERVATION_MANAGE', 'FINANCE_VIEW'],
     CLIENT: [],
     MODERATOR: ['LISTING_MANAGE', 'TICKET_MANAGE', 'KYC_REVIEW'],
     SUPPORT: ['TICKET_MANAGE'],
@@ -156,6 +157,40 @@ const seedListings = async (hostId: string) => {
   }
 };
 
+const seedExperiences = async (hostId: string) => {
+  await prisma.experience.create({
+    data: {
+      hostId,
+      title: 'Tour gastronomico por Palermo',
+      description:
+        'Recorrido guiado por restaurantes y mercados locales con degustaciones incluidas.',
+      category: 'Gastronomia',
+      city: 'Buenos Aires',
+      meetingPoint: 'Plaza Italia, frente al Ecoparque',
+      durationMinutes: 180,
+      language: 'Espanol / Ingles',
+      pricePerPerson: 35,
+      capacity: 12,
+      scheduleText: 'Mie, Vie y Sab 18:00',
+      activityType: 'SHARED',
+      photos: {
+        create: [
+          {
+            url: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=1200&auto=format&fit=crop',
+            sortOrder: 0,
+            isCover: true
+          },
+          {
+            url: 'https://images.unsplash.com/photo-1424847651672-bf20a4b0982b?q=80&w=1200&auto=format&fit=crop',
+            sortOrder: 1,
+            isCover: false
+          }
+        ]
+      }
+    }
+  });
+};
+
 const seedSettings = async () => {
   await prisma.settings.upsert({
     where: { key: 'commissionPercent' },
@@ -202,6 +237,7 @@ async function main() {
   await createUser('cliente@hostea.local', 'cliente123', 'Cliente Demo', RoleName.CLIENT);
 
   await seedListings(host.id);
+  await seedExperiences(host.id);
   await seedSettings();
   await seedLegal();
 

@@ -1,88 +1,183 @@
 import Link from 'next/link';
-import { Compass, CalendarDays, Ticket, Globe2, Sparkles } from 'lucide-react';
+import { prisma } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 
-const blocks = [
-  {
-    title: 'Mis actividades',
-    description: 'Administra tours, paseos y experiencias publicadas.',
-    href: '/dashboard/host/explore/activities',
-    icon: Compass
-  },
-  {
-    title: 'Crear actividad',
-    description: 'Publica una nueva actividad con fotos, horarios y precios.',
-    href: '/dashboard/host/explore/new',
-    icon: Sparkles
-  },
-  {
-    title: 'Reservas',
-    description: 'Revisa solicitudes y confirmaciones de actividades.',
-    href: '/dashboard/host/explore/reservations',
-    icon: Ticket
-  },
-  {
-    title: 'Calendario',
-    description: 'Gestiona cupos por fecha y horarios de salida.',
-    href: '/dashboard/host/explore/calendar',
-    icon: CalendarDays
-  }
-];
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-export default function ExplorePage() {
+type ExploreSearchParams = {
+  q?: string;
+  city?: string;
+  category?: string;
+};
+
+export default async function ExplorePage({
+  searchParams
+}: {
+  searchParams?: ExploreSearchParams;
+}) {
+  const q = searchParams?.q?.trim() || '';
+  const city = searchParams?.city?.trim() || '';
+  const category = searchParams?.category?.trim() || '';
+
+  const where = {
+    status: 'ACTIVE',
+    ...(q
+      ? {
+          OR: [
+            { title: { contains: q, mode: 'insensitive' as const } },
+            { description: { contains: q, mode: 'insensitive' as const } }
+          ]
+        }
+      : {}),
+    ...(city ? { city: { equals: city, mode: 'insensitive' as const } } : {}),
+    ...(category ? { category: { equals: category, mode: 'insensitive' as const } } : {})
+  };
+
+  const [experiences, cities, categories] = await Promise.all([
+    prisma.experience.findMany({
+      where,
+      include: {
+        photos: { orderBy: { sortOrder: 'asc' } }
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 60
+    }),
+    prisma.experience.findMany({
+      where: { status: 'ACTIVE' },
+      distinct: ['city'],
+      select: { city: true },
+      orderBy: { city: 'asc' }
+    }),
+    prisma.experience.findMany({
+      where: { status: 'ACTIVE' },
+      distinct: ['category'],
+      select: { category: true },
+      orderBy: { category: 'asc' }
+    })
+  ]);
+
+  const cityOptions = cities.map((row) => row.city);
+  const categoryOptions = categories.map((row) => row.category);
+
   return (
-    <section className="px-4 pb-20 pt-10 sm:px-6 lg:px-8">
+    <main className="px-4 pb-20 pt-10 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl space-y-8">
-        <div className="rounded-3xl border border-slate-200/70 bg-white/85 p-8 shadow-soft backdrop-blur">
-          <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Nueva seccion</p>
+        <section className="rounded-3xl border border-slate-200/70 bg-white/85 p-8 shadow-soft backdrop-blur">
+          <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Marketplace global</p>
           <h1 className="mt-4 text-4xl font-semibold leading-tight text-slate-900 md:text-5xl">
-            EXPLORAR en HOSTEA
+            Explorar experiencias en cualquier ciudad
           </h1>
           <p className="mt-4 max-w-3xl text-base text-slate-600 md:text-lg">
-            Publica y vende actividades turisticas de forma global: tours, paseos, excursiones
-            y experiencias culturales para viajeros de cualquier ciudad.
+            HOSTEA conecta viajeros con tours, paseos, excursiones y actividades culturales
+            creadas por anfitriones locales.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/search">
+            <Link href="/dashboard/host/explore/new">
+              <Button size="lg">Publicar mi experiencia</Button>
+            </Link>
+            <a href="#catalogo">
               <Button size="lg" variant="outline">
-                Ver alojamientos
+                Ver experiencias
               </Button>
-            </Link>
-            <Link href="/dashboard/host/explore">
-              <Button size="lg">Ir al panel Explorar</Button>
-            </Link>
+            </a>
           </div>
-        </div>
+        </section>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          {blocks.map((block) => (
-            <Link
-              key={block.title}
-              href={block.href}
-              className="rounded-3xl border border-slate-200/70 bg-white/85 p-6 shadow-soft transition hover:-translate-y-0.5 hover:shadow-md"
+        <section className="rounded-3xl border border-slate-200/70 bg-white/85 p-5 shadow-soft">
+          <form className="grid gap-3 md:grid-cols-4" action="/explorar" method="get">
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="Buscar actividad"
+              className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm"
+            />
+            <select
+              name="city"
+              defaultValue={city}
+              className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm"
             >
-              <div className="flex items-center gap-3">
-                <span className="brand-gradient-bg float-fast inline-flex h-10 w-10 items-center justify-center rounded-xl text-white">
-                  <block.icon className="h-5 w-5" />
-                </span>
-                <h2 className="text-lg font-semibold text-slate-900">{block.title}</h2>
-              </div>
-              <p className="mt-3 text-sm text-slate-600">{block.description}</p>
-            </Link>
-          ))}
-        </div>
+              <option value="">Todas las ciudades</option>
+              {cityOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            <select
+              name="category"
+              defaultValue={category}
+              className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm"
+            >
+              <option value="">Todas las categorias</option>
+              {categoryOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            <Button className="h-11" type="submit">
+              Filtrar
+            </Button>
+          </form>
+        </section>
 
-        <div className="rounded-3xl border border-slate-200/70 bg-white/85 p-6 text-sm text-slate-600 shadow-soft">
-          <div className="flex items-center gap-2 font-semibold text-slate-900">
-            <Globe2 className="h-4 w-4 text-[var(--brand-2)]" />
-            Alcance global
+        <section id="catalogo">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-2xl font-semibold text-slate-900">Catalogo de experiencias</h2>
+            <span className="text-sm text-slate-500">{experiences.length} resultados</span>
           </div>
-          <p className="mt-2">
-            EXPLORAR permite que anfitriones de distintas ciudades publiquen actividades y que
-            clientes descubran opciones por ubicacion, fecha, categoria y precio.
-          </p>
-        </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {experiences.map((experience) => {
+              const cover =
+                experience.photos.find((photo) => photo.isCover) || experience.photos[0] || null;
+              return (
+                <article
+                  key={experience.id}
+                  className="overflow-hidden rounded-3xl border border-slate-200/70 bg-white/90 shadow-soft"
+                >
+                  <Link href={`/explorar/${experience.id}`}>
+                    {cover ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={cover.url}
+                        alt={experience.title}
+                        className="h-44 w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-44 w-full bg-slate-100" />
+                    )}
+                  </Link>
+                  <div className="space-y-2 p-4">
+                    <Link href={`/explorar/${experience.id}`}>
+                      <h3 className="line-clamp-2 text-base font-semibold text-slate-900">
+                        {experience.title}
+                      </h3>
+                    </Link>
+                    <p className="text-sm text-slate-500">{experience.city}</p>
+                    <p className="text-xs text-slate-500">
+                      {experience.category} · {experience.durationMinutes} min
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-slate-900">
+                        USD {Number(experience.pricePerPerson).toFixed(2)}
+                      </span>
+                      <Link href={`/explorar/${experience.id}`} className="pill-link">
+                        Reservar
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+            {experiences.length === 0 && (
+              <div className="surface-card text-sm text-slate-500">
+                No hay experiencias con esos filtros. Prueba con otra ciudad o categoria.
+              </div>
+            )}
+          </div>
+        </section>
       </div>
-    </section>
+    </main>
   );
 }

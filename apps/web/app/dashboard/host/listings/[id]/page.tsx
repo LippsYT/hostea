@@ -1,12 +1,14 @@
 import { prisma } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getEffectiveRoles } from '@/lib/server-roles';
 import { redirect } from 'next/navigation';
 import { HostListingEditor } from '@/components/host-listing-editor';
 
 export default async function HostListingEditPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  const roles = (session?.user as any)?.roles || [];
+  const sessionUserId = (session?.user as any)?.id as string | undefined;
+  const roles = await getEffectiveRoles(sessionUserId, (session?.user as any)?.roles);
   if (!roles.includes('HOST') && !roles.includes('ADMIN')) {
     redirect('/dashboard');
   }

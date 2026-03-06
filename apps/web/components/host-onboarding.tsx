@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { getCitiesByCountry, getCountries, getNeighborhoods } from '@/lib/location-presets';
 import {
   ArrowRight,
   CheckCircle,
@@ -47,6 +48,10 @@ type GuestCounts = {
 
 export const HostOnboarding = () => {
   const router = useRouter();
+  const countries = getCountries();
+  const initialCountry = countries[0] || 'Argentina';
+  const initialCity = getCitiesByCountry(initialCountry)[0] || 'Buenos Aires';
+  const initialNeighborhood = getNeighborhoods(initialCountry, initialCity)[0] || 'Palermo';
   const [step, setStep] = useState(0);
   const [showOffer, setShowOffer] = useState(true);
   const [csrf, setCsrf] = useState('');
@@ -56,9 +61,10 @@ export const HostOnboarding = () => {
   const [amenities, setAmenities] = useState<string[]>(['Wifi', 'Cocina']);
   const [counts, setCounts] = useState<GuestCounts>({ guests: 4, beds: 1, baths: 1 });
   const [address, setAddress] = useState({
+    country: initialCountry,
     address: '',
-    city: 'Buenos Aires',
-    neighborhood: ''
+    city: initialCity,
+    neighborhood: initialNeighborhood
   });
   const [showExact, setShowExact] = useState(false);
   const [details, setDetails] = useState({
@@ -89,6 +95,20 @@ export const HostOnboarding = () => {
       setCsrf(data.token);
     });
   }, []);
+
+  useEffect(() => {
+    const cities = getCitiesByCountry(address.country);
+    if (!cities.includes(address.city)) {
+      const nextCity = cities[0] || '';
+      const nextNeighborhood = getNeighborhoods(address.country, nextCity)[0] || '';
+      setAddress((prev) => ({ ...prev, city: nextCity, neighborhood: nextNeighborhood }));
+      return;
+    }
+    const neighborhoods = getNeighborhoods(address.country, address.city);
+    if (!neighborhoods.includes(address.neighborhood)) {
+      setAddress((prev) => ({ ...prev, neighborhood: neighborhoods[0] || '' }));
+    }
+  }, [address.country, address.city, address.neighborhood]);
 
   const totalSteps = 6;
 
@@ -383,16 +403,39 @@ export const HostOnboarding = () => {
                     value={address.address}
                     onChange={(e) => setAddress((prev) => ({ ...prev, address: e.target.value }))}
                   />
-                  <Input
-                    placeholder="Barrio"
-                    value={address.neighborhood}
-                    onChange={(e) => setAddress((prev) => ({ ...prev, neighborhood: e.target.value }))}
-                  />
-                  <Input
-                    placeholder="Ciudad"
+                  <select
+                    className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm"
+                    value={address.country}
+                    onChange={(e) => setAddress((prev) => ({ ...prev, country: e.target.value }))}
+                  >
+                    {countries.map((country) => (
+                      <option key={country} value={country}>
+                        {country}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm"
                     value={address.city}
                     onChange={(e) => setAddress((prev) => ({ ...prev, city: e.target.value }))}
-                  />
+                  >
+                    {getCitiesByCountry(address.country).map((city) => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm"
+                    value={address.neighborhood}
+                    onChange={(e) => setAddress((prev) => ({ ...prev, neighborhood: e.target.value }))}
+                  >
+                    {getNeighborhoods(address.country, address.city).map((neighborhood) => (
+                      <option key={neighborhood} value={neighborhood}>
+                        {neighborhood}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="mt-6 rounded-3xl border border-slate-200 p-6">
                   <div className="flex items-center gap-2 text-sm text-slate-500">

@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { Button } from './ui/button';
-import { Sparkles, Home, Briefcase } from 'lucide-react';
+import { Compass, Home, Briefcase } from 'lucide-react';
 
 export const Navbar = async () => {
   const session = await getServerSession(authOptions);
@@ -26,15 +26,15 @@ export const Navbar = async () => {
       <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">
         <Link href="/search" className="flex items-center gap-2 hover:text-slate-900">
           <Home className="float-slow h-4 w-4 text-[var(--brand-2)]" />
+          Alojamientos
+        </Link>
+        <Link href="/explorar" className="flex items-center gap-2 hover:text-slate-900">
+          <Compass className="float-fast h-4 w-4 text-[var(--brand-2)]" />
           Explorar
         </Link>
-        <Link href="/dashboard" className="flex items-center gap-2 hover:text-slate-900">
+        <Link href="/servicios" className="flex items-center gap-2 hover:text-slate-900">
           <Briefcase className="float-mid h-4 w-4 text-[var(--brand-2)]" />
-          Panel
-        </Link>
-        <Link href="/legal/terms" className="flex items-center gap-2 hover:text-slate-900">
-          <Sparkles className="float-fast h-4 w-4 text-[var(--brand-2)]" />
-          Legal
+          Servicios
         </Link>
       </nav>
       <div className="flex items-center gap-2 sm:gap-3">

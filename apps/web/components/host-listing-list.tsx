@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { HostListingForm } from '@/components/host-listing-form';
 
 type ListingItem = {
   id: string;
@@ -47,13 +46,18 @@ const statusPriority = (status: string | null) => {
   return 3;
 };
 
-export const HostListingList = ({ initial }: { initial: ListingItem[] }) => {
+export const HostListingList = ({
+  initial,
+  notice
+}: {
+  initial: ListingItem[];
+  notice?: string | null;
+}) => {
   const [items, setItems] = useState<ListingItem[]>(initial || []);
   const [csrf, setCsrf] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'PAUSED' | 'DELETED'>('ALL');
-  const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
@@ -100,15 +104,20 @@ export const HostListingList = ({ initial }: { initial: ListingItem[] }) => {
 
   return (
     <div className="space-y-5">
+      {notice ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {notice}
+        </div>
+      ) : null}
       <div className="surface-card">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-slate-900">Propiedades</h2>
             <p className="text-sm text-slate-500">Administra tus anuncios y su estado.</p>
           </div>
-          <Button size="sm" onClick={() => setShowCreate((prev) => !prev)}>
-            {showCreate ? 'Cerrar formulario' : '+ Agregar propiedad'}
-          </Button>
+          <Link href="/dashboard/host/listings/new">
+            <Button size="sm">+ Agregar propiedad</Button>
+          </Link>
         </div>
       </div>
 
@@ -211,8 +220,6 @@ export const HostListingList = ({ initial }: { initial: ListingItem[] }) => {
           No hay propiedades para ese filtro.
         </div>
       )}
-
-      {showCreate && <HostListingForm />}
     </div>
   );
 };

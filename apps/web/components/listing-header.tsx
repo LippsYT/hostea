@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Search, User, ArrowLeft, Home, Sparkles, Briefcase, Users } from 'lucide-react';
+import { Search, User, ArrowLeft, Home, Compass, Briefcase, Users } from 'lucide-react';
 
 type GuestCounts = {
   adults: number;
@@ -18,7 +18,7 @@ export const ListingHeader = () => {
   const router = useRouter();
   const { data: session } = useSession();
   const [expanded, setExpanded] = useState(false);
-  const [tab, setTab] = useState<'homes' | 'experiences' | 'services'>('homes');
+  const [tab, setTab] = useState<'homes' | 'explore' | 'services'>('homes');
   const [guests, setGuests] = useState<GuestCounts>({ adults: 1, children: 0, infants: 0, pets: 0 });
   const [location, setLocation] = useState('');
   const [checkIn, setCheckIn] = useState('');
@@ -67,7 +67,7 @@ export const ListingHeader = () => {
         <div className="hidden items-center gap-6 text-xs text-slate-500 md:flex">
           {[
             { key: 'homes', label: 'Alojamientos', icon: Home },
-            { key: 'experiences', label: 'Experiencias', icon: Sparkles },
+            { key: 'explore', label: 'Explorar', icon: Compass },
             { key: 'services', label: 'Servicios', icon: Briefcase }
           ].map((item) => (
             <button
@@ -83,10 +83,10 @@ export const ListingHeader = () => {
 
         <div className="flex items-center gap-2">
           <Link
-            href="/dashboard"
+            href="/explorar"
             className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50"
           >
-            Panel
+            Explorar
           </Link>
           {session ? (
             <Link

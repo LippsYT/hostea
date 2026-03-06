@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getEffectiveRoles } from '@/lib/server-roles';
 import { redirect } from 'next/navigation';
 import { ChatClient } from '@/components/chat-client';
 import { HostMessageActions } from '@/components/host-message-actions';
@@ -10,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { expireAwaitingPaymentReservations } from '@/lib/reservation-request-flow';
 import { getReservationWorkflowStatus } from '@/lib/reservation-workflow';
 import { backfillReservationNumbers } from '@/lib/reservation-number';
+import { Home, Ticket } from 'lucide-react';
 
 type ThreadState = 'consulta' | 'oferta' | 'reserva' | 'cerrada';
 
@@ -37,13 +39,34 @@ const getThreadState = (thread: any): ThreadState => {
 const getInquiryListingId = (subject?: string | null) =>
   subject && subject.startsWith('LISTING:') ? subject.replace('LISTING:', '').trim() : null;
 
+const getInquiryActivityId = (subject?: string | null) =>
+  subject && subject.startsWith('ACTIVITY:') ? subject.replace('ACTIVITY:', '').trim() : null;
+
+const getThreadContext = (
+  thread: any,
+  inquiryListingMap: Map<string, string>
+): { type: 'listing' | 'activity'; title: string; label: string } => {
+  const listingTitle =
+    thread.reservation?.listing?.title ||
+    inquiryListingMap.get(getInquiryListingId(thread.subject) || '');
+  if (listingTitle) {
+    return { type: 'listing', title: listingTitle, label: 'Alojamiento' };
+  }
+  const activityId = getInquiryActivityId(thread.subject);
+  if (activityId) {
+    return { type: 'activity', title: `Actividad ${activityId}`, label: 'Actividad' };
+  }
+  return { type: 'listing', title: 'Consulta sin propiedad', label: 'Alojamiento' };
+};
+
 export default async function HostMessagesPage({
   searchParams
 }: {
   searchParams: Record<string, string | string[] | undefined>;
 }) {
   const session = await getServerSession(authOptions);
-  const roles = (session?.user as any)?.roles || [];
+  const sessionUserId = (session?.user as any)?.id as string | undefined;
+  const roles = await getEffectiveRoles(sessionUserId, (session?.user as any)?.roles);
   if (!roles.includes('HOST') && !roles.includes('ADMIN')) {
     redirect('/dashboard');
   }
@@ -105,36 +128,30 @@ export default async function HostMessagesPage({
 
   const query =
     typeof searchParams.q === 'string' ? searchParams.q.trim().toLowerCase() : '';
+  const typeFilter =
+    searchParams.type === 'activity' || searchParams.type === 'listing'
+      ? (searchParams.type as 'activity' | 'listing')
+      : 'all';
 
-  const filteredThreads = !query
-    ? threads
-    : threads.filter((thread) => {
-        const other = thread.participants.find((p) => p.userId !== userId);
-        const otherName = other?.user.profile?.name || '';
-        const otherEmail = other?.user.email || '';
-        const otherPhone = other?.user.profile?.phone || '';
-        const listingTitle =
-          thread.reservation?.listing?.title ||
-          inquiryListingMap.get(getInquiryListingId(thread.subject) || '') ||
-          '';
-        const reservationNumber = thread.reservation?.reservationNumber || '';
-        const dateText = thread.reservation
-          ? `${thread.reservation.checkIn.toISOString().slice(0, 10)} ${thread.reservation.checkOut
-              .toISOString()
-              .slice(0, 10)}`
-          : '';
-        return [
-          otherName,
-          otherEmail,
-          otherPhone,
-          listingTitle,
-          reservationNumber,
-          dateText
-        ]
-          .join(' ')
-          .toLowerCase()
-          .includes(query);
-      });
+  const filteredThreads = threads.filter((thread) => {
+    const context = getThreadContext(thread, inquiryListingMap);
+    if (typeFilter !== 'all' && context.type !== typeFilter) return false;
+    if (!query) return true;
+    const other = thread.participants.find((p) => p.userId !== userId);
+    const otherName = other?.user.profile?.name || '';
+    const otherEmail = other?.user.email || '';
+    const otherPhone = other?.user.profile?.phone || '';
+    const reservationNumber = thread.reservation?.reservationNumber || '';
+    const dateText = thread.reservation
+      ? `${thread.reservation.checkIn.toISOString().slice(0, 10)} ${thread.reservation.checkOut
+          .toISOString()
+          .slice(0, 10)}`
+      : '';
+    return [otherName, otherEmail, otherPhone, context.title, context.label, reservationNumber, dateText]
+      .join(' ')
+      .toLowerCase()
+      .includes(query);
+  });
 
   const selected =
     typeof searchParams.threadId === 'string' ? searchParams.threadId : filteredThreads[0]?.id;
@@ -161,11 +178,8 @@ export default async function HostMessagesPage({
     : null;
   const selectedState = selectedThread ? getThreadState(selectedThread) : null;
 
-  const selectedListingTitle = selectedThread
-    ? selectedThread.reservation?.listing?.title ||
-      inquiryListingMap.get(getInquiryListingId(selectedThread.subject) || '') ||
-      'Consulta sin propiedad'
-    : null;
+  const selectedContext = selectedThread ? getThreadContext(selectedThread, inquiryListingMap) : null;
+  const selectedListingTitle = selectedContext?.title || null;
 
   const selectedLastMessage = selectedThread?.messages?.[0];
   const selectedLatestOffer = selectedThread?.offers?.[0];
@@ -183,6 +197,7 @@ export default async function HostMessagesPage({
           <p className="mt-1 text-xs text-slate-500">Cliente, propiedad, estado y no leidos.</p>
           <form className="mt-3" method="get">
             {selectedThread?.id ? <input type="hidden" name="threadId" value={selectedThread.id} /> : null}
+            {typeFilter !== 'all' ? <input type="hidden" name="type" value={typeFilter} /> : null}
             <input
               name="q"
               defaultValue={query}
@@ -190,15 +205,38 @@ export default async function HostMessagesPage({
               className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700"
             />
           </form>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {[
+              { key: 'all', label: 'Todos' },
+              { key: 'listing', label: 'Alojamientos' },
+              { key: 'activity', label: 'Actividades' }
+            ].map((item) => {
+              const params = new URLSearchParams();
+              if (query) params.set('q', query);
+              if (item.key !== 'all') params.set('type', item.key);
+              return (
+                <Link
+                  key={item.key}
+                  href={`?${params.toString()}`}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                    typeFilter === item.key
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-600'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
           <div className="mt-4 space-y-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
             {filteredThreads.map((thread) => {
               const other = thread.participants.find((p) => p.userId !== userId);
               const otherName = other?.user.profile?.name || other?.user.email || 'Huesped';
               const state = getThreadState(thread);
               const listingTitle =
-                thread.reservation?.listing?.title ||
-                inquiryListingMap.get(getInquiryListingId(thread.subject) || '') ||
-                'Consulta sin propiedad';
+                getThreadContext(thread, inquiryListingMap).title;
+              const context = getThreadContext(thread, inquiryListingMap);
               const lastMessage = thread.messages[0];
               const isSelected = thread.id === selected;
               const unreadCount = thread._count?.messages || 0;
@@ -241,6 +279,10 @@ export default async function HostMessagesPage({
                     <p className="truncate text-xs text-slate-500">{listingTitle}</p>
                     {lastMessageDate ? <span className="text-[11px] text-slate-400">{lastMessageDate}</span> : null}
                   </div>
+                  <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-600">
+                    {context.type === 'activity' ? <Ticket className="h-3 w-3" /> : <Home className="h-3 w-3" />}
+                    <span>{context.label}</span>
+                  </div>
                   <p className="truncate text-[11px] text-slate-400">{reservationMeta}</p>
                   {lastMessage && (
                     <p className="mt-1 truncate text-xs text-slate-400">
@@ -265,7 +307,9 @@ export default async function HostMessagesPage({
               <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 bg-white/95 p-4 backdrop-blur">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">{selectedGuestName}</p>
-                  <p className="text-xs text-slate-500">{selectedListingTitle}</p>
+                  <p className="text-xs text-slate-500">
+                    {selectedContext?.label || 'Alojamiento'} · {selectedListingTitle}
+                  </p>
                 </div>
                 {selectedState && (
                   <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${threadStateClass[selectedState]}`}>

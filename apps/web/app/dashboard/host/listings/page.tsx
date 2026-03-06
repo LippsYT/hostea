@@ -1,14 +1,27 @@
 ﻿import { prisma } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getEffectiveRoles } from '@/lib/server-roles';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { HostListingList } from '@/components/host-listing-list';
 
-export default async function HostListingsPage() {
+const getNotice = (searchParams: Record<string, string | string[] | undefined>) => {
+  if (searchParams.created === '1') return 'La propiedad se creo correctamente.';
+  if (searchParams.updated === '1') return 'La propiedad se actualizo correctamente.';
+  if (searchParams.deleted === '1') return 'La propiedad se elimino correctamente.';
+  return null;
+};
+
+export default async function HostListingsPage({
+  searchParams
+}: {
+  searchParams: Record<string, string | string[] | undefined>;
+}) {
   const session = await getServerSession(authOptions);
   const userId = (session?.user as any)?.id as string;
-  const roles = (session?.user as any)?.roles || [];
+  const sessionUserId = (session?.user as any)?.id as string | undefined;
+  const roles = await getEffectiveRoles(sessionUserId, (session?.user as any)?.roles);
   if (!roles.includes('HOST') && !roles.includes('ADMIN')) {
     redirect('/dashboard');
   }
@@ -17,6 +30,7 @@ export default async function HostListingsPage() {
     include: { photos: { orderBy: { sortOrder: 'asc' } } },
     orderBy: { updatedAt: 'desc' }
   });
+  const notice = getNotice(searchParams);
 
   return (
     <div className="space-y-8">
@@ -33,6 +47,7 @@ export default async function HostListingsPage() {
         </Link>
       </div>
       <HostListingList
+        notice={notice}
         initial={listings.map((listing) => ({
           id: listing.id,
           title: listing.title,

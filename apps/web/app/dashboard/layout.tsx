@@ -2,12 +2,14 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { ReservationAlerts } from '@/components/reservation-alerts';
 import { DashboardShell } from '@/components/dashboard-shell';
+import { getEffectiveRoles } from '@/lib/server-roles';
 
 type NavItem = { href: string; label: string; roles?: string[] };
 
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Resumen' },
   { href: '/dashboard/host', label: 'Host', roles: ['HOST', 'ADMIN'] },
+  { href: '/dashboard/host/explore', label: 'Explorar', roles: ['HOST', 'ADMIN'] },
   { href: '/dashboard/host/messages', label: 'Mensajes', roles: ['HOST', 'ADMIN'] },
   { href: '/dashboard/host/listings', label: 'Propiedades', roles: ['HOST', 'ADMIN'] },
   { href: '/dashboard/host/reservations', label: 'Reservas', roles: ['HOST', 'ADMIN'] },
@@ -30,7 +32,7 @@ const hasRole = (userRoles: string[], itemRoles?: string[]) => {
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
   const user = session?.user as any;
-  const roles = (user?.roles || []) as string[];
+  const roles = await getEffectiveRoles(user?.id as string | undefined, user?.roles);
   const displayName = user?.name || user?.email || 'Invitado';
   const roleLabel = roles.join(' · ') || 'Usuario';
 

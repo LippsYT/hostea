@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -87,6 +88,7 @@ export type ListingEditorProps = {
 const money = (value: number) => `USD ${Number(value || 0).toFixed(2)}`;
 
 export const HostListingEditor = ({ listing }: ListingEditorProps) => {
+  const router = useRouter();
   const [csrf, setCsrf] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -207,13 +209,18 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
       precioClienteCalculadoUsd: calculatedPrice,
       bookingMode: form.bookingMode
     };
-    await fetch(`/api/host/listings/${listing.id}`, {
+    const res = await fetch(`/api/host/listings/${listing.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
       body: JSON.stringify(payload)
     });
+    const data = await res.json().catch(() => ({}));
     setSaving(false);
-    alert('Listing actualizado');
+    if (!res.ok) {
+      alert(data?.error || 'No se pudo guardar la propiedad.');
+      return;
+    }
+    router.push('/dashboard/host/listings?updated=1');
   };
 
   const saveBookingMode = async (mode: BookingMode) => {

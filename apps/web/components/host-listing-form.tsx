@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -10,6 +11,7 @@ import {
   withSmartPricingParams
 } from '@/lib/intelligent-pricing';
 import { type BookingMode, bookingModeLabel } from '@/lib/booking-mode';
+import { getCitiesByCountry, getCountries, getNeighborhoods } from '@/lib/location-presets';
 
 const amenityOptions = [
   'Wifi',
@@ -24,6 +26,11 @@ const amenityOptions = [
 const money = (value: number) => `USD ${Number(value || 0).toFixed(2)}`;
 
 export const HostListingForm = () => {
+  const router = useRouter();
+  const countries = getCountries();
+  const initialCountry = countries[0] || 'Argentina';
+  const initialCity = getCitiesByCountry(initialCountry)[0] || '';
+  const initialNeighborhood = getNeighborhoods(initialCountry, initialCity)[0] || '';
   const [csrf, setCsrf] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [saving, setSaving] = useState(false);
@@ -34,8 +41,9 @@ export const HostListingForm = () => {
     type: 'APARTMENT',
     inventoryQty: 1,
     address: '',
-    city: '',
-    neighborhood: '',
+    country: initialCountry,
+    city: initialCity,
+    neighborhood: initialNeighborhood,
     netoDeseadoUsd: 40,
     capacity: 2,
     beds: 1,
@@ -74,6 +82,23 @@ export const HostListingForm = () => {
       .catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    const availableCities = getCitiesByCountry(form.country);
+    if (!availableCities.includes(form.city)) {
+      const nextCity = availableCities[0] || '';
+      const nextNeighborhood = getNeighborhoods(form.country, nextCity)[0] || '';
+      setForm((prev) => ({ ...prev, city: nextCity, neighborhood: nextNeighborhood }));
+      return;
+    }
+    const availableNeighborhoods = getNeighborhoods(form.country, form.city);
+    if (!availableNeighborhoods.includes(form.neighborhood)) {
+      setForm((prev) => ({
+        ...prev,
+        neighborhood: availableNeighborhoods[0] || ''
+      }));
+    }
+  }, [form.country, form.city, form.neighborhood]);
+
   const calculatedPrice = useMemo(
     () => calcClientPriceFromHostNet(form.netoDeseadoUsd, pricingParams),
     [form.netoDeseadoUsd, pricingParams]
@@ -111,7 +136,7 @@ export const HostListingForm = () => {
       return;
     }
     if (data.listing?.id) {
-      window.location.href = `/dashboard/host/listings/${data.listing.id}`;
+      router.push('/dashboard/host/listings?created=1');
       return;
     }
     setSaving(false);
@@ -157,20 +182,46 @@ export const HostListingForm = () => {
           />
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ciudad</p>
-          <Input
-            placeholder="Ciudad"
-            value={form.city}
-            onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-          />
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pais</p>
+          <select
+            className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm"
+            value={form.country}
+            onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
+          >
+            {countries.map((country) => (
+              <option key={country} value={country}>
+                {country}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Barrio</p>
-          <Input
-            placeholder="Barrio / Zona"
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ciudad</p>
+          <select
+            className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm"
+            value={form.city}
+            onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+          >
+            {getCitiesByCountry(form.country).map((city) => (
+              <option key={city} value={city}>
+                {city}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Barrio / zona</p>
+          <select
+            className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm"
             value={form.neighborhood}
             onChange={(e) => setForm((f) => ({ ...f, neighborhood: e.target.value }))}
-          />
+          >
+            {getNeighborhoods(form.country, form.city).map((neighborhood) => (
+              <option key={neighborhood} value={neighborhood}>
+                {neighborhood}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">

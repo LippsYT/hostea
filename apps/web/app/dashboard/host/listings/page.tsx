@@ -3,7 +3,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { HostListingForm } from '@/components/host-listing-form';
 import { HostListingList } from '@/components/host-listing-list';
 
 export default async function HostListingsPage() {
@@ -15,8 +14,8 @@ export default async function HostListingsPage() {
   }
   const listings = await prisma.listing.findMany({
     where: { hostId: userId },
-    include: { photos: true },
-    orderBy: { createdAt: 'desc' }
+    include: { photos: { orderBy: { sortOrder: 'asc' } } },
+    orderBy: { updatedAt: 'desc' }
   });
 
   return (
@@ -33,13 +32,14 @@ export default async function HostListingsPage() {
           Publicar avanzado
         </Link>
       </div>
-      <HostListingForm />
       <HostListingList
         initial={listings.map((listing) => ({
           id: listing.id,
           title: listing.title,
+          city: listing.city,
           neighborhood: listing.neighborhood,
-          status: listing.status
+          status: listing.status,
+          photoUrl: listing.photos[0]?.url ?? null
         }))}
       />
     </div>

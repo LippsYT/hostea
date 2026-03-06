@@ -2,15 +2,31 @@
 
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
-export const HostDashboard = ({ data }: { data: { name: string; revenue: number }[] }) => {
+export const HostDashboard = ({
+  data,
+  hasData
+}: {
+  data: { name: string; revenue: number }[];
+  hasData?: boolean;
+}) => {
+  const normalizedHasData = hasData ?? data.some((item) => item.revenue > 0);
+
   return (
     <div className="surface-card">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-slate-900">Ingresos ultimos 6 meses</h3>
-          <p className="text-sm text-slate-500">Tendencia estimada en USD.</p>
+          <p className="text-sm text-slate-500">Basado en reservas confirmadas.</p>
         </div>
-        <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">En alza</span>
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            normalizedHasData
+              ? 'bg-emerald-100 text-emerald-700'
+              : 'bg-slate-100 text-slate-600'
+          }`}
+        >
+          {normalizedHasData ? 'Con actividad' : 'Sin actividad'}
+        </span>
       </div>
       <div className="mt-6 h-56">
         <ResponsiveContainer width="100%" height="100%">

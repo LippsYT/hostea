@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { signOut } from 'next-auth/react';
 
 type NavItem = { key: string; href: string; label: string };
 
@@ -33,6 +34,10 @@ export const DashboardShell = ({
     );
     return matched?.key || null;
   }, [pathname, navItems]);
+
+  const handleSignOut = () => {
+    void signOut({ callbackUrl: '/' });
+  };
 
   return (
     <div className="grid min-h-screen md:grid-cols-[260px_1fr]">
@@ -74,6 +79,16 @@ export const DashboardShell = ({
             );
           })}
         </nav>
+        <div className="mt-6 border-t border-slate-200/70 pt-4">
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="flex w-full items-center justify-between rounded-full px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+          >
+            <span>Cerrar sesion</span>
+            <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+          </button>
+        </div>
       </aside>
 
       <div className="min-h-screen">
@@ -172,6 +187,15 @@ export const DashboardShell = ({
               );
             })}
           </nav>
+          <div className="mt-5 border-t border-slate-200/70 pt-4">
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="block w-full rounded-full px-4 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100"
+            >
+              Cerrar sesion
+            </button>
+          </div>
         </aside>
       </div>
     </div>

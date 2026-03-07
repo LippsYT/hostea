@@ -6,8 +6,8 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { calculatePrice } from '@/lib/pricing';
 import { Calendar } from 'lucide-react';
+import { calculateListingCheckoutQuote } from '@/lib/listing-checkout-pricing';
 
 const schema = z.object({
   checkIn: z.string().min(1),
@@ -46,16 +46,20 @@ type UpsellExperience = {
 export const BookingForm = ({
   listingId,
   pricePerNight,
+  netoDeseadoUsd,
+  precioClienteCalculadoUsd,
   cleaningFee,
-  serviceFee,
   taxRate,
+  platformPct,
   instantBook = true
 }: {
   listingId: string;
   pricePerNight: number;
+  netoDeseadoUsd?: number | null;
+  precioClienteCalculadoUsd?: number | null;
   cleaningFee: number;
-  serviceFee: number;
   taxRate: number;
+  platformPct?: number | null;
   instantBook?: boolean;
 }) => {
   const [csrfToken, setCsrfToken] = useState<string>('');
@@ -94,13 +98,17 @@ export const BookingForm = ({
 
   const pricing =
     checkIn && checkOut
-      ? calculatePrice({
+      ? calculateListingCheckoutQuote({
           checkIn: new Date(checkIn),
           checkOut: new Date(checkOut),
           pricePerNight,
+          netoDeseadoUsd,
+          precioClienteCalculadoUsd,
           cleaningFee,
-          serviceFee,
           taxRate,
+          pricingParams: {
+            platformPct: typeof platformPct === 'number' ? platformPct : undefined
+          },
           overrides: priceOverrides.map((o) => ({
             startDate: new Date(o.startDate),
             endDate: new Date(o.endDate),
@@ -386,18 +394,20 @@ export const BookingForm = ({
           </div>
           <div className="flex items-center justify-between">
             <span>{pricing.nights} noches</span>
-            <span>USD {pricing.nightlySubtotal.toFixed(2)}</span>
+            <span>USD {pricing.hostNightlySubtotal.toFixed(2)}</span>
           </div>
           <div className="flex items-center justify-between">
             <span>Limpieza</span>
             <span>USD {cleaningFee.toFixed(2)}</span>
           </div>
-          {serviceFee > 0 && (
-            <div className="flex items-center justify-between">
-              <span>Tarifa de servicio</span>
-              <span>USD {serviceFee.toFixed(2)}</span>
-            </div>
-          )}
+          <div className="flex items-center justify-between">
+            <span>Tarifa de servicio Hostea</span>
+            <span>USD {pricing.platformFee.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Cargos administrativos / procesamiento</span>
+            <span>USD {pricing.adminCharges.toFixed(2)}</span>
+          </div>
           <div className="flex items-center justify-between">
             <span>Impuestos</span>
             <span>USD {pricing.taxes.toFixed(2)}</span>

@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Ban, Clock, Home, MapPin, PawPrint, ShieldCheck, Sparkles } from 'lucide-react';
 import { ListingHeader } from '@/components/listing-header';
 import { ContactHostButton } from '@/components/contact-host-button';
+import { getSetting } from '@/lib/settings';
+import { defaultSmartPricingParams } from '@/lib/intelligent-pricing';
 
 export default async function ListingDetail({ params }: { params: { id: string } }) {
   const listing = await prisma.listing.findUnique({
@@ -59,6 +61,10 @@ export default async function ListingDetail({ params }: { params: { id: string }
   const mapUrl = `https://maps.google.com/maps?q=${mapQuery}&output=embed`;
   const normalizedTaxRate =
     Number(listing.taxRate) > 1 ? Number(listing.taxRate) / 100 : Number(listing.taxRate);
+  const platformPct = await getSetting<number>(
+    'commissionPercent',
+    defaultSmartPricingParams.platformPct
+  );
 
   return (
     <div className="bg-white">
@@ -112,9 +118,19 @@ export default async function ListingDetail({ params }: { params: { id: string }
                   <BookingForm
                     listingId={listing.id}
                     pricePerNight={Number(listing.pricePerNight)}
+                    netoDeseadoUsd={
+                      listing.netoDeseadoUsd !== null
+                        ? Number(listing.netoDeseadoUsd)
+                        : null
+                    }
+                    precioClienteCalculadoUsd={
+                      listing.precioClienteCalculadoUsd !== null
+                        ? Number(listing.precioClienteCalculadoUsd)
+                        : null
+                    }
                     cleaningFee={Number(listing.cleaningFee)}
-                    serviceFee={0}
                     taxRate={normalizedTaxRate}
+                    platformPct={platformPct}
                     instantBook={listing.instantBook}
                   />
                 </div>

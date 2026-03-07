@@ -4,7 +4,6 @@ import { prisma } from '@/lib/db';
 import { assertCsrf } from '@/lib/csrf';
 import { rateLimit } from '@/lib/rate-limit';
 import { requireSession } from '@/lib/permissions';
-import { calculatePrice } from '@/lib/pricing';
 import { stripe } from '@/lib/stripe';
 import { ReservationStatus, PaymentStatus } from '@prisma/client';
 import { checkListingAvailability } from '@/lib/listing-availability';
@@ -17,6 +16,9 @@ import {
 import { createOrRefreshReservationHold } from '@/lib/calendar-holds';
 import { isExperienceCompatibleWithListingZone } from '@/lib/experience-matching';
 import { createThreadWithParticipants, uniqueParticipantIds } from '@/lib/message-thread-utils';
+import { calculateListingCheckoutQuote } from '@/lib/listing-checkout-pricing';
+import { getSetting } from '@/lib/settings';
+import { defaultSmartPricingParams } from '@/lib/intelligent-pricing';
 
 const schema = z.object({
   listingId: z.string(),
@@ -117,13 +119,25 @@ export async function POST(req: Request) {
     });
 
     const normalizedTaxRate = Number(listing.taxRate) > 1 ? Number(listing.taxRate) / 100 : Number(listing.taxRate);
-    const pricing = calculatePrice({
+    const platformPct = await getSetting<number>(
+      'commissionPercent',
+      defaultSmartPricingParams.platformPct
+    );
+    const netoDeseadoUsd =
+      listing.netoDeseadoUsd !== null ? Number(listing.netoDeseadoUsd) : null;
+    const precioClienteCalculadoUsd =
+      listing.precioClienteCalculadoUsd !== null
+        ? Number(listing.precioClienteCalculadoUsd)
+        : null;
+    const pricing = calculateListingCheckoutQuote({
       checkIn: checkInDate,
       checkOut: checkOutDate,
       pricePerNight: Number(listing.pricePerNight),
+      netoDeseadoUsd,
+      precioClienteCalculadoUsd,
       cleaningFee: Number(listing.cleaningFee),
-      serviceFee: 0,
       taxRate: normalizedTaxRate,
+      pricingParams: { platformPct },
       overrides: pricingOverrides.overrides
     });
 

@@ -52,10 +52,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
       ? ({ href: '/dashboard/client/messages', label: 'Mensajes' } as NavItem)
       : null;
 
-  const allowedNavItems = [...navItems, ...(messagesNavItem ? [messagesNavItem] : [])]
+  const navWithoutMessages = navItems.filter((item) => item.label !== 'Mensajes');
+
+  const allowedNavItems = [...navWithoutMessages, ...(messagesNavItem ? [messagesNavItem] : [])]
     .filter((item) => hasRole(roles, item.roles))
     .map((item) => ({ key: item.href, href: item.href, label: item.label }))
-    .filter((item, index, arr) => arr.findIndex((x) => x.href === item.href) === index);
+    .filter((item, index, arr) => {
+      if (arr.findIndex((x) => x.href === item.href) !== index) return false;
+      if (item.label === 'Mensajes') {
+        return arr.findIndex((x) => x.label === 'Mensajes') === index;
+      }
+      return true;
+    });
 
   return (
     <div className="min-h-screen bg-transparent">

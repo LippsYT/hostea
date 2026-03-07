@@ -29,8 +29,39 @@ type LocalPhoto = {
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-export function ExperienceForm() {
+type ExperienceFormInitialData = {
+  title: string;
+  description: string;
+  category: string;
+  city: string;
+  meetingPoint: string;
+  durationMinutes: number;
+  language: string;
+  pricePerPerson: number;
+  childPrice: number;
+  infantPrice: number;
+  capacity: number;
+  activityType: string;
+  includesText?: string | null;
+  excludesText?: string | null;
+  requirementsText?: string | null;
+  schedules: string[];
+  photos: LocalPhoto[];
+};
+
+type ExperienceFormProps = {
+  mode?: 'create' | 'edit';
+  experienceId?: string;
+  initialData?: ExperienceFormInitialData;
+};
+
+export function ExperienceForm({
+  mode = 'create',
+  experienceId,
+  initialData
+}: ExperienceFormProps) {
   const router = useRouter();
+  const isEdit = mode === 'edit' && Boolean(experienceId);
   const [csrf, setCsrf] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -39,25 +70,25 @@ export function ExperienceForm() {
   const [scheduleInput, setScheduleInput] = useState('');
   const [pricingParams, setPricingParams] = useState(defaultSmartPricingParams);
 
-  const [form, setForm] = useState({
-    title: '',
-    description: '',
-    category: 'Tours',
-    city: '',
-    meetingPoint: '',
-    durationMinutes: 120,
-    language: 'Espanol',
-    pricePerPerson: 25,
-    childPrice: 18,
-    infantPrice: 0,
-    capacity: 8,
-    activityType: 'SHARED',
-    includesText: '',
-    excludesText: '',
-    requirementsText: ''
-  });
-  const [schedules, setSchedules] = useState<string[]>([]);
-  const [photos, setPhotos] = useState<LocalPhoto[]>([]);
+  const [form, setForm] = useState(() => ({
+    title: initialData?.title ?? '',
+    description: initialData?.description ?? '',
+    category: initialData?.category ?? 'Tours',
+    city: initialData?.city ?? '',
+    meetingPoint: initialData?.meetingPoint ?? '',
+    durationMinutes: initialData?.durationMinutes ?? 120,
+    language: initialData?.language ?? 'Espanol',
+    pricePerPerson: initialData?.pricePerPerson ?? 25,
+    childPrice: initialData?.childPrice ?? 18,
+    infantPrice: initialData?.infantPrice ?? 0,
+    capacity: initialData?.capacity ?? 8,
+    activityType: initialData?.activityType ?? 'SHARED',
+    includesText: initialData?.includesText ?? '',
+    excludesText: initialData?.excludesText ?? '',
+    requirementsText: initialData?.requirementsText ?? ''
+  }));
+  const [schedules, setSchedules] = useState<string[]>(initialData?.schedules ?? []);
+  const [photos, setPhotos] = useState<LocalPhoto[]>(initialData?.photos ?? []);
 
   useEffect(() => {
     fetch('/api/security/csrf')
@@ -222,8 +253,8 @@ export function ExperienceForm() {
     };
 
     try {
-      const res = await fetch('/api/host/experiences', {
-        method: 'POST',
+      const res = await fetch(isEdit ? `/api/host/experiences/${experienceId}` : '/api/host/experiences', {
+        method: isEdit ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-csrf-token': csrf
@@ -236,8 +267,8 @@ export function ExperienceForm() {
         setSaving(false);
         return;
       }
-      setMessage('Experiencia publicada correctamente.');
-      router.push('/dashboard/host/explore/activities?created=1');
+      setMessage(isEdit ? 'Experiencia actualizada correctamente.' : 'Experiencia publicada correctamente.');
+      router.push(isEdit ? '/dashboard/host/explore/activities?updated=1' : '/dashboard/host/explore/activities?created=1');
       router.refresh();
     } catch (submitError: any) {
       setError(submitError?.message || 'Ocurrio un error al guardar.');
@@ -249,13 +280,15 @@ export function ExperienceForm() {
     <div className="surface-card space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Publicar experiencia</h2>
+          <h2 className="text-xl font-semibold text-slate-900">
+            {isEdit ? 'Editar experiencia' : 'Publicar experiencia'}
+          </h2>
           <p className="text-sm text-slate-500">
             Completa la informacion para mostrarla en el marketplace de Explorar.
           </p>
         </div>
         <Button onClick={onSubmit} disabled={saving || uploading}>
-          {saving ? 'Guardando...' : 'Publicar mi experiencia'}
+          {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Publicar mi experiencia'}
         </Button>
       </div>
 

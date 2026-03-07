@@ -15,7 +15,10 @@ export async function GET(_req: Request, { params }: { params: { threadId: strin
     where: { id: params.threadId, participants: { some: { userId } } }
   });
   if (!thread) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-  const isAssociated = Boolean(thread.reservationId) || Boolean(thread.subject?.startsWith('LISTING:'));
+  const isAssociated =
+    Boolean(thread.reservationId) ||
+    Boolean(thread.subject?.startsWith('LISTING:')) ||
+    Boolean(thread.subject?.startsWith('ACTIVITY:'));
   if (!isAssociated) {
     return NextResponse.json({ error: 'Este chat no tiene consulta o reserva asociada' }, { status: 400 });
   }
@@ -62,7 +65,10 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
     where: { id: params.threadId, participants: { some: { userId } } }
   });
   if (!thread) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-  const isAssociated = Boolean(thread.reservationId) || Boolean(thread.subject?.startsWith('LISTING:'));
+  const isAssociated =
+    Boolean(thread.reservationId) ||
+    Boolean(thread.subject?.startsWith('LISTING:')) ||
+    Boolean(thread.subject?.startsWith('ACTIVITY:'));
   if (!isAssociated) {
     return NextResponse.json({ error: 'Este chat no tiene consulta o reserva asociada' }, { status: 400 });
   }

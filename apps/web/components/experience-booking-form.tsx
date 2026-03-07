@@ -43,6 +43,7 @@ export function ExperienceBookingForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [threadId, setThreadId] = useState<string | null>(null);
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [timeLabel, setTimeLabel] = useState(schedules[0] || '');
@@ -132,6 +133,7 @@ export function ExperienceBookingForm({
           ? 'Solicitud enviada. El anfitrion debe aprobar tu reserva.'
           : 'Reserva confirmada correctamente.'
       );
+      setThreadId(typeof data?.threadId === 'string' ? data.threadId : null);
       router.refresh();
     } catch (submitError: any) {
       setError(submitError?.message || 'No se pudo procesar la solicitud.');
@@ -266,6 +268,17 @@ export function ExperienceBookingForm({
 
       {error && <p className="text-xs text-red-600">{error}</p>}
       {success && <p className="text-xs text-emerald-700">{success}</p>}
+      {threadId && (
+        <button
+          type="button"
+          onClick={() => {
+            window.location.href = `/dashboard/client/messages?threadId=${threadId}`;
+          }}
+          className="text-xs font-medium text-slate-600 underline underline-offset-2"
+        >
+          Ir al chat con el anfitrion
+        </button>
+      )}
 
       <Button type="submit" size="lg" disabled={loading}>
         {loading ? 'Procesando...' : activityType === 'PRIVATE' ? 'Enviar solicitud' : 'Reservar actividad'}

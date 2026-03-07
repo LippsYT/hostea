@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { assertCsrf } from '@/lib/csrf';
 import { requireSession } from '@/lib/permissions';
+import { sendPushToHost } from '@/lib/push-notifications';
+import { createThreadWithParticipants, uniqueParticipantIds } from '@/lib/message-thread-utils';
 
 const schema = z.object({
   checkIn: z.string().min(1),
@@ -37,6 +39,9 @@ export async function POST(
     });
     if (!experience) {
       return NextResponse.json({ error: 'Experiencia no encontrada' }, { status: 404 });
+    }
+    if (experience.hostId === userId) {
+      return NextResponse.json({ error: 'No puedes reservar tu propia experiencia' }, { status: 400 });
     }
 
     const data = parsed.data;
@@ -107,7 +112,50 @@ export async function POST(
       }
     });
 
-    return NextResponse.json({ bookingId: booking.id, status });
+    const threadSubject = `ACTIVITY:${experience.id}`;
+    let thread = await prisma.messageThread.findFirst({
+      where: {
+        reservationId: null,
+        createdById: userId,
+        subject: threadSubject,
+        participants: { some: { userId: experience.hostId } }
+      }
+    });
+
+    if (!thread) {
+      thread = await createThreadWithParticipants(prisma, {
+        status: 'INQUIRY',
+        subject: threadSubject,
+        createdById: userId,
+        participantIds: uniqueParticipantIds([userId, experience.hostId])
+      });
+    }
+
+    const messageBody =
+      status === 'PENDING_APPROVAL'
+        ? `Solicitud de actividad enviada para ${experience.title} (${data.checkIn} - ${data.checkOut})${data.timeLabel ? `, horario ${data.timeLabel}` : ''}. Participantes: ${totalGuests}.`
+        : `Reserva de actividad confirmada para ${experience.title} (${data.checkIn} - ${data.checkOut})${data.timeLabel ? `, horario ${data.timeLabel}` : ''}. Participantes: ${totalGuests}.`;
+
+    await prisma.message.create({
+      data: {
+        threadId: thread.id,
+        senderId: userId,
+        body: messageBody
+      }
+    });
+
+    try {
+      await sendPushToHost(experience.hostId, {
+        title: status === 'PENDING_APPROVAL' ? 'Nueva solicitud de actividad' : 'Nueva reserva de actividad',
+        body: `${experience.title} · ${totalGuests} participante${totalGuests === 1 ? '' : 's'}`,
+        url: `/dashboard/host/messages?threadId=${thread.id}`,
+        type: status === 'PENDING_APPROVAL' ? 'NEW_INQUIRY' : 'NEW_RESERVATION'
+      });
+    } catch {
+      // La reserva no debe fallar por problemas de push.
+    }
+
+    return NextResponse.json({ bookingId: booking.id, status, threadId: thread.id });
   } catch (error: any) {
     if (error?.message === 'CSRF token invalido') {
       return NextResponse.json({ error: error.message }, { status: 403 });

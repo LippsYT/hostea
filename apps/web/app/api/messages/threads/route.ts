@@ -5,6 +5,7 @@ import { assertCsrf } from '@/lib/csrf';
 import { rateLimit } from '@/lib/rate-limit';
 import { sendPushToHost } from '@/lib/push-notifications';
 import { expireAwaitingPaymentReservations } from '@/lib/reservation-request-flow';
+import { createThreadWithParticipants, uniqueParticipantIds } from '@/lib/message-thread-utils';
 
 const unauthorized = (message = 'No autorizado') =>
   NextResponse.json({ error: message }, { status: 401 });
@@ -74,14 +75,11 @@ export async function POST(req: Request) {
         where: { reservationId }
       });
       if (existingReservationThread) {
-        const participant = await prisma.messageThreadParticipant.findUnique({
-          where: { threadId_userId: { threadId: existingReservationThread.id, userId } }
+        await prisma.messageThreadParticipant.upsert({
+          where: { threadId_userId: { threadId: existingReservationThread.id, userId } },
+          update: {},
+          create: { threadId: existingReservationThread.id, userId }
         });
-        if (!participant) {
-          await prisma.messageThreadParticipant.create({
-            data: { threadId: existingReservationThread.id, userId }
-          });
-        }
         return NextResponse.json({ thread: existingReservationThread });
       }
     }
@@ -100,17 +98,15 @@ export async function POST(req: Request) {
       }
     }
 
-    const participants: { userId: string }[] = [{ userId }, { userId: hostId }];
+    const participantIds = uniqueParticipantIds([userId, hostId]);
 
     try {
-      const thread = await prisma.messageThread.create({
-        data: {
-          reservationId,
-          status: reservationId ? 'RESERVATION' : 'INQUIRY',
-          subject: reservationId ? subject : `LISTING:${listingId || ''}`,
-          createdById: userId,
-          participants: { create: participants }
-        }
+      const thread = await createThreadWithParticipants(prisma, {
+        reservationId,
+        status: reservationId ? 'RESERVATION' : 'INQUIRY',
+        subject: reservationId ? subject : `LISTING:${listingId || ''}`,
+        createdById: userId,
+        participantIds
       });
       if (!reservationId && listingId) {
         try {

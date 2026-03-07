@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db';
+import { createThreadWithParticipants, uniqueParticipantIds } from '@/lib/message-thread-utils';
 
 const renderTemplate = (template: string, vars: Record<string, string>) => {
   return Object.keys(vars).reduce((acc, key) => acc.replaceAll(`{${key}}`, vars[key]), template);
@@ -20,15 +21,11 @@ export const ensureThreadWithParticipants = async (reservationId: string, guestI
   });
   if (existing) return existing;
 
-  return prisma.messageThread.create({
-    data: {
-      reservationId,
-      status: 'RESERVATION',
-      createdById: hostId,
-      participants: {
-        create: [{ userId: hostId }, { userId: guestId }]
-      }
-    }
+  return createThreadWithParticipants(prisma, {
+    reservationId,
+    status: 'RESERVATION',
+    createdById: hostId,
+    participantIds: uniqueParticipantIds([hostId, guestId])
   });
 };
 

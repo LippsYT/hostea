@@ -16,6 +16,7 @@ import {
 } from '@/lib/reservation-request-flow';
 import { createOrRefreshReservationHold } from '@/lib/calendar-holds';
 import { isExperienceCompatibleWithListingZone } from '@/lib/experience-matching';
+import { createThreadWithParticipants, uniqueParticipantIds } from '@/lib/message-thread-utils';
 
 const schema = z.object({
   listingId: z.string(),
@@ -56,6 +57,9 @@ export async function POST(req: Request) {
     if (!listing) return NextResponse.json({ error: 'Listing no encontrado' }, { status: 404 });
     if (listing.status !== 'ACTIVE') {
       return NextResponse.json({ error: 'Listing inactivo' }, { status: 400 });
+    }
+    if (listing.hostId === (session.user as any).id) {
+      return NextResponse.json({ error: 'No puedes reservar tu propio alojamiento' }, { status: 400 });
     }
     const guestsCount = guestsBreakdown
       ? guestsBreakdown.adults + guestsBreakdown.children + guestsBreakdown.infants
@@ -140,15 +144,12 @@ export async function POST(req: Request) {
         }
       });
 
-      const participants = [{ userId: (session.user as any).id }, { userId: listing.hostId }];
-      const thread = await prisma.messageThread.create({
-        data: {
-          reservationId: reservation.id,
-          status: 'INQUIRY',
-          subject: listing.title,
-          createdById: (session.user as any).id,
-          participants: { create: participants }
-        }
+      const thread = await createThreadWithParticipants(prisma, {
+        reservationId: reservation.id,
+        status: 'INQUIRY',
+        subject: listing.title,
+        createdById: (session.user as any).id,
+        participantIds: uniqueParticipantIds([(session.user as any).id, listing.hostId])
       });
 
       await prisma.message.create({

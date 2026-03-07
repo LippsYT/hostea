@@ -21,8 +21,13 @@ const schema = z.object({
   durationMinutes: z.coerce.number().int().min(30).max(1440),
   language: z.string().min(2),
   pricePerPerson: z.coerce.number().positive(),
+  childPrice: z.coerce.number().min(0).optional(),
+  infantPrice: z.coerce.number().min(0).optional(),
   capacity: z.coerce.number().int().min(1).max(200),
   schedules: z.array(z.string().min(2)).min(1),
+  includesText: z.string().max(4000).optional(),
+  excludesText: z.string().max(4000).optional(),
+  requirementsText: z.string().max(4000).optional(),
   activityType: z.nativeEnum(ExperienceActivityType).default(ExperienceActivityType.SHARED),
   photos: z.array(photoSchema).default([])
 });
@@ -103,8 +108,13 @@ export async function POST(req: Request) {
         durationMinutes: data.durationMinutes,
         language: data.language.trim(),
         pricePerPerson: data.pricePerPerson,
+        childPrice: data.childPrice,
+        infantPrice: data.infantPrice,
         capacity: data.capacity,
         scheduleText: data.schedules.join(' | '),
+        includesText: data.includesText?.trim() || null,
+        excludesText: data.excludesText?.trim() || null,
+        requirementsText: data.requirementsText?.trim() || null,
         activityType: data.activityType,
         photos: {
           create: photos

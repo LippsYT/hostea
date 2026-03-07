@@ -4,6 +4,11 @@ import { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  calcBreakdown,
+  defaultSmartPricingParams,
+  withSmartPricingParams
+} from '@/lib/intelligent-pricing';
 
 const categories = [
   'Tours',
@@ -32,6 +37,7 @@ export function ExperienceForm() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [scheduleInput, setScheduleInput] = useState('');
+  const [pricingParams, setPricingParams] = useState(defaultSmartPricingParams);
 
   const [form, setForm] = useState({
     title: '',
@@ -42,8 +48,13 @@ export function ExperienceForm() {
     durationMinutes: 120,
     language: 'Espanol',
     pricePerPerson: 25,
+    childPrice: 18,
+    infantPrice: 0,
     capacity: 8,
-    activityType: 'SHARED'
+    activityType: 'SHARED',
+    includesText: '',
+    excludesText: '',
+    requirementsText: ''
   });
   const [schedules, setSchedules] = useState<string[]>([]);
   const [photos, setPhotos] = useState<LocalPhoto[]>([]);
@@ -55,11 +66,37 @@ export function ExperienceForm() {
         setCsrf(data.token);
       })
       .catch(() => undefined);
+
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then((data) => {
+        const platformPct = Number(data?.settings?.commissionPercent);
+        setPricingParams((current) =>
+          withSmartPricingParams({
+            stripePct: current.stripePct,
+            stripeFixed: current.stripeFixed,
+            platformPct: Number.isFinite(platformPct) ? platformPct : current.platformPct
+          })
+        );
+      })
+      .catch(() => undefined);
   }, []);
 
   const sortedPhotos = useMemo(
     () => [...photos].sort((a, b) => a.sortOrder - b.sortOrder),
     [photos]
+  );
+  const adultBreakdown = useMemo(
+    () => calcBreakdown(form.pricePerPerson, pricingParams),
+    [form.pricePerPerson, pricingParams]
+  );
+  const childBreakdown = useMemo(
+    () => calcBreakdown(form.childPrice, pricingParams),
+    [form.childPrice, pricingParams]
+  );
+  const infantBreakdown = useMemo(
+    () => calcBreakdown(form.infantPrice, pricingParams),
+    [form.infantPrice, pricingParams]
   );
 
   const addSchedule = () => {
@@ -291,6 +328,28 @@ export function ExperienceForm() {
           />
         </div>
         <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Precio nino (USD)</p>
+          <Input
+            type="number"
+            min={0}
+            step="0.01"
+            value={form.childPrice}
+            onChange={(e) => setForm((f) => ({ ...f, childPrice: Number(e.target.value) }))}
+            placeholder="18"
+          />
+        </div>
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Precio infante (USD)</p>
+          <Input
+            type="number"
+            min={0}
+            step="0.01"
+            value={form.infantPrice}
+            onChange={(e) => setForm((f) => ({ ...f, infantPrice: Number(e.target.value) }))}
+            placeholder="0"
+          />
+        </div>
+        <div>
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Capacidad por salida</p>
           <Input
             type="number"
@@ -310,6 +369,75 @@ export function ExperienceForm() {
             <option value="SHARED">Actividad compartida</option>
             <option value="PRIVATE">Actividad privada</option>
           </select>
+        </div>
+        <div className="md:col-span-2">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Que incluye la actividad
+          </p>
+          <textarea
+            className="min-h-[90px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            value={form.includesText}
+            onChange={(e) => setForm((f) => ({ ...f, includesText: e.target.value }))}
+            placeholder="Incluye transporte, guia local, snacks..."
+          />
+        </div>
+        <div className="md:col-span-2">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Que no incluye
+          </p>
+          <textarea
+            className="min-h-[90px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            value={form.excludesText}
+            onChange={(e) => setForm((f) => ({ ...f, excludesText: e.target.value }))}
+            placeholder="Comidas, entradas a museos, propinas..."
+          />
+        </div>
+        <div className="md:col-span-2">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Requisitos o informacion importante
+          </p>
+          <textarea
+            className="min-h-[90px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            value={form.requirementsText}
+            onChange={(e) => setForm((f) => ({ ...f, requirementsText: e.target.value }))}
+            placeholder="Ropa comoda, documento, puntualidad, recomendaciones..."
+          />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <p className="text-sm font-semibold text-slate-900">Resumen de comisiones (USD)</p>
+        <p className="mt-1 text-xs text-slate-500">
+          Vista para que el anfitrion entienda lo que paga y lo que recibe por pasajero.
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {[
+            { label: 'Adulto', price: form.pricePerPerson, breakdown: adultBreakdown },
+            { label: 'Nino', price: form.childPrice, breakdown: childBreakdown },
+            { label: 'Infante', price: form.infantPrice, breakdown: infantBreakdown }
+          ].map((item) => (
+            <div key={item.label} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-xs">
+              <p className="font-semibold text-slate-900">{item.label}</p>
+              <div className="mt-2 space-y-1 text-slate-600">
+                <div className="flex items-center justify-between">
+                  <span>Precio al cliente</span>
+                  <span>USD {Number(item.price || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Cargos administrativos</span>
+                  <span>-USD {item.breakdown.stripeFee.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Tarifa de servicio</span>
+                  <span>-USD {item.breakdown.platformFee.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between font-semibold text-slate-900">
+                  <span>Neto anfitrion</span>
+                  <span>USD {item.breakdown.hostNet.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

@@ -242,8 +242,13 @@ model Experience {
   durationMinutes Int
   language        String
   pricePerPerson  Decimal                @db.Decimal(10,2)
+  childPrice      Decimal?               @db.Decimal(10,2)
+  infantPrice     Decimal?               @db.Decimal(10,2)
   capacity        Int
   scheduleText    String
+  includesText    String?
+  excludesText    String?
+  requirementsText String?
   activityType    ExperienceActivityType @default(SHARED)
   status          String                 @default("ACTIVE")
   createdAt       DateTime               @default(now())

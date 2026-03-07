@@ -2,6 +2,7 @@ import { ListingCard } from '@/components/listing-card';
 import { Button } from '@/components/ui/button';
 import { SearchForm } from '@/components/search-form';
 import { PricePopout } from '@/components/price-popout';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -30,8 +31,12 @@ export default async function HomePage() {
                 Descubre espacios únicos, paga seguro y conecta directo con anfitriones verificados.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Button size="lg">Explorar destinos</Button>
-                <Button size="lg" variant="outline">Ser anfitrión</Button>
+                <Link href="/explorar">
+                  <Button size="lg">Explorar destinos</Button>
+                </Link>
+                <Link href="/host/onboarding">
+                  <Button size="lg" variant="outline">Ser anfitrión</Button>
+                </Link>
               </div>
             </div>
             <div className="card-glass w-full max-w-full min-w-0 overflow-hidden rounded-3xl p-6 shadow-soft">

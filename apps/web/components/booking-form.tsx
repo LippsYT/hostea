@@ -31,6 +31,18 @@ type AvailabilityState = {
   roomTypes?: Array<{ roomTypeId: string; name: string; availableUnits: number }>;
 };
 
+type UpsellExperience = {
+  id: string;
+  title: string;
+  city: string;
+  zone?: string | null;
+  category: string;
+  coverageType?: string | null;
+  serviceRadiusKm?: number | null;
+  pricePerPerson: number;
+  photoUrl: string | null;
+};
+
 export const BookingForm = ({
   listingId,
   pricePerNight,
@@ -62,6 +74,9 @@ export const BookingForm = ({
     infants: 0,
     pets: 0
   });
+  const [upsellItems, setUpsellItems] = useState<UpsellExperience[]>([]);
+  const [upsellLoading, setUpsellLoading] = useState(true);
+  const [selectedUpsellId, setSelectedUpsellId] = useState<string | null>(null);
   const { register, handleSubmit, setValue, watch } = useForm<FormValues>({ resolver: zodResolver(schema) });
   const checkOutRef = useRef<HTMLInputElement | null>(null);
   const checkInField = register('checkIn');
@@ -100,6 +115,21 @@ export const BookingForm = ({
       setCsrfToken(data.token);
     });
   }, []);
+
+  useEffect(() => {
+    setUpsellLoading(true);
+    fetch(`/api/listings/${listingId}/upsell`)
+      .then(async (res) => ({ ok: res.ok, data: await res.json() }))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          setUpsellItems([]);
+          return;
+        }
+        setUpsellItems(Array.isArray(data?.experiences) ? data.experiences : []);
+      })
+      .catch(() => setUpsellItems([]))
+      .finally(() => setUpsellLoading(false));
+  }, [listingId]);
 
   const updateGuest = (key: keyof GuestCounts, delta: number) => {
     setGuests((prev) => {
@@ -179,7 +209,8 @@ export const BookingForm = ({
         listingId,
         ...values,
         guests: totalGuests,
-        guestsBreakdown: guests
+        guestsBreakdown: guests,
+        upsellExperienceId: selectedUpsellId || undefined
       })
     });
     const data = await res.json();
@@ -406,6 +437,73 @@ export const BookingForm = ({
           {availability.message || 'No disponible para las fechas elegidas'}
         </p>
       )}
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-3">
+        <p className="text-sm font-semibold text-slate-900">
+          Aprovecha tu viaje y agrega una experiencia o servicio
+        </p>
+        <p className="mt-1 text-xs text-slate-500">
+          Te mostramos opciones de la misma ciudad y zona del alojamiento.
+        </p>
+
+        {upsellLoading ? (
+          <p className="mt-3 text-xs text-slate-500">Buscando experiencias cercanas...</p>
+        ) : upsellItems.length === 0 ? (
+          <p className="mt-3 text-xs text-slate-500">
+            No hay experiencias compatibles en esta zona por ahora.
+          </p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {upsellItems.map((experience) => {
+              const selected = selectedUpsellId === experience.id;
+              return (
+                <button
+                  type="button"
+                  key={experience.id}
+                  onClick={() => setSelectedUpsellId(selected ? null : experience.id)}
+                  className={`flex w-full items-center gap-3 rounded-2xl border p-2 text-left transition ${
+                    selected
+                      ? 'border-[var(--brand-2)] bg-[var(--brand-soft)]'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
+                >
+                  <div className="h-14 w-14 overflow-hidden rounded-xl bg-slate-100">
+                    {experience.photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={experience.photoUrl}
+                        alt={experience.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : null}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">{experience.title}</p>
+                    <p className="text-xs text-slate-500">
+                      {experience.zone ? `${experience.city}, ${experience.zone}` : experience.city}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      USD {experience.pricePerPerson.toFixed(2)} por persona
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold text-slate-600">
+                    {selected ? 'Agregada' : 'Agregar'}
+                  </span>
+                </button>
+              );
+            })}
+            {selectedUpsellId && (
+              <button
+                type="button"
+                className="text-xs font-medium text-slate-600 underline underline-offset-2"
+                onClick={() => setSelectedUpsellId(null)}
+              >
+                Lo agrego despues
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       <Button
         type="submit"

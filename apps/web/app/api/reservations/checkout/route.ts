@@ -15,11 +15,13 @@ import {
   expireAwaitingPaymentReservations
 } from '@/lib/reservation-request-flow';
 import { createOrRefreshReservationHold } from '@/lib/calendar-holds';
+import { isExperienceCompatibleWithListingZone } from '@/lib/experience-matching';
 
 const schema = z.object({
   listingId: z.string(),
   checkIn: z.string(),
   checkOut: z.string(),
+  upsellExperienceId: z.string().optional(),
   guests: z.coerce.number().optional(),
   guestsBreakdown: z
     .object({
@@ -43,7 +45,7 @@ export async function POST(req: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'Datos invalidos' }, { status: 400 });
     }
-    const { listingId, checkIn, checkOut, guests, guestsBreakdown } = parsed.data;
+    const { listingId, checkIn, checkOut, guests, guestsBreakdown, upsellExperienceId } = parsed.data;
     await expireAwaitingPaymentReservations();
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
@@ -60,6 +62,32 @@ export async function POST(req: Request) {
       : Number(guests || 1);
     if (guestsCount > listing.capacity) {
       return NextResponse.json({ error: 'Supera la capacidad del listing' }, { status: 400 });
+    }
+
+    let validUpsellExperienceId: string | undefined;
+    if (upsellExperienceId) {
+      const upsellExperience = await prisma.experience.findUnique({
+        where: { id: upsellExperienceId },
+        select: {
+          id: true,
+          status: true,
+          city: true,
+          zone: true,
+          coverageType: true,
+          serviceRadiusKm: true,
+          coveredZones: true
+        }
+      });
+      if (
+        upsellExperience &&
+        upsellExperience.status === 'ACTIVE' &&
+        isExperienceCompatibleWithListingZone(upsellExperience, {
+          city: listing.city,
+          neighborhood: listing.neighborhood
+        })
+      ) {
+        validUpsellExperienceId = upsellExperience.id;
+      }
     }
 
     const availability = await checkListingAvailability({
@@ -106,6 +134,7 @@ export async function POST(req: Request) {
           total: pricing.total,
           currency: 'USD',
           status: ReservationStatus.PENDING_APPROVAL,
+          upsellExperienceId: validUpsellExperienceId,
           paymentExpiresAt: null,
           holdExpiresAt: null
         }
@@ -156,6 +185,7 @@ export async function POST(req: Request) {
         total: pricing.total,
         currency: 'USD',
         status: ReservationStatus.AWAITING_PAYMENT,
+        upsellExperienceId: validUpsellExperienceId,
         paymentExpiresAt,
         holdExpiresAt: paymentExpiresAt
       }

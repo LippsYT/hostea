@@ -83,6 +83,11 @@ enum ExperienceActivityType {
   SHARED
 }
 
+enum ExperienceCoverageType {
+  FIXED
+  PICKUP
+}
+
 enum ThreadType {
   RESERVATION
   SUPPORT
@@ -238,7 +243,11 @@ model Experience {
   description     String
   category        String
   city            String
+  zone            String?
   meetingPoint    String
+  coverageType    ExperienceCoverageType @default(FIXED)
+  serviceRadiusKm Int?
+  coveredZones    String?
   durationMinutes Int
   language        String
   pricePerPerson  Decimal                @db.Decimal(10,2)
@@ -257,6 +266,7 @@ model Experience {
   host            User                   @relation("HostExperiences", fields: [hostId], references: [id], onDelete: Cascade)
   photos          ExperiencePhoto[]
   bookings        ExperienceBooking[]
+  upsellReservations Reservation[]       @relation("ReservationUpsellExperience")
 }
 
 model ExperiencePhoto {
@@ -373,6 +383,7 @@ model Reservation {
   listingId     String
   userId        String
   roomTypeId    String?
+  upsellExperienceId String?
   status        ReservationStatus @default(PENDING_APPROVAL)
   checkIn       DateTime
   checkOut      DateTime
@@ -387,6 +398,7 @@ model Reservation {
   listing       Listing           @relation(fields: [listingId], references: [id])
   user          User              @relation(fields: [userId], references: [id])
   roomType      RoomType?         @relation(fields: [roomTypeId], references: [id])
+  upsellExperience Experience?    @relation("ReservationUpsellExperience", fields: [upsellExperienceId], references: [id], onDelete: SetNull)
   calendarHold  CalendarHold?
   guests        ReservationGuest[]
   payment       Payment?

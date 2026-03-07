@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { requireSession } from '@/lib/permissions';
 import { assertCsrf } from '@/lib/csrf';
 import { prisma } from '@/lib/db';
-import { ExperienceActivityType } from '@prisma/client';
+import { ExperienceActivityType, ExperienceCoverageType } from '@prisma/client';
 import { ensureExperienceHostRole } from '@/lib/server-roles';
 
 const photoSchema = z.object({
@@ -17,7 +17,11 @@ const schema = z.object({
   description: z.string().min(20),
   category: z.string().min(2),
   city: z.string().min(2),
+  zone: z.string().optional(),
   meetingPoint: z.string().min(3),
+  coverageType: z.nativeEnum(ExperienceCoverageType).default(ExperienceCoverageType.FIXED),
+  serviceRadiusKm: z.coerce.number().int().min(0).max(200).optional(),
+  coveredZones: z.string().optional(),
   durationMinutes: z.coerce.number().int().min(30).max(1440),
   language: z.string().min(2),
   pricePerPerson: z.coerce.number().positive(),
@@ -104,7 +108,14 @@ export async function POST(req: Request) {
         description: data.description.trim(),
         category: data.category.trim(),
         city: data.city.trim(),
+        zone: data.zone?.trim() || null,
         meetingPoint: data.meetingPoint.trim(),
+        coverageType: data.coverageType,
+        serviceRadiusKm: data.coverageType === ExperienceCoverageType.PICKUP ? data.serviceRadiusKm ?? null : null,
+        coveredZones:
+          data.coverageType === ExperienceCoverageType.PICKUP
+            ? data.coveredZones?.trim() || null
+            : null,
         durationMinutes: data.durationMinutes,
         language: data.language.trim(),
         pricePerPerson: data.pricePerPerson,

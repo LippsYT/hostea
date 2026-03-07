@@ -34,7 +34,11 @@ type ExperienceFormInitialData = {
   description: string;
   category: string;
   city: string;
+  zone: string;
   meetingPoint: string;
+  coverageType: string;
+  serviceRadiusKm: number;
+  coveredZones: string;
   durationMinutes: number;
   language: string;
   pricePerPerson: number;
@@ -75,7 +79,11 @@ export function ExperienceForm({
     description: initialData?.description ?? '',
     category: initialData?.category ?? 'Tours',
     city: initialData?.city ?? '',
+    zone: initialData?.zone ?? '',
     meetingPoint: initialData?.meetingPoint ?? '',
+    coverageType: initialData?.coverageType ?? 'FIXED',
+    serviceRadiusKm: initialData?.serviceRadiusKm ?? 0,
+    coveredZones: initialData?.coveredZones ?? '',
     durationMinutes: initialData?.durationMinutes ?? 120,
     language: initialData?.language ?? 'Espanol',
     pricePerPerson: initialData?.pricePerPerson ?? 25,
@@ -328,6 +336,14 @@ export function ExperienceForm({
           <Input value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} placeholder="Ciudad o ubicacion" />
         </div>
         <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Zona / barrio</p>
+          <Input
+            value={form.zone}
+            onChange={(e) => setForm((f) => ({ ...f, zone: e.target.value }))}
+            placeholder="Palermo, Recoleta, Centro..."
+          />
+        </div>
+        <div>
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Punto de encuentro</p>
           <Input
             value={form.meetingPoint}
@@ -335,6 +351,45 @@ export function ExperienceForm({
             placeholder="Direccion o referencia para encontrarse"
           />
         </div>
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Tipo de cobertura</p>
+          <select
+            className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm"
+            value={form.coverageType}
+            onChange={(e) => setForm((f) => ({ ...f, coverageType: e.target.value }))}
+          >
+            <option value="FIXED">Punto fijo</option>
+            <option value="PICKUP">Recogida / traslado</option>
+          </select>
+        </div>
+        {form.coverageType === 'PICKUP' && (
+          <>
+            <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Radio de cobertura (km)
+              </p>
+              <Input
+                type="number"
+                min={0}
+                value={form.serviceRadiusKm}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, serviceRadiusKm: Number(e.target.value || 0) }))
+                }
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Zonas cubiertas (opcional)
+              </p>
+              <Input
+                value={form.coveredZones}
+                onChange={(e) => setForm((f) => ({ ...f, coveredZones: e.target.value }))}
+                placeholder="Palermo, Recoleta, Centro"
+              />
+            </div>
+          </>
+        )}
         <div>
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Duracion (minutos)</p>
           <Input

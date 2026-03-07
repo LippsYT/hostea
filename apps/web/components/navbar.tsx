@@ -23,16 +23,16 @@ export const Navbar = async () => {
         <Image src="/brand/hostea-logo.jpeg" alt="Hostea" width={36} height={36} className="h-9 w-9 rounded-xl" />
         <span>HOSTEA</span>
       </Link>
-      <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">
-        <Link href="/search" className="flex items-center gap-2 hover:text-slate-900">
+      <nav className="hidden items-center gap-1 rounded-full border border-white/70 bg-white/65 px-3 py-2 text-sm text-slate-600 shadow-soft backdrop-blur md:flex">
+        <Link href="/search" className="flex items-center gap-2 rounded-full px-3 py-1.5 transition hover:bg-white/80 hover:text-slate-900">
           <Home className="float-slow h-4 w-4 text-[var(--brand-2)]" />
           Alojamientos
         </Link>
-        <Link href="/explorar" className="flex items-center gap-2 hover:text-slate-900">
+        <Link href="/explorar" className="flex items-center gap-2 rounded-full px-3 py-1.5 transition hover:bg-white/80 hover:text-slate-900">
           <Compass className="float-fast h-4 w-4 text-[var(--brand-2)]" />
           Explorar
         </Link>
-        <Link href="/servicios" className="flex items-center gap-2 hover:text-slate-900">
+        <Link href="/servicios" className="flex items-center gap-2 rounded-full px-3 py-1.5 transition hover:bg-white/80 hover:text-slate-900">
           <Briefcase className="float-mid h-4 w-4 text-[var(--brand-2)]" />
           Servicios
         </Link>

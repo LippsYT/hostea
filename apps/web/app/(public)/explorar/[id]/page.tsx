@@ -72,10 +72,24 @@ export default async function ExploreDetailPage({ params }: { params: { id: stri
                 <h3 className="text-base font-semibold text-slate-900">Detalles</h3>
                 <div className="mt-3 space-y-2 text-sm text-slate-600">
                   <p>Categoria: {experience.category}</p>
+                  <p>Ciudad: {experience.city}</p>
+                  {experience.zone && <p>Zona: {experience.zone}</p>}
                   <p>Duracion: {experience.durationMinutes} min</p>
                   <p>Idioma: {experience.language}</p>
                   <p>Cupos por salida: {experience.capacity}</p>
                   <p>Punto de encuentro: {experience.meetingPoint}</p>
+                  <p>
+                    Cobertura:{' '}
+                    {experience.coverageType === 'PICKUP' ? 'Recogida / traslado' : 'Punto fijo'}
+                  </p>
+                  {experience.coverageType === 'PICKUP' && (
+                    <>
+                      {experience.serviceRadiusKm && (
+                        <p>Radio de cobertura: {experience.serviceRadiusKm} km</p>
+                      )}
+                      {experience.coveredZones && <p>Zonas cubiertas: {experience.coveredZones}</p>}
+                    </>
+                  )}
                   <p>Horarios: {experience.scheduleText}</p>
                 </div>
               </article>

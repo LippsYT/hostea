@@ -1,4 +1,4 @@
-import { getServerSession } from 'next-auth';
+﻿import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { ReservationAlerts } from '@/components/reservation-alerts';
 import { DashboardShell } from '@/components/dashboard-shell';
@@ -14,22 +14,12 @@ const navItems: NavItem[] = [
     label: 'Explorar',
     roles: ['HOST', 'EXPERIENCE_HOST', 'ADMIN']
   },
-  {
-    href: '/dashboard/host/messages',
-    label: 'Mensajes',
-    roles: ['HOST', 'EXPERIENCE_HOST', 'ADMIN']
-  },
   { href: '/dashboard/host/listings', label: 'Propiedades', roles: ['HOST', 'ADMIN'] },
   { href: '/dashboard/host/reservations', label: 'Reservas', roles: ['HOST', 'ADMIN'] },
   { href: '/dashboard/host/calendar', label: 'Calendario', roles: ['HOST', 'ADMIN'] },
   { href: '/dashboard/host/finance', label: 'Finanzas', roles: ['HOST', 'ADMIN'] },
   { href: '/dashboard/host/notifications', label: 'Notificaciones', roles: ['HOST', 'ADMIN'] },
   { href: '/dashboard/client', label: 'Reservar', roles: ['CLIENT', 'ADMIN'] },
-  {
-    href: '/dashboard/client/messages',
-    label: 'Mensajes',
-    roles: ['CLIENT', 'HOST', 'EXPERIENCE_HOST', 'ADMIN']
-  },
   {
     href: '/dashboard/client/profile',
     label: 'Perfil y KYC',
@@ -52,7 +42,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const displayName = user?.name || user?.email || 'Invitado';
   const roleLabel = roles.join(' · ') || 'Usuario';
 
-  const allowedNavItems = navItems
+  const hasHostMessagesRole = roles.some((role) =>
+    ['HOST', 'EXPERIENCE_HOST', 'ADMIN'].includes(role)
+  );
+  const hasClientMessagesRole = roles.includes('CLIENT');
+  const messagesNavItem = hasHostMessagesRole
+    ? ({ href: '/dashboard/host/messages', label: 'Mensajes' } as NavItem)
+    : hasClientMessagesRole
+      ? ({ href: '/dashboard/client/messages', label: 'Mensajes' } as NavItem)
+      : null;
+
+  const allowedNavItems = [...navItems, ...(messagesNavItem ? [messagesNavItem] : [])]
     .filter((item) => hasRole(roles, item.roles))
     .map((item) => ({ key: item.href, href: item.href, label: item.label }))
     .filter((item, index, arr) => arr.findIndex((x) => x.href === item.href) === index);

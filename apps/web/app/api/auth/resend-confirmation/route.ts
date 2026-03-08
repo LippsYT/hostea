@@ -2,12 +2,10 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { assertCsrf } from '@/lib/csrf';
 import { rateLimit } from '@/lib/rate-limit';
-import { verifyTurnstileToken } from '@/lib/captcha';
 import { getAppBaseUrl, getSupabasePublicServerClient } from '@/lib/supabase-public';
 
 const schema = z.object({
-  email: z.string().email(),
-  captchaToken: z.string().optional()
+  email: z.string().email()
 });
 
 const getRequestIp = (req: Request) => {
@@ -25,11 +23,6 @@ export async function POST(req: Request) {
     const parsed = schema.safeParse(await req.json());
     if (!parsed.success) {
       return NextResponse.json({ error: 'Datos invalidos' }, { status: 400 });
-    }
-
-    const captcha = await verifyTurnstileToken(parsed.data.captchaToken, ip);
-    if (!captcha.ok) {
-      return NextResponse.json({ error: captcha.reason || 'Captcha invalido' }, { status: 400 });
     }
 
     const supabase = getSupabasePublicServerClient();

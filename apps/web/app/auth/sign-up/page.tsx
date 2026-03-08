@@ -16,9 +16,13 @@ export default function SignUpPage() {
   const [acceptLiability, setAcceptLiability] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
+  const [verifyMsg, setVerifyMsg] = useState('');
+  const [step, setStep] = useState<'form' | 'verify'>('form');
+  const [registeredEmail, setRegisteredEmail] = useState('');
   const [captchaToken, setCaptchaToken] = useState('');
   const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(30);
+  const [resendMsg, setResendMsg] = useState('');
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
@@ -27,68 +31,130 @@ export default function SignUpPage() {
     });
   }, []);
 
+  useEffect(() => {
+    if (step !== 'verify' || resendCooldown <= 0) return;
+    const timer = window.setTimeout(() => {
+      setResendCooldown((current) => Math.max(0, current - 1));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [step, resendCooldown]);
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSuccessMsg('');
+    setResendMsg('');
+    setVerifyMsg('');
     if (!acceptTerms || !acceptPrivacy || !acceptLiability) {
       setError('Debes aceptar Terminos, Privacidad y Limitacion de Responsabilidad.');
       return;
     }
     setSaving(true);
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-csrf-token': csrf
-      },
-      body: JSON.stringify({
-        name,
-        email,
-        password,
-        captchaToken,
-        legalAcceptance: {
-          terms: acceptTerms,
-          privacy: acceptPrivacy,
-          liability: acceptLiability
-        }
-      })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrf
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          captchaToken,
+          legalAcceptance: {
+            terms: acceptTerms,
+            privacy: acceptPrivacy,
+            liability: acceptLiability
+          }
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.error || 'No se pudo crear la cuenta');
+        return;
+      }
+      setRegisteredEmail(email.trim());
+      setVerifyMsg(data?.message || 'Te enviamos un correo para confirmar tu cuenta.');
+      setStep('verify');
+      setResendCooldown(30);
+    } catch {
+      setError('No se pudo crear la cuenta. Revisa tu conexion.');
+    } finally {
       setSaving(false);
-      setError(data?.error || 'No se pudo crear la cuenta');
-      return;
     }
-    setSuccessMsg(
-      data?.message || 'Te enviamos un correo para confirmar tu cuenta.'
-    );
   };
 
   const onResend = async () => {
-    if (!email) {
+    if (!registeredEmail) {
       setError('Ingresa tu email para reenviar la confirmacion.');
       return;
     }
     setError('');
-    setSuccessMsg('');
+    setResendMsg('');
     setResending(true);
-    const res = await fetch('/api/auth/resend-confirmation', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-csrf-token': csrf
-      },
-      body: JSON.stringify({ email, captchaToken })
-    });
-    const data = await res.json().catch(() => ({}));
-    setResending(false);
-    if (!res.ok) {
-      setError(data?.error || 'No se pudo reenviar el correo.');
-      return;
+    try {
+      const res = await fetch('/api/auth/resend-confirmation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrf
+        },
+        body: JSON.stringify({ email: registeredEmail })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.error || 'No se pudo reenviar el correo.');
+        return;
+      }
+      setResendMsg(data?.message || 'Correo de confirmacion reenviado. Revisa tu bandeja.');
+      setResendCooldown(30);
+    } catch {
+      setError('No se pudo reenviar el correo. Revisa tu conexion.');
+    } finally {
+      setResending(false);
     }
-    setSuccessMsg('Correo de confirmacion reenviado. Revisa tu bandeja.');
   };
+
+  if (step === 'verify') {
+    return (
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center px-6">
+        <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-soft">
+          <h1 className="text-2xl font-semibold">Verifica tu correo</h1>
+          <p className="mt-3 text-sm text-slate-700">
+            {verifyMsg || 'Te enviamos un correo para confirmar tu cuenta.'}
+          </p>
+          <p className="mt-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700 break-all">
+            {registeredEmail}
+          </p>
+          <p className="mt-3 text-sm text-slate-500">
+            Revisa tu bandeja de entrada y tambien spam/promociones.
+          </p>
+          {resendMsg && <p className="mt-3 text-sm text-emerald-700">{resendMsg}</p>}
+          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+          <div className="mt-6 space-y-3">
+            <Button
+              type="button"
+              variant="primary"
+              className="w-full"
+              disabled={resending || resendCooldown > 0}
+              onClick={onResend}
+            >
+              {resending
+                ? 'Reenviando...'
+                : resendCooldown > 0
+                  ? `Reenviar en ${resendCooldown}s`
+                  : 'Reenviar correo de confirmacion'}
+            </Button>
+            <Link href="/auth/sign-in" className="block">
+              <Button type="button" variant="outline" className="w-full">
+                Volver a iniciar sesion
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-neutral-50 flex items-center justify-center px-6">
@@ -124,11 +190,7 @@ export default function SignUpPage() {
             </label>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          {successMsg && <p className="text-sm text-emerald-700">{successMsg}</p>}
           <Button type="submit" className="w-full" disabled={saving}>{saving ? 'Creando...' : 'Crear cuenta'}</Button>
-          <Button type="button" variant="outline" className="w-full" disabled={resending} onClick={onResend}>
-            {resending ? 'Reenviando...' : 'Reenviar correo de confirmacion'}
-          </Button>
         </div>
         <p className="mt-6 text-sm text-neutral-500">
           Ya tenes cuenta? <Link href="/auth/sign-in" className="text-neutral-900">Ingresar</Link>

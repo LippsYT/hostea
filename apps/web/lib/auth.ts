@@ -1,26 +1,25 @@
 import CredentialsProvider from 'next-auth/providers/credentials';
 import type { NextAuthOptions } from 'next-auth';
-import { compare } from 'bcryptjs';
+import { compare, hash } from 'bcryptjs';
 import { prisma } from './db';
 import { rateLimit } from './rate-limit';
 import { getSupabasePublicServerClient } from './supabase-public';
 import { markEmailAsVerified } from './email-verification';
 
-const syncVerificationFromSupabase = async (email: string, password: string) => {
+const authenticateWithSupabase = async (email: string, password: string) => {
   try {
     const supabase = getSupabasePublicServerClient();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return false;
-
-    const isConfirmed = Boolean(data.user?.email_confirmed_at);
-    if (isConfirmed) {
-      await markEmailAsVerified(email);
+    if (error) {
+      return { authenticated: false, confirmed: false };
     }
 
+    const confirmed = Boolean(data.user?.email_confirmed_at);
+
     await supabase.auth.signOut().catch(() => undefined);
-    return isConfirmed;
+    return { authenticated: true, confirmed };
   } catch {
-    return false;
+    return { authenticated: false, confirmed: false };
   }
 };
 
@@ -57,13 +56,49 @@ export const authOptions: NextAuthOptions = {
           ['ADMIN', 'SUPPORT', 'MODERATOR', 'FINANCE'].includes(item.role.name)
         );
         let isVerified = Boolean(user.emailVerified);
+
         if (!isVerified && !privileged) {
-          isVerified = await syncVerificationFromSupabase(user.email, password);
-          if (!isVerified) {
+          const supabaseAuth = await authenticateWithSupabase(user.email, password);
+          if (!supabaseAuth.authenticated) {
+            return null;
+          }
+          if (!supabaseAuth.confirmed) {
             throw new Error('EMAIL_NOT_VERIFIED');
           }
+          await markEmailAsVerified(user.email);
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              emailVerified: user.emailVerified || new Date(),
+              passwordHash: await hash(password, 10)
+            }
+          });
+          isVerified = true;
         }
-        const valid = await compare(password, user.passwordHash);
+
+        let valid = await compare(password, user.passwordHash);
+        if (!valid) {
+          const supabaseAuth = await authenticateWithSupabase(user.email, password);
+          if (!supabaseAuth.authenticated) return null;
+
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              passwordHash: await hash(password, 10),
+              emailVerified: supabaseAuth.confirmed
+                ? (user.emailVerified || new Date())
+                : user.emailVerified
+            }
+          });
+
+          if (!supabaseAuth.confirmed && !privileged) {
+            throw new Error('EMAIL_NOT_VERIFIED');
+          }
+          if (supabaseAuth.confirmed && !user.emailVerified) {
+            await markEmailAsVerified(user.email);
+          }
+          valid = true;
+        }
         if (!valid) return null;
         return {
           id: user.id,

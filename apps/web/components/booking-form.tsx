@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar } from 'lucide-react';
 import { calculateListingCheckoutQuote } from '@/lib/listing-checkout-pricing';
+import type { SmartPricingParams } from '@/lib/intelligent-pricing';
 
 const schema = z.object({
   checkIn: z.string().min(1),
@@ -50,7 +51,7 @@ export const BookingForm = ({
   precioClienteCalculadoUsd,
   cleaningFee,
   taxRate,
-  platformPct,
+  pricingParams,
   instantBook = true
 }: {
   listingId: string;
@@ -59,7 +60,7 @@ export const BookingForm = ({
   precioClienteCalculadoUsd?: number | null;
   cleaningFee: number;
   taxRate: number;
-  platformPct?: number | null;
+  pricingParams?: Partial<SmartPricingParams>;
   instantBook?: boolean;
 }) => {
   const [csrfToken, setCsrfToken] = useState<string>('');
@@ -106,9 +107,7 @@ export const BookingForm = ({
           precioClienteCalculadoUsd,
           cleaningFee,
           taxRate,
-          pricingParams: {
-            platformPct: typeof platformPct === 'number' ? platformPct : undefined
-          },
+          pricingParams,
           overrides: priceOverrides.map((o) => ({
             startDate: new Date(o.startDate),
             endDate: new Date(o.endDate),
@@ -402,7 +401,7 @@ export const BookingForm = ({
           </div>
           <div className="flex items-center justify-between">
             <span>Tarifa de servicio Hostea</span>
-            <span>USD {pricing.platformFee.toFixed(2)}</span>
+            <span>USD {pricing.guestServiceFee.toFixed(2)}</span>
           </div>
           <div className="flex items-center justify-between">
             <span>Cargos administrativos / procesamiento</span>

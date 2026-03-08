@@ -17,7 +17,10 @@ export async function POST(req: Request) {
   const parsed = z.object({ reservationId: z.string() }).safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: 'Datos invalidos' }, { status: 400 });
 
-  const commissionPercent = await getSetting<number>('commissionPercent', 0.15);
+  const commissionPercent = await getSetting<number>(
+    'hostCommissionPercent',
+    await getSetting<number>('commissionPercent', 0.08)
+  );
   const reservation = await prisma.reservation.findUnique({
     where: { id: parsed.data.reservationId },
     include: { listing: { include: { host: true } }, payment: true }

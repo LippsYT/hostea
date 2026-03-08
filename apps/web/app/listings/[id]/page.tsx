@@ -5,8 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Ban, Clock, Home, MapPin, PawPrint, ShieldCheck, Sparkles } from 'lucide-react';
 import { ListingHeader } from '@/components/listing-header';
 import { ContactHostButton } from '@/components/contact-host-button';
-import { getSetting } from '@/lib/settings';
-import { defaultSmartPricingParams } from '@/lib/intelligent-pricing';
+import { getSmartPricingParamsFromSettings } from '@/lib/pricing-settings';
 
 export default async function ListingDetail({ params }: { params: { id: string } }) {
   const listing = await prisma.listing.findUnique({
@@ -58,13 +57,12 @@ export default async function ListingDetail({ params }: { params: { id: string }
 
   const fullAddress = `${listing.address}, ${listing.neighborhood}, ${listing.city}`;
   const mapQuery = encodeURIComponent(fullAddress);
-  const mapUrl = `https://maps.google.com/maps?q=${mapQuery}&output=embed`;
+  const mapUrl = listing.mapLocationUrl
+    ? `${listing.mapLocationUrl}${listing.mapLocationUrl.includes('?') ? '&' : '?'}output=embed`
+    : `https://maps.google.com/maps?q=${mapQuery}&output=embed`;
   const normalizedTaxRate =
     Number(listing.taxRate) > 1 ? Number(listing.taxRate) / 100 : Number(listing.taxRate);
-  const platformPct = await getSetting<number>(
-    'commissionPercent',
-    defaultSmartPricingParams.platformPct
-  );
+  const pricingParams = await getSmartPricingParamsFromSettings();
 
   return (
     <div className="bg-white">
@@ -130,7 +128,7 @@ export default async function ListingDetail({ params }: { params: { id: string }
                     }
                     cleaningFee={Number(listing.cleaningFee)}
                     taxRate={normalizedTaxRate}
-                    platformPct={platformPct}
+                    pricingParams={pricingParams}
                     instantBook={listing.instantBook}
                   />
                 </div>
@@ -172,6 +170,14 @@ export default async function ListingDetail({ params }: { params: { id: string }
                     {listing.host.profile?.name || listing.host.email}
                   </p>
                   <p className="text-xs text-slate-500">Respuesta rapida · Verificado</p>
+                  {listing.assistancePhone ? (
+                    <p className="mt-2 text-xs text-slate-500">Asistencia: {listing.assistancePhone}</p>
+                  ) : null}
+                  {listing.assistancePhoneSecondary ? (
+                    <p className="text-xs text-slate-500">
+                      Asistencia secundaria: {listing.assistancePhoneSecondary}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="surface-card">
                   <h3 className="text-lg font-semibold text-slate-900">Politicas</h3>
@@ -192,8 +198,29 @@ export default async function ListingDetail({ params }: { params: { id: string }
                     </div>
                   ))}
                 </div>
+                {listing.propertyRules ? (
+                  <p className="mt-3 text-sm text-slate-600">{listing.propertyRules}</p>
+                ) : null}
                 <p className="mt-3 text-xs text-slate-500">Las reglas pueden variar segun el anfitrion.</p>
               </div>
+
+              {(listing.checkInInstructions || listing.checkOutInstructions) && (
+                <div className="surface-card">
+                  <h3 className="text-lg font-semibold text-slate-900">Instrucciones</h3>
+                  {listing.checkInInstructions ? (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Check-in</p>
+                      <p className="mt-1 text-sm text-slate-600">{listing.checkInInstructions}</p>
+                    </div>
+                  ) : null}
+                  {listing.checkOutInstructions ? (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Check-out</p>
+                      <p className="mt-1 text-sm text-slate-600">{listing.checkOutInstructions}</p>
+                    </div>
+                  ) : null}
+                </div>
+              )}
 
               <div className="surface-card">
                 <div className="flex items-center justify-between">

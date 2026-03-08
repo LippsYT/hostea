@@ -60,6 +60,12 @@ export const HostListingForm = () => {
     country: initialCountry,
     city: initialCity,
     neighborhood: initialNeighborhood,
+    checkInInstructions: '',
+    checkOutInstructions: '',
+    assistancePhone: '',
+    assistancePhoneSecondary: '',
+    mapLocationUrl: '',
+    propertyRules: '',
     netoDeseadoUsd: 40,
     capacity: 2,
     beds: 1,
@@ -86,12 +92,20 @@ export const HostListingForm = () => {
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
-        const platformPct = Number(data?.settings?.commissionPercent);
+        const hostCommissionPct = Number(
+          data?.settings?.hostCommissionPercent ?? data?.settings?.commissionPercent
+        );
+        const guestServicePct = Number(data?.settings?.guestServicePercent);
+        const processingPct = Number(data?.settings?.processingPercent);
+        const processingFixed = Number(data?.settings?.processingFixed);
         setPricingParams((current) =>
           withSmartPricingParams({
-            stripePct: current.stripePct,
-            stripeFixed: current.stripeFixed,
-            platformPct: Number.isFinite(platformPct) ? platformPct : current.platformPct
+            stripePct: Number.isFinite(processingPct) ? processingPct : current.stripePct,
+            stripeFixed: Number.isFinite(processingFixed) ? processingFixed : current.stripeFixed,
+            platformPct: Number.isFinite(hostCommissionPct)
+              ? hostCommissionPct
+              : current.platformPct,
+            guestPct: Number.isFinite(guestServicePct) ? guestServicePct : current.guestPct
           })
         );
       })
@@ -394,6 +408,71 @@ export const HostListingForm = () => {
             onChange={(e) => setForm((f) => ({ ...f, checkOutTime: e.target.value }))}
           />
         </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Telefono asistencia
+          </p>
+          <Input
+            placeholder="+54..."
+            value={form.assistancePhone}
+            onChange={(e) => setForm((f) => ({ ...f, assistancePhone: e.target.value }))}
+          />
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Telefono asistencia secundario
+          </p>
+          <Input
+            placeholder="+54..."
+            value={form.assistancePhoneSecondary}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, assistancePhoneSecondary: e.target.value }))
+            }
+          />
+        </div>
+        <div className="md:col-span-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Link de ubicacion (mapa)
+          </p>
+          <Input
+            placeholder="https://maps.google.com/..."
+            value={form.mapLocationUrl}
+            onChange={(e) => setForm((f) => ({ ...f, mapLocationUrl: e.target.value }))}
+          />
+        </div>
+        <div className="md:col-span-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Instrucciones de check-in
+          </p>
+          <textarea
+            className="min-h-[84px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            placeholder="Como ingresar, quien recibe, codigo de acceso..."
+            value={form.checkInInstructions}
+            onChange={(e) => setForm((f) => ({ ...f, checkInInstructions: e.target.value }))}
+          />
+        </div>
+        <div className="md:col-span-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Instrucciones de check-out
+          </p>
+          <textarea
+            className="min-h-[84px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            placeholder="Hora limite, devolucion de llaves, recomendaciones..."
+            value={form.checkOutInstructions}
+            onChange={(e) => setForm((f) => ({ ...f, checkOutInstructions: e.target.value }))}
+          />
+        </div>
+        <div className="md:col-span-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Reglas adicionales de la propiedad
+          </p>
+          <textarea
+            className="min-h-[84px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            placeholder="Ej.: silencio despues de las 22:00, no fiestas..."
+            value={form.propertyRules}
+            onChange={(e) => setForm((f) => ({ ...f, propertyRules: e.target.value }))}
+          />
+        </div>
         <select
           className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold uppercase tracking-wide"
           value={form.type}
@@ -522,7 +601,10 @@ export const HostListingForm = () => {
       <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm font-semibold text-slate-900">Precio inteligente (estimado)</p>
-          <div className="text-xs text-slate-500">Montos finales estimados en USD.</div>
+          <div className="text-xs text-slate-500">
+            Comision Hostea anfitrion: {Math.round(pricingParams.platformPct * 100)}% · Tarifa huesped:{' '}
+            {Math.round(pricingParams.guestPct * 100)}%
+          </div>
         </div>
         <div className="mt-3 space-y-1 text-sm text-slate-600">
           <div className="flex items-center justify-between">
@@ -534,13 +616,20 @@ export const HostListingForm = () => {
             <span>-{money(breakdown.stripeFee)}</span>
           </div>
           <div className="flex items-center justify-between text-slate-500">
-            <span>Tarifa de servicio (anfitrion)</span>
+            <span>Tarifa de servicio Hostea (huesped)</span>
+            <span>{money(breakdown.guestFee)}</span>
+          </div>
+          <div className="flex items-center justify-between text-slate-500">
+            <span>Comision Hostea (anfitrion)</span>
             <span>-{money(breakdown.platformFee)}</span>
           </div>
           <div className="flex items-center justify-between font-semibold text-slate-900">
             <span>Neto final a recibir por el anfitrion</span>
             <span>{money(breakdown.hostNet)}</span>
           </div>
+          <p className="pt-1 text-xs text-slate-500">
+            Liquidacion al anfitrion una vez acreditado el pago por el procesador.
+          </p>
         </div>
       </div>
     </div>

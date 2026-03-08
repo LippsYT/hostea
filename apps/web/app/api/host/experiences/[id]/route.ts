@@ -5,6 +5,7 @@ import { assertCsrf } from '@/lib/csrf';
 import { prisma } from '@/lib/db';
 import { requireSession } from '@/lib/permissions';
 import { ensureExperienceHostRole } from '@/lib/server-roles';
+import { toGeoSlug } from '@/lib/experience-matching';
 
 const canManageExperiences = (roles: string[]) =>
   roles.includes('ADMIN') || roles.includes('HOST') || roles.includes('EXPERIENCE_HOST');
@@ -110,7 +111,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         description: data.description.trim(),
         category: data.category.trim(),
         city: data.city.trim(),
+        citySlug: toGeoSlug(data.city),
         zone: data.zone?.trim() || null,
+        zoneSlug: data.zone?.trim() ? toGeoSlug(data.zone) : null,
         meetingPoint: data.meetingPoint.trim(),
         coverageType: data.coverageType,
         serviceRadiusKm: data.coverageType === ExperienceCoverageType.PICKUP ? data.serviceRadiusKm ?? null : null,

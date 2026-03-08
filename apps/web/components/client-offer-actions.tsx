@@ -94,8 +94,8 @@ export const ClientOfferActions = ({
           <span>USD {breakdown.stripeFee.toFixed(2)}</span>
         </div>
         <div className="mt-1 flex items-center justify-between">
-          <span>Tarifa de servicio</span>
-          <span>USD {breakdown.platformFee.toFixed(2)}</span>
+          <span>Tarifa de servicio Hostea</span>
+          <span>USD {breakdown.guestFee.toFixed(2)}</span>
         </div>
         <div className="mt-2 flex items-center justify-between border-t border-indigo-100 pt-2 font-semibold text-indigo-950">
           <span>Precio final</span>

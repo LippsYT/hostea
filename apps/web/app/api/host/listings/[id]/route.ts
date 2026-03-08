@@ -3,15 +3,14 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { requireSession } from '@/lib/permissions';
 import { assertCsrf } from '@/lib/csrf';
-import { getSetting } from '@/lib/settings';
 import {
   calcBreakdown,
-  calcClientPriceFromHostNet,
-  defaultSmartPricingParams,
-  withSmartPricingParams
+  calcClientPriceFromHostNet
 } from '@/lib/intelligent-pricing';
+import { getSmartPricingParamsFromSettings } from '@/lib/pricing-settings';
 import { instantBookFromBookingMode, type BookingMode } from '@/lib/booking-mode';
 import { ListingType, CancelPolicy } from '@prisma/client';
+import { toGeoSlug } from '@/lib/experience-matching';
 
 const schema = z.object({
   title: z.string().min(3),
@@ -19,6 +18,7 @@ const schema = z.object({
   type: z.nativeEnum(ListingType),
   propertyType: z.enum(['apartment', 'hotel']).optional(),
   address: z.string(),
+  country: z.string().optional(),
   city: z.string(),
   neighborhood: z.string(),
   pricePerNight: z.coerce.number(),
@@ -32,6 +32,12 @@ const schema = z.object({
   baths: z.coerce.number(),
   checkInTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
   checkOutTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
+  checkInInstructions: z.string().optional(),
+  checkOutInstructions: z.string().optional(),
+  assistancePhone: z.string().optional(),
+  assistancePhoneSecondary: z.string().optional(),
+  mapLocationUrl: z.string().url().or(z.literal('')).optional(),
+  propertyRules: z.string().optional(),
   allowChildren: z.coerce.boolean().optional(),
   allowPets: z.coerce.boolean().optional(),
   allowSmoking: z.coerce.boolean().optional(),
@@ -98,11 +104,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
   const data = parsed.data;
-  const platformPct = await getSetting<number>(
-    'commissionPercent',
-    defaultSmartPricingParams.platformPct
-  );
-  const pricingParams = withSmartPricingParams({ platformPct });
+  const pricingParams = await getSmartPricingParamsFromSettings();
   const desiredNet =
     typeof data.netoDeseadoUsd === 'number' && Number.isFinite(data.netoDeseadoUsd)
       ? Math.max(0, data.netoDeseadoUsd)
@@ -133,6 +135,12 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const inventoryQty = type === ListingType.HOTEL ? Math.max(1, inventoryQtyRaw) : 1;
   const checkInTime = data.checkInTime ?? listing.checkInTime ?? '15:00';
   const checkOutTime = data.checkOutTime ?? listing.checkOutTime ?? '11:00';
+  const checkInInstructions = data.checkInInstructions?.trim() || null;
+  const checkOutInstructions = data.checkOutInstructions?.trim() || null;
+  const assistancePhone = data.assistancePhone?.trim() || null;
+  const assistancePhoneSecondary = data.assistancePhoneSecondary?.trim() || null;
+  const mapLocationUrl = data.mapLocationUrl?.trim() || null;
+  const propertyRules = data.propertyRules?.trim() || null;
   const allowChildren = data.allowChildren ?? listing.allowChildren;
   const allowPets = data.allowPets ?? listing.allowPets;
   const allowSmoking = data.allowSmoking ?? listing.allowSmoking;
@@ -144,8 +152,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       description: data.description,
       type,
       address: data.address,
+      country: data.country || listing.country,
       city: data.city,
+      citySlug: toGeoSlug(data.city),
       neighborhood: data.neighborhood,
+      zoneSlug: toGeoSlug(data.neighborhood),
       pricePerNight,
       netoDeseadoUsd,
       precioClienteCalculadoUsd,
@@ -158,6 +169,12 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       baths: data.baths,
       checkInTime,
       checkOutTime,
+      checkInInstructions,
+      checkOutInstructions,
+      assistancePhone,
+      assistancePhoneSecondary,
+      mapLocationUrl,
+      propertyRules,
       allowChildren,
       allowPets,
       allowSmoking,

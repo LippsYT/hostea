@@ -17,8 +17,7 @@ import { createOrRefreshReservationHold } from '@/lib/calendar-holds';
 import { isExperienceCompatibleWithListingZone } from '@/lib/experience-matching';
 import { createThreadWithParticipants, uniqueParticipantIds } from '@/lib/message-thread-utils';
 import { calculateListingCheckoutQuote } from '@/lib/listing-checkout-pricing';
-import { getSetting } from '@/lib/settings';
-import { defaultSmartPricingParams } from '@/lib/intelligent-pricing';
+import { getSmartPricingParamsFromSettings } from '@/lib/pricing-settings';
 
 const schema = z.object({
   listingId: z.string(),
@@ -119,10 +118,7 @@ export async function POST(req: Request) {
     });
 
     const normalizedTaxRate = Number(listing.taxRate) > 1 ? Number(listing.taxRate) / 100 : Number(listing.taxRate);
-    const platformPct = await getSetting<number>(
-      'commissionPercent',
-      defaultSmartPricingParams.platformPct
-    );
+    const pricingParams = await getSmartPricingParamsFromSettings();
     const netoDeseadoUsd =
       listing.netoDeseadoUsd !== null ? Number(listing.netoDeseadoUsd) : null;
     const precioClienteCalculadoUsd =
@@ -137,7 +133,7 @@ export async function POST(req: Request) {
       precioClienteCalculadoUsd,
       cleaningFee: Number(listing.cleaningFee),
       taxRate: normalizedTaxRate,
-      pricingParams: { platformPct },
+      pricingParams,
       overrides: pricingOverrides.overrides
     });
 

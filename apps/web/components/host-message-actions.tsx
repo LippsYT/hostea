@@ -6,7 +6,8 @@ import { ReservationStatus } from '@prisma/client';
 import {
   calcBreakdown,
   calcClientPriceFromHostNet,
-  defaultSmartPricingParams
+  defaultSmartPricingParams,
+  withSmartPricingParams
 } from '@/lib/intelligent-pricing';
 
 type HostMessageActionsProps = {
@@ -33,6 +34,7 @@ export const HostMessageActions = ({
   const [offerGuestsCount, setOfferGuestsCount] = useState(
     String(Math.max(1, Number(defaultGuestsCount) || 1))
   );
+  const [pricingParams, setPricingParams] = useState(defaultSmartPricingParams);
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState<{ tone: 'error' | 'ok'; message: string } | null>(null);
 
@@ -41,6 +43,27 @@ export const HostMessageActions = ({
       const data = await res.json();
       setCsrf(data.token);
     });
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then((data) => {
+        const hostCommissionPct = Number(
+          data?.settings?.hostCommissionPercent ?? data?.settings?.commissionPercent
+        );
+        const guestServicePct = Number(data?.settings?.guestServicePercent);
+        const processingPct = Number(data?.settings?.processingPercent);
+        const processingFixed = Number(data?.settings?.processingFixed);
+        setPricingParams((current) =>
+          withSmartPricingParams({
+            stripePct: Number.isFinite(processingPct) ? processingPct : current.stripePct,
+            stripeFixed: Number.isFinite(processingFixed) ? processingFixed : current.stripeFixed,
+            platformPct: Number.isFinite(hostCommissionPct)
+              ? hostCommissionPct
+              : current.platformPct,
+            guestPct: Number.isFinite(guestServicePct) ? guestServicePct : current.guestPct
+          })
+        );
+      })
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -63,8 +86,8 @@ export const HostMessageActions = ({
   const isPendingApproval = reservationStatus === 'PENDING_APPROVAL';
   const isAwaitingPayment = reservationStatus === 'AWAITING_PAYMENT';
   const desiredNet = Math.max(0, Number(offerHostNet) || 0);
-  const offerClientPrice = calcClientPriceFromHostNet(desiredNet, defaultSmartPricingParams);
-  const offerBreakdown = calcBreakdown(offerClientPrice, defaultSmartPricingParams);
+  const offerClientPrice = calcClientPriceFromHostNet(desiredNet, pricingParams);
+  const offerBreakdown = calcBreakdown(offerClientPrice, pricingParams);
 
   const sendAction = async (
     action: 'preapprove' | 'offer' | 'close' | 'approve_request' | 'reject_request'
@@ -192,7 +215,11 @@ export const HostMessageActions = ({
               <span>USD {offerBreakdown.stripeFee.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span>Tarifa de servicio</span>
+              <span>Tarifa de servicio Hostea (huesped)</span>
+              <span>USD {offerBreakdown.guestFee.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Comision Hostea (anfitrion)</span>
               <span>USD {offerBreakdown.platformFee.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between font-semibold text-slate-900">

@@ -109,6 +109,15 @@ export async function POST(req: Request) {
         participantIds
       });
       if (!reservationId && listingId) {
+        await prisma.message.create({
+          data: {
+            threadId: thread.id,
+            senderId: hostId,
+            body: 'Hola, gracias por tu consulta. El anfitrion respondera en breve.'
+          }
+        });
+      }
+      if (!reservationId && listingId) {
         try {
           await sendPushToHost(hostId, {
             title: 'Nueva consulta',

@@ -25,7 +25,10 @@ export default async function AdminFinancePage({
     redirect('/dashboard');
   }
 
-  const commissionPercent = await getSetting<number>('commissionPercent', 0.15);
+  const commissionPercent = await getSetting<number>(
+    'hostCommissionPercent',
+    await getSetting<number>('commissionPercent', 0.08)
+  );
 
   const reservations = await prisma.reservation.findMany({
     where: { payment: { status: { in: ['SUCCEEDED', 'REFUNDED'] } } },

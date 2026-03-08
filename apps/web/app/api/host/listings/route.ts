@@ -4,15 +4,15 @@ import { prisma } from '@/lib/db';
 import { requireSession } from '@/lib/permissions';
 import { assertCsrf } from '@/lib/csrf';
 import { rateLimit } from '@/lib/rate-limit';
-import { getSetting } from '@/lib/settings';
 import {
   calcBreakdown,
   calcClientPriceFromHostNet,
-  defaultSmartPricingParams,
-  withSmartPricingParams
+  defaultSmartPricingParams
 } from '@/lib/intelligent-pricing';
+import { getSmartPricingParamsFromSettings } from '@/lib/pricing-settings';
 import { instantBookFromBookingMode, type BookingMode } from '@/lib/booking-mode';
 import { ListingType, CancelPolicy } from '@prisma/client';
+import { toGeoSlug } from '@/lib/experience-matching';
 
 const emptyToUndefined = (value: unknown) =>
   typeof value === 'string' && value.trim().length === 0 ? undefined : value;
@@ -24,6 +24,7 @@ const schema = z
     type: z.preprocess(emptyToUndefined, z.nativeEnum(ListingType).optional()),
     propertyType: z.preprocess(emptyToUndefined, z.enum(['apartment', 'hotel']).optional()),
     address: z.preprocess(emptyToUndefined, z.string().optional()),
+    country: z.preprocess(emptyToUndefined, z.string().optional()),
     city: z.preprocess(emptyToUndefined, z.string().optional()),
     neighborhood: z.preprocess(emptyToUndefined, z.string().optional()),
     pricePerNight: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
@@ -37,6 +38,12 @@ const schema = z
       .preprocess(emptyToUndefined, z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional()),
     checkOutTime: z
       .preprocess(emptyToUndefined, z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional()),
+    checkInInstructions: z.preprocess(emptyToUndefined, z.string().optional()),
+    checkOutInstructions: z.preprocess(emptyToUndefined, z.string().optional()),
+    assistancePhone: z.preprocess(emptyToUndefined, z.string().optional()),
+    assistancePhoneSecondary: z.preprocess(emptyToUndefined, z.string().optional()),
+    mapLocationUrl: z.preprocess(emptyToUndefined, z.string().url().optional()),
+    propertyRules: z.preprocess(emptyToUndefined, z.string().optional()),
     allowChildren: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
     allowPets: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
     allowSmoking: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
@@ -122,13 +129,12 @@ export async function POST(req: Request) {
           ? ListingType.APARTMENT
           : ListingType.APARTMENT);
     const address = data.address?.trim() || 'Direccion pendiente';
+    const country = data.country?.trim() || 'Argentina';
     const city = data.city?.trim() || 'Buenos Aires';
     const neighborhood = data.neighborhood?.trim() || 'Palermo';
-    const platformPct = await getSetting<number>(
-      'commissionPercent',
-      defaultSmartPricingParams.platformPct
-    );
-    const pricingParams = withSmartPricingParams({ platformPct });
+    const citySlug = toGeoSlug(city);
+    const zoneSlug = toGeoSlug(neighborhood);
+    const pricingParams = await getSmartPricingParamsFromSettings();
     const desiredNet = Number.isFinite(data.netoDeseadoUsd) ? Math.max(0, data.netoDeseadoUsd!) : null;
     const rawPrice = Number.isFinite(data.pricePerNight) ? Math.max(0, data.pricePerNight!) : 70;
     const pricePerNight =
@@ -143,6 +149,12 @@ export async function POST(req: Request) {
     const baths = Number.isFinite(data.baths) ? data.baths! : 1;
     const checkInTime = data.checkInTime ?? '15:00';
     const checkOutTime = data.checkOutTime ?? '11:00';
+    const checkInInstructions = data.checkInInstructions?.trim() || null;
+    const checkOutInstructions = data.checkOutInstructions?.trim() || null;
+    const assistancePhone = data.assistancePhone?.trim() || null;
+    const assistancePhoneSecondary = data.assistancePhoneSecondary?.trim() || null;
+    const mapLocationUrl = data.mapLocationUrl?.trim() || null;
+    const propertyRules = data.propertyRules?.trim() || null;
     const allowChildren = data.allowChildren ?? true;
     const allowPets = data.allowPets ?? false;
     const allowSmoking = data.allowSmoking ?? false;
@@ -161,8 +173,11 @@ export async function POST(req: Request) {
         description,
         type,
         address,
+        country,
         city,
+        citySlug,
         neighborhood,
+        zoneSlug,
         pricePerNight,
         netoDeseadoUsd,
         precioClienteCalculadoUsd,
@@ -175,6 +190,12 @@ export async function POST(req: Request) {
         baths,
         checkInTime,
         checkOutTime,
+        checkInInstructions,
+        checkOutInstructions,
+        assistancePhone,
+        assistancePhoneSecondary,
+        mapLocationUrl,
+        propertyRules,
         allowChildren,
         allowPets,
         allowSmoking,

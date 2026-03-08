@@ -29,8 +29,12 @@ export type ListingCheckoutQuoteInput = {
 export type ListingCheckoutQuote = {
   nights: number;
   hostNightlySubtotal: number;
+  hostNetSubtotal: number;
+  hostCommissionFee: number;
+  guestServiceFee: number;
   adminCharges: number;
   platformFee: number;
+  clientSubtotal: number;
   subtotalBeforeTax: number;
   taxes: number;
   total: number;
@@ -83,21 +87,27 @@ export const calculateListingCheckoutQuote = ({
     }
   }
 
-  const roundedHostNightly = round2(hostNightlySubtotal);
-  const clientSubtotalEstimated = calcClientPriceFromHostNet(roundedHostNightly, pricingParams);
+  const roundedHostNet = round2(hostNightlySubtotal);
+  const clientSubtotalEstimated = calcClientPriceFromHostNet(roundedHostNet, pricingParams);
   const feeBreakdown = calcBreakdown(clientSubtotalEstimated, pricingParams);
 
   const adminCharges = round2(feeBreakdown.stripeFee);
-  const platformFee = round2(feeBreakdown.platformFee);
-  const subtotalBeforeTax = round2(roundedHostNightly + adminCharges + platformFee + cleanFee);
+  const hostCommissionFee = round2(feeBreakdown.platformFee);
+  const guestServiceFee = round2(feeBreakdown.guestFee);
+  const clientSubtotal = round2(clientSubtotalEstimated);
+  const subtotalBeforeTax = round2(clientSubtotal + cleanFee);
   const taxes = round2(subtotalBeforeTax * normalizedTaxRate);
   const total = round2(subtotalBeforeTax + taxes);
 
   return {
     nights,
-    hostNightlySubtotal: roundedHostNightly,
+    hostNightlySubtotal: round2(feeBreakdown.hostBase),
+    hostNetSubtotal: roundedHostNet,
+    hostCommissionFee,
+    guestServiceFee,
     adminCharges,
-    platformFee,
+    platformFee: hostCommissionFee,
+    clientSubtotal,
     subtotalBeforeTax,
     taxes,
     total

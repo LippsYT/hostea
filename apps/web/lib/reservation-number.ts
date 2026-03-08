@@ -1,33 +1,12 @@
 import { ReservationStatus } from '@prisma/client';
 
-const pad = (value: string, length: number) => value.padStart(length, '0').slice(-length);
-
-const formatDate = (date: Date) => {
-  const year = String(date.getUTCFullYear());
-  const month = pad(String(date.getUTCMonth() + 1), 2);
-  const day = pad(String(date.getUTCDate()), 2);
-  return `${year}${month}${day}`;
-};
-
-const normalizeSuffix = (value: string) => {
-  const alnum = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-  return pad(alnum.slice(-4) || '0000', 4);
-};
-
-const randomSuffix = () => {
-  const value = Math.floor(Math.random() * 0xffff)
-    .toString(16)
-    .toUpperCase();
-  return pad(value, 4);
-};
+const pad = (value: number, length: number) => String(value).padStart(length, '0');
 
 export const buildReservationNumber = (
-  reservationId: string,
-  createdAt: Date,
-  fallback = false
+  year: number,
+  sequence: number
 ) => {
-  const suffix = fallback ? randomSuffix() : normalizeSuffix(reservationId);
-  return `HST-${formatDate(createdAt)}-${suffix}`;
+  return `HTA-${year}-${pad(sequence, 6)}`;
 };
 
 export const ensureReservationNumber = async (
@@ -37,12 +16,18 @@ export const ensureReservationNumber = async (
 ) => {
   const current = await prisma.reservation.findUnique({
     where: { id: reservationId },
-    select: { reservationNumber: true }
+    select: { reservationNumber: true, createdAt: true }
   });
   if (!current || current.reservationNumber) return current?.reservationNumber || null;
 
-  for (let attempt = 0; attempt < 6; attempt += 1) {
-    const nextNumber = buildReservationNumber(reservationId, createdAt, attempt > 0);
+  const year = (createdAt || current.createdAt).getUTCFullYear();
+  const prefix = `HTA-${year}-`;
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const existingCount = await prisma.reservation.count({
+      where: { reservationNumber: { startsWith: prefix } }
+    });
+    const nextNumber = buildReservationNumber(year, existingCount + 1 + attempt);
     try {
       const updated = await prisma.reservation.updateMany({
         where: { id: reservationId, reservationNumber: null },

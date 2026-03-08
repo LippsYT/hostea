@@ -188,8 +188,11 @@ model Listing {
   description   String
   type          ListingType
   address       String
+  country       String?
   city          String
+  citySlug      String?
   neighborhood  String
+  zoneSlug      String?
   latitude      Float?
   longitude     Float?
   pricePerNight Decimal         @db.Decimal(10,2)
@@ -204,6 +207,12 @@ model Listing {
   baths         Int
   checkInTime   String          @default("15:00")
   checkOutTime  String          @default("11:00")
+  checkInInstructions String?
+  checkOutInstructions String?
+  assistancePhone String?
+  assistancePhoneSecondary String?
+  mapLocationUrl String?
+  propertyRules String?
   allowChildren Boolean         @default(true)
   allowPets     Boolean         @default(false)
   allowSmoking  Boolean         @default(false)
@@ -243,7 +252,9 @@ model Experience {
   description     String
   category        String
   city            String
+  citySlug        String?
   zone            String?
+  zoneSlug        String?
   meetingPoint    String
   coverageType    ExperienceCoverageType @default(FIXED)
   serviceRadiusKm Int?

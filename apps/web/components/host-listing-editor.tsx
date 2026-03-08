@@ -60,6 +60,7 @@ export type ListingEditorProps = {
     description: string;
     type: string;
     address: string;
+    country?: string | null;
     city: string;
     neighborhood: string;
     pricePerNight: number;
@@ -74,6 +75,12 @@ export type ListingEditorProps = {
     baths: number;
     checkInTime: string;
     checkOutTime: string;
+    checkInInstructions?: string | null;
+    checkOutInstructions?: string | null;
+    assistancePhone?: string | null;
+    assistancePhoneSecondary?: string | null;
+    mapLocationUrl?: string | null;
+    propertyRules?: string | null;
     allowChildren: boolean;
     allowPets: boolean;
     allowSmoking: boolean;
@@ -119,6 +126,7 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
     type: listing.type,
     inventoryQty: listing.inventoryQty || 1,
     address: listing.address,
+    country: listing.country || 'Argentina',
     city: listing.city,
     neighborhood: listing.neighborhood,
     netoDeseadoUsd:
@@ -130,6 +138,12 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
     baths: listing.baths,
     checkInTime: listing.checkInTime || '15:00',
     checkOutTime: listing.checkOutTime || '11:00',
+    checkInInstructions: listing.checkInInstructions || '',
+    checkOutInstructions: listing.checkOutInstructions || '',
+    assistancePhone: listing.assistancePhone || '',
+    assistancePhoneSecondary: listing.assistancePhoneSecondary || '',
+    mapLocationUrl: listing.mapLocationUrl || '',
+    propertyRules: listing.propertyRules || '',
     allowChildren: listing.allowChildren ?? true,
     allowPets: listing.allowPets ?? false,
     allowSmoking: listing.allowSmoking ?? false,
@@ -176,12 +190,20 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
-        const platformPct = Number(data?.settings?.commissionPercent);
+        const hostCommissionPct = Number(
+          data?.settings?.hostCommissionPercent ?? data?.settings?.commissionPercent
+        );
+        const guestServicePct = Number(data?.settings?.guestServicePercent);
+        const processingPct = Number(data?.settings?.processingPercent);
+        const processingFixed = Number(data?.settings?.processingFixed);
         setPricingParams((current) =>
           withSmartPricingParams({
-            stripePct: current.stripePct,
-            stripeFixed: current.stripeFixed,
-            platformPct: Number.isFinite(platformPct) ? platformPct : current.platformPct
+            stripePct: Number.isFinite(processingPct) ? processingPct : current.stripePct,
+            stripeFixed: Number.isFinite(processingFixed) ? processingFixed : current.stripeFixed,
+            platformPct: Number.isFinite(hostCommissionPct)
+              ? hostCommissionPct
+              : current.platformPct,
+            guestPct: Number.isFinite(guestServicePct) ? guestServicePct : current.guestPct
           })
         );
       })
@@ -471,6 +493,14 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
             />
           </div>
           <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pais</p>
+            <Input
+              placeholder="Pais"
+              value={form.country}
+              onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
+            />
+          </div>
+          <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ciudad</p>
             <Input
               placeholder="Ciudad"
@@ -568,6 +598,71 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
               type="time"
               value={form.checkOutTime}
               onChange={(e) => setForm((f) => ({ ...f, checkOutTime: e.target.value }))}
+            />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Telefono asistencia
+            </p>
+            <Input
+              value={form.assistancePhone}
+              onChange={(e) => setForm((f) => ({ ...f, assistancePhone: e.target.value }))}
+              placeholder="+54..."
+            />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Telefono asistencia secundario
+            </p>
+            <Input
+              value={form.assistancePhoneSecondary}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, assistancePhoneSecondary: e.target.value }))
+              }
+              placeholder="+54..."
+            />
+          </div>
+          <div className="md:col-span-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Link de ubicacion (mapa)
+            </p>
+            <Input
+              value={form.mapLocationUrl}
+              onChange={(e) => setForm((f) => ({ ...f, mapLocationUrl: e.target.value }))}
+              placeholder="https://maps.google.com/..."
+            />
+          </div>
+          <div className="md:col-span-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Instrucciones de check-in
+            </p>
+            <textarea
+              className="min-h-[84px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+              value={form.checkInInstructions}
+              onChange={(e) => setForm((f) => ({ ...f, checkInInstructions: e.target.value }))}
+              placeholder="Como ingresar, quien recibe, codigo de acceso..."
+            />
+          </div>
+          <div className="md:col-span-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Instrucciones de check-out
+            </p>
+            <textarea
+              className="min-h-[84px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+              value={form.checkOutInstructions}
+              onChange={(e) => setForm((f) => ({ ...f, checkOutInstructions: e.target.value }))}
+              placeholder="Hora limite, devolucion de llaves, recomendaciones..."
+            />
+          </div>
+          <div className="md:col-span-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Reglas adicionales de la propiedad
+            </p>
+            <textarea
+              className="min-h-[84px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+              value={form.propertyRules}
+              onChange={(e) => setForm((f) => ({ ...f, propertyRules: e.target.value }))}
+              placeholder="Ej.: silencio despues de las 22:00, no fiestas..."
             />
           </div>
           <select
@@ -701,7 +796,10 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
         <div className="mt-6 rounded-2xl border border-slate-200/70 bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-semibold text-slate-900">Precio inteligente (estimado)</p>
-            <div className="text-xs text-slate-500">Montos finales estimados en USD.</div>
+            <div className="text-xs text-slate-500">
+              Comision Hostea anfitrion: {Math.round(pricingParams.platformPct * 100)}% · Tarifa huesped:{' '}
+              {Math.round(pricingParams.guestPct * 100)}%
+            </div>
           </div>
           <div className="mt-3 space-y-1 text-sm text-slate-600">
             <div className="flex items-center justify-between">
@@ -713,13 +811,20 @@ export const HostListingEditor = ({ listing }: ListingEditorProps) => {
               <span>-{money(breakdown.stripeFee)}</span>
             </div>
             <div className="flex items-center justify-between text-slate-500">
-              <span>Tarifa de servicio (anfitrion)</span>
+              <span>Tarifa de servicio Hostea (huesped)</span>
+              <span>{money(breakdown.guestFee)}</span>
+            </div>
+            <div className="flex items-center justify-between text-slate-500">
+              <span>Comision Hostea (anfitrion)</span>
               <span>-{money(breakdown.platformFee)}</span>
             </div>
             <div className="flex items-center justify-between font-semibold text-slate-900">
               <span>Neto final a recibir por el anfitrion</span>
               <span>{money(breakdown.hostNet)}</span>
             </div>
+            <p className="pt-1 text-xs text-slate-500">
+              Liquidacion al anfitrion una vez acreditado el pago por el procesador.
+            </p>
           </div>
         </div>
       </div>

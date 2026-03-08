@@ -109,12 +109,20 @@ export function ExperienceForm({
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
-        const platformPct = Number(data?.settings?.commissionPercent);
+        const hostCommissionPct = Number(
+          data?.settings?.hostCommissionPercent ?? data?.settings?.commissionPercent
+        );
+        const guestServicePct = Number(data?.settings?.guestServicePercent);
+        const processingPct = Number(data?.settings?.processingPercent);
+        const processingFixed = Number(data?.settings?.processingFixed);
         setPricingParams((current) =>
           withSmartPricingParams({
-            stripePct: current.stripePct,
-            stripeFixed: current.stripeFixed,
-            platformPct: Number.isFinite(platformPct) ? platformPct : current.platformPct
+            stripePct: Number.isFinite(processingPct) ? processingPct : current.stripePct,
+            stripeFixed: Number.isFinite(processingFixed) ? processingFixed : current.stripeFixed,
+            platformPct: Number.isFinite(hostCommissionPct)
+              ? hostCommissionPct
+              : current.platformPct,
+            guestPct: Number.isFinite(guestServicePct) ? guestServicePct : current.guestPct
           })
         );
       })
@@ -496,7 +504,8 @@ export function ExperienceForm({
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
         <p className="text-sm font-semibold text-slate-900">Resumen de comisiones (USD)</p>
         <p className="mt-1 text-xs text-slate-500">
-          Vista para que el anfitrion entienda lo que paga y lo que recibe por pasajero.
+          Comision anfitrion {Math.round(pricingParams.platformPct * 100)}% · Tarifa huesped{' '}
+          {Math.round(pricingParams.guestPct * 100)}%.
         </p>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {[
@@ -516,7 +525,11 @@ export function ExperienceForm({
                   <span>-USD {item.breakdown.stripeFee.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Tarifa de servicio</span>
+                  <span>Tarifa de servicio Hostea (huesped)</span>
+                  <span>USD {item.breakdown.guestFee.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Comision Hostea (anfitrion)</span>
                   <span>-USD {item.breakdown.platformFee.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between font-semibold text-slate-900">

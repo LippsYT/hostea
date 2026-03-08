@@ -7,7 +7,10 @@ import { Input } from '@/components/ui/input';
 export const AdminSettingsForm = ({ initial }: { initial: Record<string, any> }) => {
   const [csrf, setCsrf] = useState('');
   const [values, setValues] = useState({
-    commissionPercent: initial.commissionPercent ?? 0.15,
+    hostCommissionPercent: initial.hostCommissionPercent ?? initial.commissionPercent ?? 0.08,
+    guestServicePercent: initial.guestServicePercent ?? 0.07,
+    processingPercent: initial.processingPercent ?? 0,
+    processingFixed: initial.processingFixed ?? 0,
     usdToArsRate: initial.usdToArsRate ?? 980,
     cancelWindowHours: initial.cancelWindowHours ?? 48,
     partialRefundPercent: initial.partialRefundPercent ?? 0.5
@@ -21,13 +24,18 @@ export const AdminSettingsForm = ({ initial }: { initial: Record<string, any> })
   }, []);
 
   const onSave = async () => {
+    const payload = {
+      ...values,
+      // Compatibilidad legacy
+      commissionPercent: values.hostCommissionPercent
+    };
     await fetch('/api/admin/settings', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-csrf-token': csrf
       },
-      body: JSON.stringify(values)
+      body: JSON.stringify(payload)
     });
     alert('Configuracion actualizada');
   };
@@ -43,11 +51,43 @@ export const AdminSettingsForm = ({ initial }: { initial: Record<string, any> })
       </div>
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         <div className="surface-muted">
-          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Comision (%)</label>
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Comision anfitrion (%)</label>
           <Input
             type="number"
-            value={values.commissionPercent}
-            onChange={(e) => setValues((v) => ({ ...v, commissionPercent: Number(e.target.value) }))}
+            value={values.hostCommissionPercent}
+            onChange={(e) =>
+              setValues((v) => ({ ...v, hostCommissionPercent: Number(e.target.value) }))
+            }
+          />
+        </div>
+        <div className="surface-muted">
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tarifa huesped (%)</label>
+          <Input
+            type="number"
+            value={values.guestServicePercent}
+            onChange={(e) =>
+              setValues((v) => ({ ...v, guestServicePercent: Number(e.target.value) }))
+            }
+          />
+        </div>
+        <div className="surface-muted">
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cargos proc. (%)</label>
+          <Input
+            type="number"
+            value={values.processingPercent}
+            onChange={(e) =>
+              setValues((v) => ({ ...v, processingPercent: Number(e.target.value) }))
+            }
+          />
+        </div>
+        <div className="surface-muted">
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cargos proc. fijo (USD)</label>
+          <Input
+            type="number"
+            value={values.processingFixed}
+            onChange={(e) =>
+              setValues((v) => ({ ...v, processingFixed: Number(e.target.value) }))
+            }
           />
         </div>
         <div className="surface-muted">

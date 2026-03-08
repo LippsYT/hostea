@@ -26,7 +26,10 @@ export default async function HostFinancePage({
     redirect('/dashboard');
   }
   const userId = (session?.user as any)?.id as string;
-  const commissionPercent = await getSetting<number>('commissionPercent', 0.15);
+  const commissionPercent = await getSetting<number>(
+    'hostCommissionPercent',
+    await getSetting<number>('commissionPercent', 0.08)
+  );
 
   const reservations = await prisma.reservation.findMany({
     where: {

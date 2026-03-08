@@ -8,7 +8,7 @@ import {
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const listing = await prisma.listing.findUnique({
     where: { id: params.id },
-    select: { id: true, city: true, neighborhood: true, status: true }
+    select: { id: true, city: true, citySlug: true, neighborhood: true, zoneSlug: true, status: true }
   });
 
   if (!listing || listing.status !== 'ACTIVE') {
@@ -18,7 +18,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const experiences = await prisma.experience.findMany({
     where: {
       status: 'ACTIVE',
-      city: { equals: listing.city, mode: 'insensitive' }
+      OR: [
+        listing.citySlug
+          ? { citySlug: listing.citySlug }
+          : { city: { equals: listing.city, mode: 'insensitive' } }
+      ]
     },
     include: {
       photos: { orderBy: { sortOrder: 'asc' } }

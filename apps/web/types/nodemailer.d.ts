@@ -19,6 +19,11 @@
 		subject: string;
 		text?: string;
 		html?: string;
+		attachments?: Array<{
+			filename: string;
+			content: Buffer | string;
+			contentType?: string;
+		}>;
 	}
 
 	function createTransport(options: TransportOptions): Transporter;

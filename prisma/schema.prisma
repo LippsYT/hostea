@@ -1,10 +1,12 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["public"]
 }
 
 enum RoleName {
@@ -16,11 +18,13 @@ enum RoleName {
   MODERATOR
   SUPPORT
   FINANCE
+  @@schema("public")
 }
 
 enum ListingType {
   HOTEL
   APARTMENT
+  @@schema("public")
 }
 
 enum ReservationStatus {
@@ -35,18 +39,21 @@ enum ReservationStatus {
   CANCELED
   REFUNDED
   DISPUTED
+  @@schema("public")
 }
 
 enum CancelPolicy {
   FLEXIBLE
   MODERATE
   STRICT
+  @@schema("public")
 }
 
 enum KycStatus {
   PENDING
   APPROVED
   REJECTED
+  @@schema("public")
 }
 
 enum TicketStatus {
@@ -54,6 +61,7 @@ enum TicketStatus {
   PENDING
   RESOLVED
   CLOSED
+  @@schema("public")
 }
 
 enum TicketPriority {
@@ -61,6 +69,7 @@ enum TicketPriority {
   MEDIUM
   HIGH
   URGENT
+  @@schema("public")
 }
 
 enum PaymentStatus {
@@ -68,6 +77,7 @@ enum PaymentStatus {
   SUCCEEDED
   FAILED
   REFUNDED
+  @@schema("public")
 }
 
 enum OfferStatus {
@@ -77,21 +87,25 @@ enum OfferStatus {
   EXPIRED
   REJECTED
   CANCELED
+  @@schema("public")
 }
 
 enum ExperienceActivityType {
   PRIVATE
   SHARED
+  @@schema("public")
 }
 
 enum ExperienceCoverageType {
   FIXED
   PICKUP
+  @@schema("public")
 }
 
 enum ThreadType {
   RESERVATION
   SUPPORT
+  @@schema("public")
 }
 
 enum ThreadStatus {
@@ -100,6 +114,7 @@ enum ThreadStatus {
   OFFER
   REJECTED
   RESERVATION
+  @@schema("public")
 }
 
 model User {
@@ -132,6 +147,7 @@ model User {
   pushSubscriptions PushSubscription[]
   legalAcceptances LegalAcceptance[]
   printJobs      PrintJob[]        @relation("PrintJobHost")
+  @@schema("public")
 }
 
 model Profile {
@@ -145,6 +161,7 @@ model Profile {
   updatedAt DateTime @updatedAt
 
   user      User     @relation(fields: [userId], references: [id])
+  @@schema("public")
 }
 
 model Role {
@@ -153,6 +170,7 @@ model Role {
   description String?
   permissions RolePermission[]
   users       UserRole[]
+  @@schema("public")
 }
 
 model Permission {
@@ -160,6 +178,7 @@ model Permission {
   name        String           @unique
   description String?
   roles       RolePermission[]
+  @@schema("public")
 }
 
 model RolePermission {
@@ -170,6 +189,7 @@ model RolePermission {
   permission   Permission @relation(fields: [permissionId], references: [id])
 
   @@id([roleId, permissionId])
+  @@schema("public")
 }
 
 model UserRole {
@@ -180,6 +200,7 @@ model UserRole {
   role   Role @relation(fields: [roleId], references: [id])
 
   @@id([userId, roleId])
+  @@schema("public")
 }
 
 model Listing {
@@ -235,6 +256,7 @@ model Listing {
   reservations  Reservation[]
   offers        Offer[]
   reviews       Review[]
+  @@schema("public")
 }
 
 model ListingPhoto {
@@ -244,6 +266,7 @@ model ListingPhoto {
   sortOrder Int      @default(0)
 
   listing   Listing  @relation(fields: [listingId], references: [id])
+  @@schema("public")
 }
 
 model Experience {
@@ -279,6 +302,7 @@ model Experience {
   photos          ExperiencePhoto[]
   bookings        ExperienceBooking[]
   upsellReservations Reservation[]       @relation("ReservationUpsellExperience")
+  @@schema("public")
 }
 
 model ExperiencePhoto {
@@ -291,6 +315,7 @@ model ExperiencePhoto {
   experience   Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
 
   @@index([experienceId, sortOrder])
+  @@schema("public")
 }
 
 model ExperienceBooking {
@@ -313,6 +338,7 @@ model ExperienceBooking {
 
   @@index([experienceId, date])
   @@index([userId, createdAt])
+  @@schema("public")
 }
 
 model Amenity {
@@ -321,6 +347,7 @@ model Amenity {
   icon  String?
 
   listings ListingAmenity[]
+  @@schema("public")
 }
 
 model ListingAmenity {
@@ -331,6 +358,7 @@ model ListingAmenity {
   amenity   Amenity @relation(fields: [amenityId], references: [id])
 
   @@id([listingId, amenityId])
+  @@schema("public")
 }
 
 model CalendarBlock {
@@ -343,6 +371,7 @@ model CalendarBlock {
   createdAt DateTime @default(now())
 
   listing   Listing @relation(fields: [listingId], references: [id])
+  @@schema("public")
 }
 
 model CalendarHold {
@@ -359,6 +388,7 @@ model CalendarHold {
   reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
 
   @@index([listingId, startDate, endDate, expiresAt])
+  @@schema("public")
 }
 
 model RoomType {
@@ -370,6 +400,7 @@ model RoomType {
 
   listing   Listing @relation(fields: [listingId], references: [id])
   reservations Reservation[]
+  @@schema("public")
 }
 
 model ListingIcalFeed {
@@ -387,6 +418,7 @@ model ListingIcalFeed {
   listing        Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@unique([listingId, url])
+  @@schema("public")
 }
 
 model Reservation {
@@ -418,6 +450,7 @@ model Reservation {
   thread        MessageThread?
   review        Review?
   printJobs     PrintJob[]
+  @@schema("public")
 }
 
 model ReservationGuest {
@@ -427,6 +460,7 @@ model ReservationGuest {
   age            Int?
 
   reservation    Reservation @relation(fields: [reservationId], references: [id])
+  @@schema("public")
 }
 
 model Payment {
@@ -443,6 +477,7 @@ model Payment {
 
   reservation           Reservation   @relation(fields: [reservationId], references: [id])
   user                  User          @relation(fields: [userId], references: [id])
+  @@schema("public")
 }
 
 model Payout {
@@ -456,6 +491,7 @@ model Payout {
   createdAt       DateTime @default(now())
 
   host            User     @relation(fields: [hostId], references: [id])
+  @@schema("public")
 }
 
 model Offer {
@@ -489,6 +525,7 @@ model Offer {
 
   @@index([threadId, status, expiresAt])
   @@index([guestId, status, expiresAt])
+  @@schema("public")
 }
 
 model MessageThread {
@@ -508,6 +545,7 @@ model MessageThread {
   participants MessageThreadParticipant[]
   messages     Message[]
   offers       Offer[]
+  @@schema("public")
 }
 
 model MessageThreadParticipant {
@@ -518,6 +556,7 @@ model MessageThreadParticipant {
   user     User          @relation(fields: [userId], references: [id])
 
   @@id([threadId, userId])
+  @@schema("public")
 }
 
 model Message {
@@ -531,6 +570,7 @@ model Message {
 
   thread        MessageThread @relation(fields: [threadId], references: [id])
   sender        User          @relation("MessageSender", fields: [senderId], references: [id])
+  @@schema("public")
 }
 
 model Ticket {
@@ -545,6 +585,7 @@ model Ticket {
 
   createdBy    User           @relation("TicketCreator", fields: [createdById], references: [id])
   messages     TicketMessage[]
+  @@schema("public")
 }
 
 model TicketMessage {
@@ -556,6 +597,7 @@ model TicketMessage {
 
   ticket    Ticket   @relation(fields: [ticketId], references: [id])
   sender    User     @relation(fields: [senderId], references: [id])
+  @@schema("public")
 }
 
 model KycSubmission {
@@ -569,6 +611,7 @@ model KycSubmission {
   createdAt   DateTime  @default(now())
 
   user        User      @relation(fields: [userId], references: [id])
+  @@schema("public")
 }
 
 model Review {
@@ -583,6 +626,7 @@ model Review {
   reservation   Reservation @relation(fields: [reservationId], references: [id])
   reviewer      User        @relation("ReviewAuthor", fields: [reviewerId], references: [id])
   listing       Listing     @relation(fields: [listingId], references: [id])
+  @@schema("public")
 }
 
 model AuditLog {
@@ -595,6 +639,7 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   actor     User     @relation("AuditActor", fields: [actorId], references: [id])
+  @@schema("public")
 }
 
 model Settings {
@@ -602,6 +647,7 @@ model Settings {
   key       String   @unique
   value     Json
   updatedAt DateTime @updatedAt
+  @@schema("public")
 }
 
 model LegalPage {
@@ -611,6 +657,7 @@ model LegalPage {
   content   String
   published Boolean  @default(true)
   updatedAt DateTime @updatedAt
+  @@schema("public")
 }
 
 model LegalAcceptance {
@@ -629,6 +676,7 @@ model LegalAcceptance {
 
   @@unique([userId, version])
   @@index([userId, acceptedAt])
+  @@schema("public")
 }
 
 model PushSubscription {
@@ -647,6 +695,7 @@ model PushSubscription {
 
   @@index([hostId, role, isActive])
   @@map("push_subscriptions")
+  @@schema("public")
 }
 
 model AdminSettings {
@@ -661,6 +710,7 @@ model AdminSettings {
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("admin_settings")
+  @@schema("public")
 }
 
 model PrintJob {
@@ -683,4 +733,5 @@ model PrintJob {
   @@index([reservationId])
   @@index([hostId])
   @@map("print_jobs")
+  @@schema("public")
 }

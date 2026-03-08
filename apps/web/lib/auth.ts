@@ -3,6 +3,26 @@ import type { NextAuthOptions } from 'next-auth';
 import { compare } from 'bcryptjs';
 import { prisma } from './db';
 import { rateLimit } from './rate-limit';
+import { getSupabasePublicServerClient } from './supabase-public';
+import { markEmailAsVerified } from './email-verification';
+
+const syncVerificationFromSupabase = async (email: string, password: string) => {
+  try {
+    const supabase = getSupabasePublicServerClient();
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return false;
+
+    const isConfirmed = Boolean(data.user?.email_confirmed_at);
+    if (isConfirmed) {
+      await markEmailAsVerified(email);
+    }
+
+    await supabase.auth.signOut().catch(() => undefined);
+    return isConfirmed;
+  } catch {
+    return false;
+  }
+};
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -16,28 +36,34 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
+        const normalizedEmail = String(credentials.email).trim().toLowerCase();
+        const password = String(credentials.password);
         const ipHeader = req?.headers?.['x-forwarded-for'];
         const ip = Array.isArray(ipHeader) ? ipHeader[0] : ipHeader || 'unknown';
         const allowed = await rateLimit(
-          `auth:signin:${String(credentials.email).toLowerCase()}:${ip}`,
+          `auth:signin:${normalizedEmail}:${ip}`,
           8,
           60
         );
         if (!allowed) {
           throw new Error('RATE_LIMIT');
         }
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+        const user = await prisma.user.findFirst({
+          where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
           include: { roles: { include: { role: true } }, profile: true }
         });
         if (!user) return null;
         const privileged = user.roles.some((item) =>
           ['ADMIN', 'SUPPORT', 'MODERATOR', 'FINANCE'].includes(item.role.name)
         );
-        if (!user.emailVerified && !privileged) {
-          throw new Error('EMAIL_NOT_VERIFIED');
+        let isVerified = Boolean(user.emailVerified);
+        if (!isVerified && !privileged) {
+          isVerified = await syncVerificationFromSupabase(user.email, password);
+          if (!isVerified) {
+            throw new Error('EMAIL_NOT_VERIFIED');
+          }
         }
-        const valid = await compare(credentials.password, user.passwordHash);
+        const valid = await compare(password, user.passwordHash);
         if (!valid) return null;
         return {
           id: user.id,

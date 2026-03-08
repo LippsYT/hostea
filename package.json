@@ -12,6 +12,7 @@
     "prisma:migrate": "npx prisma migrate dev",
     "prisma:seed": "npx prisma db seed",
     "auth:reset": "tsx scripts/reset-auth-data.ts",
+    "auth:email-logo:upload": "tsx scripts/upload-supabase-auth-logo.ts",
     "test": "vitest run"
   },
   "prisma": {

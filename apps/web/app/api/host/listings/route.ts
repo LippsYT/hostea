@@ -13,6 +13,7 @@ import { getSmartPricingParamsFromSettings } from '@/lib/pricing-settings';
 import { instantBookFromBookingMode, type BookingMode } from '@/lib/booking-mode';
 import { ListingType, CancelPolicy } from '@prisma/client';
 import { toGeoSlug } from '@/lib/experience-matching';
+import { ensureUserCanPublish } from '@/lib/email-verification';
 
 const emptyToUndefined = (value: unknown) =>
   typeof value === 'string' && value.trim().length === 0 ? undefined : value;
@@ -94,6 +95,10 @@ export async function POST(req: Request) {
     assertCsrf(req);
     const session = await requireSession();
     const userId = (session.user as any).id as string;
+    const verification = await ensureUserCanPublish(userId);
+    if (!verification.ok) {
+      return NextResponse.json({ error: verification.error }, { status: verification.status });
+    }
     const roles = ((session.user as any).roles || []) as string[];
     if (!roles.includes('HOST') && !roles.includes('ADMIN')) {
       const hostRole = await prisma.role.findUnique({ where: { name: 'HOST' } });

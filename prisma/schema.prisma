@@ -8,6 +8,7 @@ datasource db {
 }
 
 enum RoleName {
+  GUEST
   ADMIN
   HOST
   EXPERIENCE_HOST

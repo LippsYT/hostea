@@ -24,6 +24,7 @@ const seedRoles = async () => {
   }
 
   const roleMap: Record<RoleName, string[]> = {
+    GUEST: [],
     ADMIN: permissions,
     HOST: ['LISTING_MANAGE', 'RESERVATION_MANAGE', 'FINANCE_VIEW'],
     EXPERIENCE_HOST: ['RESERVATION_MANAGE', 'FINANCE_VIEW'],

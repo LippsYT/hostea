@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db';
 import { ExperienceActivityType, ExperienceCoverageType } from '@prisma/client';
 import { ensureExperienceHostRole } from '@/lib/server-roles';
 import { toGeoSlug } from '@/lib/experience-matching';
+import { ensureUserCanPublish } from '@/lib/email-verification';
 
 const photoSchema = z.object({
   url: z.string().url(),
@@ -71,6 +72,10 @@ export async function POST(req: Request) {
     assertCsrf(req);
     const session = await requireSession();
     const userId = (session.user as any).id as string;
+    const verification = await ensureUserCanPublish(userId);
+    if (!verification.ok) {
+      return NextResponse.json({ error: verification.error }, { status: verification.status });
+    }
     const roles = ((session.user as any).roles || []) as string[];
 
     if (!canManageExperiences(roles)) {

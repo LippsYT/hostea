@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
+import { AuthTurnstile } from '@/components/auth-turnstile';
 
 export default function SignUpPage() {
   const [csrf, setCsrf] = useState('');
@@ -15,6 +16,9 @@ export default function SignUpPage() {
   const [acceptLiability, setAcceptLiability] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [resending, setResending] = useState(false);
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
@@ -26,6 +30,7 @@ export default function SignUpPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccessMsg('');
     if (!acceptTerms || !acceptPrivacy || !acceptLiability) {
       setError('Debes aceptar Terminos, Privacidad y Limitacion de Responsabilidad.');
       return;
@@ -41,6 +46,7 @@ export default function SignUpPage() {
         name,
         email,
         password,
+        captchaToken,
         legalAcceptance: {
           terms: acceptTerms,
           privacy: acceptPrivacy,
@@ -54,7 +60,34 @@ export default function SignUpPage() {
       setError(data?.error || 'No se pudo crear la cuenta');
       return;
     }
-    window.location.href = '/auth/sign-in';
+    setSuccessMsg(
+      data?.message || 'Te enviamos un correo para confirmar tu cuenta.'
+    );
+  };
+
+  const onResend = async () => {
+    if (!email) {
+      setError('Ingresa tu email para reenviar la confirmacion.');
+      return;
+    }
+    setError('');
+    setSuccessMsg('');
+    setResending(true);
+    const res = await fetch('/api/auth/resend-confirmation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-csrf-token': csrf
+      },
+      body: JSON.stringify({ email, captchaToken })
+    });
+    const data = await res.json().catch(() => ({}));
+    setResending(false);
+    if (!res.ok) {
+      setError(data?.error || 'No se pudo reenviar el correo.');
+      return;
+    }
+    setSuccessMsg('Correo de confirmacion reenviado. Revisa tu bandeja.');
   };
 
   return (
@@ -66,6 +99,10 @@ export default function SignUpPage() {
           <Input placeholder="Nombre" value={name} onChange={(e) => setName(e.target.value)} />
           <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
           <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <AuthTurnstile
+            onToken={(token) => setCaptchaToken(token)}
+            onExpire={() => setCaptchaToken('')}
+          />
           <div className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
             <label className="flex items-start gap-2">
               <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} />
@@ -87,7 +124,11 @@ export default function SignUpPage() {
             </label>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
+          {successMsg && <p className="text-sm text-emerald-700">{successMsg}</p>}
           <Button type="submit" className="w-full" disabled={saving}>{saving ? 'Creando...' : 'Crear cuenta'}</Button>
+          <Button type="button" variant="outline" className="w-full" disabled={resending} onClick={onResend}>
+            {resending ? 'Reenviando...' : 'Reenviar correo de confirmacion'}
+          </Button>
         </div>
         <p className="mt-6 text-sm text-neutral-500">
           Ya tenes cuenta? <Link href="/auth/sign-in" className="text-neutral-900">Ingresar</Link>

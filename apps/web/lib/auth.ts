@@ -5,21 +5,27 @@ import { prisma } from './db';
 import { rateLimit } from './rate-limit';
 import { getSupabasePublicServerClient } from './supabase-public';
 import { markEmailAsVerified } from './email-verification';
+import { RoleName } from '@prisma/client';
 
 const authenticateWithSupabase = async (email: string, password: string) => {
   try {
     const supabase = getSupabasePublicServerClient();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      return { authenticated: false, confirmed: false };
+      return { authenticated: false, confirmed: false, email, name: null as string | null };
     }
 
     const confirmed = Boolean(data.user?.email_confirmed_at);
+    const resolvedEmail = data.user?.email?.toLowerCase() || email;
+    const resolvedName =
+      (data.user?.user_metadata?.name as string | undefined) ||
+      (data.user?.user_metadata?.full_name as string | undefined) ||
+      null;
 
     await supabase.auth.signOut().catch(() => undefined);
-    return { authenticated: true, confirmed };
+    return { authenticated: true, confirmed, email: resolvedEmail, name: resolvedName };
   } catch {
-    return { authenticated: false, confirmed: false };
+    return { authenticated: false, confirmed: false, email, name: null as string | null };
   }
 };
 
@@ -47,18 +53,58 @@ export const authOptions: NextAuthOptions = {
         if (!allowed) {
           throw new Error('RATE_LIMIT');
         }
-        const user = await prisma.user.findFirst({
+        let user = await prisma.user.findFirst({
           where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
           include: { roles: { include: { role: true } }, profile: true }
         });
-        if (!user) return null;
+        let supabaseAuthCache: Awaited<ReturnType<typeof authenticateWithSupabase>> | null = null;
+        const getSupabaseAuth = async () => {
+          if (!supabaseAuthCache) {
+            supabaseAuthCache = await authenticateWithSupabase(normalizedEmail, password);
+          }
+          return supabaseAuthCache;
+        };
+
+        if (!user) {
+          const supabaseAuth = await getSupabaseAuth();
+          if (!supabaseAuth.authenticated) return null;
+
+          const roleName = supabaseAuth.confirmed ? RoleName.CLIENT : RoleName.GUEST;
+          const role = await prisma.role.upsert({
+            where: { name: roleName },
+            update: {},
+            create: { name: roleName, description: `${roleName} role` }
+          });
+
+          user = await prisma.user.create({
+            data: {
+              email: supabaseAuth.email,
+              passwordHash: await hash(password, 10),
+              emailVerified: supabaseAuth.confirmed ? new Date() : null,
+              profile: {
+                create: {
+                  name: supabaseAuth.name || supabaseAuth.email.split('@')[0]
+                }
+              },
+              roles: {
+                create: [{ roleId: role.id }]
+              }
+            },
+            include: { roles: { include: { role: true } }, profile: true }
+          });
+
+          if (!supabaseAuth.confirmed) {
+            throw new Error('EMAIL_NOT_VERIFIED');
+          }
+        }
+
         const privileged = user.roles.some((item) =>
           ['ADMIN', 'SUPPORT', 'MODERATOR', 'FINANCE'].includes(item.role.name)
         );
         let isVerified = Boolean(user.emailVerified);
 
         if (!isVerified && !privileged) {
-          const supabaseAuth = await authenticateWithSupabase(user.email, password);
+          const supabaseAuth = await getSupabaseAuth();
           if (!supabaseAuth.authenticated) {
             return null;
           }
@@ -78,7 +124,7 @@ export const authOptions: NextAuthOptions = {
 
         let valid = await compare(password, user.passwordHash);
         if (!valid) {
-          const supabaseAuth = await authenticateWithSupabase(user.email, password);
+          const supabaseAuth = await getSupabaseAuth();
           if (!supabaseAuth.authenticated) return null;
 
           await prisma.user.update({

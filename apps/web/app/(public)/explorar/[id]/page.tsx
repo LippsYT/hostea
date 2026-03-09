@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { ExperienceBookingForm } from '@/components/experience-booking-form';
+import { getSmartPricingParamsFromSettings } from '@/lib/pricing-settings';
 
 export default async function ExploreDetailPage({ params }: { params: { id: string } }) {
   const experience = await prisma.experience.findUnique({
@@ -24,6 +25,7 @@ export default async function ExploreDetailPage({ params }: { params: { id: stri
     .split('|')
     .map((item) => item.trim())
     .filter(Boolean);
+  const pricingParams = await getSmartPricingParamsFromSettings();
 
   return (
     <main className="px-4 pb-20 pt-10 sm:px-6 lg:px-8">
@@ -67,44 +69,31 @@ export default async function ExploreDetailPage({ params }: { params: { id: stri
               <p className="mt-3 whitespace-pre-wrap text-sm text-slate-600">{experience.description}</p>
             </article>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <article className="surface-card">
-                <h3 className="text-base font-semibold text-slate-900">Detalles</h3>
-                <div className="mt-3 space-y-2 text-sm text-slate-600">
-                  <p>Categoria: {experience.category}</p>
-                  <p>Ciudad: {experience.city}</p>
-                  {experience.zone && <p>Zona: {experience.zone}</p>}
-                  <p>Duracion: {experience.durationMinutes} min</p>
-                  <p>Idioma: {experience.language}</p>
-                  <p>Cupos por salida: {experience.capacity}</p>
-                  <p>Punto de encuentro: {experience.meetingPoint}</p>
-                  <p>
-                    Cobertura:{' '}
-                    {experience.coverageType === 'PICKUP' ? 'Recogida / traslado' : 'Punto fijo'}
-                  </p>
-                  {experience.coverageType === 'PICKUP' && (
-                    <>
-                      {experience.serviceRadiusKm && (
-                        <p>Radio de cobertura: {experience.serviceRadiusKm} km</p>
-                      )}
-                      {experience.coveredZones && <p>Zonas cubiertas: {experience.coveredZones}</p>}
-                    </>
-                  )}
-                  <p>Horarios: {experience.scheduleText}</p>
-                </div>
-              </article>
-              <article className="surface-card">
-                <h3 className="text-base font-semibold text-slate-900">Precios por pasajero</h3>
-                <div className="mt-3 space-y-2 text-sm text-slate-600">
-                  <p>Adulto: USD {Number(experience.pricePerPerson).toFixed(2)}</p>
-                  <p>
-                    Nino: USD{' '}
-                    {Number(experience.childPrice ?? experience.pricePerPerson).toFixed(2)}
-                  </p>
-                  <p>Infante: USD {Number(experience.infantPrice ?? 0).toFixed(2)}</p>
-                </div>
-              </article>
-            </div>
+            <article className="surface-card">
+              <h3 className="text-base font-semibold text-slate-900">Detalles</h3>
+              <div className="mt-3 grid gap-2 text-sm text-slate-600 md:grid-cols-2">
+                <p>Categoria: {experience.category}</p>
+                <p>Ciudad: {experience.city}</p>
+                {experience.zone && <p>Zona: {experience.zone}</p>}
+                <p>Duracion: {experience.durationMinutes} min</p>
+                <p>Idioma: {experience.language}</p>
+                <p>Cupos por salida: {experience.capacity}</p>
+                <p>Punto de encuentro: {experience.meetingPoint}</p>
+                <p>
+                  Cobertura:{' '}
+                  {experience.coverageType === 'PICKUP' ? 'Recogida / traslado' : 'Punto fijo'}
+                </p>
+                {experience.coverageType === 'PICKUP' && (
+                  <>
+                    {experience.serviceRadiusKm && (
+                      <p>Radio de cobertura: {experience.serviceRadiusKm} km</p>
+                    )}
+                    {experience.coveredZones && <p>Zonas cubiertas: {experience.coveredZones}</p>}
+                  </>
+                )}
+                <p className="md:col-span-2">Horarios: {experience.scheduleText}</p>
+              </div>
+            </article>
 
             {(experience.includesText || experience.excludesText || experience.requirementsText) && (
               <article className="surface-card space-y-3">
@@ -141,13 +130,13 @@ export default async function ExploreDetailPage({ params }: { params: { id: stri
               <div className="rounded-2xl border border-slate-200/70 bg-slate-50/80 px-4 py-3">
                 <p className="text-sm font-semibold text-slate-900">Cotiza tu experiencia</p>
                 <p className="mt-1 text-xs text-slate-500">
-                  Selecciona fechas y participantes para ver el total estimado.
+                  Selecciona fecha y participantes para ver el total estimado final.
                 </p>
               </div>
 
               <div className="mt-4 flex items-start justify-between">
                 <div>
-                  <p className="text-sm text-slate-500">Desde</p>
+                  <p className="text-sm text-slate-500">Precio base por persona</p>
                   <p className="text-3xl font-semibold text-slate-900">
                     USD {Number(experience.pricePerPerson).toFixed(2)}
                   </p>
@@ -170,6 +159,7 @@ export default async function ExploreDetailPage({ params }: { params: { id: stri
                   infantPrice={Number(experience.infantPrice ?? 0)}
                   capacity={experience.capacity}
                   schedules={schedules.length ? schedules : ['A coordinar con el anfitrion']}
+                  pricingParams={pricingParams}
                 />
               </div>
             </div>

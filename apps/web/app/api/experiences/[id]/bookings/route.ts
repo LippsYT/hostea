@@ -5,14 +5,25 @@ import { assertCsrf } from '@/lib/csrf';
 import { requireSession } from '@/lib/permissions';
 import { sendPushToHost } from '@/lib/push-notifications';
 import { createThreadWithParticipants, uniqueParticipantIds } from '@/lib/message-thread-utils';
+import { getSmartPricingParamsFromSettings } from '@/lib/pricing-settings';
+import { calculateExperienceCheckoutQuote } from '@/lib/experience-checkout-pricing';
 
 const schema = z.object({
-  checkIn: z.string().min(1),
-  checkOut: z.string().min(1),
+  date: z.string().optional(),
+  checkIn: z.string().optional(),
+  checkOut: z.string().optional(),
   timeLabel: z.string().optional(),
   adults: z.coerce.number().int().min(1).max(30),
   children: z.coerce.number().int().min(0).max(30),
   infants: z.coerce.number().int().min(0).max(30)
+}).superRefine((value, ctx) => {
+  if (!value.date && !value.checkIn) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['date'],
+      message: 'Fecha requerida'
+    });
+  }
 });
 
 const ACTIVE_BOOKING_STATUSES = ['CONFIRMED', 'PENDING_APPROVAL', 'AWAITING_PAYMENT'];
@@ -45,13 +56,9 @@ export async function POST(
     }
 
     const data = parsed.data;
-    const checkInDate = new Date(data.checkIn);
-    const checkOutDate = new Date(data.checkOut);
-    if (Number.isNaN(checkInDate.getTime()) || Number.isNaN(checkOutDate.getTime())) {
-      return NextResponse.json({ error: 'Fechas invalidas' }, { status: 400 });
-    }
-    if (checkOutDate < checkInDate) {
-      return NextResponse.json({ error: 'Check-out no puede ser menor que check-in' }, { status: 400 });
+    const bookingDate = new Date(data.date || data.checkIn || '');
+    if (Number.isNaN(bookingDate.getTime())) {
+      return NextResponse.json({ error: 'Fecha invalida' }, { status: 400 });
     }
 
     const totalGuests = data.adults + data.children + data.infants;
@@ -65,7 +72,7 @@ export async function POST(
     const occupied = await prisma.experienceBooking.aggregate({
       where: {
         experienceId: experience.id,
-        date: checkInDate,
+        date: bookingDate,
         timeLabel: data.timeLabel || undefined,
         status: { in: ACTIVE_BOOKING_STATUSES }
       },
@@ -88,25 +95,28 @@ export async function POST(
       );
     }
 
-    const adultPrice = Number(experience.pricePerPerson);
-    const childPrice = Number(experience.childPrice ?? experience.pricePerPerson);
-    const infantPrice = Number(experience.infantPrice ?? 0);
-    const total =
-      data.adults * adultPrice + data.children * childPrice + data.infants * infantPrice;
+    const pricingParams = await getSmartPricingParamsFromSettings();
+    const quote = calculateExperienceCheckoutQuote({
+      adults: data.adults,
+      children: data.children,
+      infants: data.infants,
+      adultPrice: Number(experience.pricePerPerson),
+      childPrice: Number(experience.childPrice ?? experience.pricePerPerson),
+      infantPrice: Number(experience.infantPrice ?? 0),
+      pricingParams
+    });
 
     const status = experience.activityType === 'PRIVATE' ? 'PENDING_APPROVAL' : 'CONFIRMED';
     const booking = await prisma.experienceBooking.create({
       data: {
         experienceId: experience.id,
         userId,
-        date: checkInDate,
-        timeLabel:
-          data.timeLabel ||
-          `${data.checkIn}${data.checkOut && data.checkOut !== data.checkIn ? ` -> ${data.checkOut}` : ''}`,
+        date: bookingDate,
+        timeLabel: data.timeLabel || null,
         adults: data.adults,
         children: data.children,
         infants: data.infants,
-        total,
+        total: quote.total,
         currency: 'USD',
         status
       }
@@ -133,8 +143,8 @@ export async function POST(
 
     const messageBody =
       status === 'PENDING_APPROVAL'
-        ? `Solicitud de actividad enviada para ${experience.title} (${data.checkIn} - ${data.checkOut})${data.timeLabel ? `, horario ${data.timeLabel}` : ''}. Participantes: ${totalGuests}.`
-        : `Reserva de actividad confirmada para ${experience.title} (${data.checkIn} - ${data.checkOut})${data.timeLabel ? `, horario ${data.timeLabel}` : ''}. Participantes: ${totalGuests}.`;
+        ? `Solicitud de actividad enviada para ${experience.title} (${(data.date || data.checkIn)})${data.timeLabel ? `, horario ${data.timeLabel}` : ''}. Participantes: ${totalGuests}.`
+        : `Reserva de actividad confirmada para ${experience.title} (${(data.date || data.checkIn)})${data.timeLabel ? `, horario ${data.timeLabel}` : ''}. Participantes: ${totalGuests}.`;
 
     await prisma.message.create({
       data: {

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { calculateExperienceCheckoutQuote } from '@/lib/experience-checkout-pricing';
+import type { SmartPricingParams } from '@/lib/intelligent-pricing';
 
 type ExperienceBookingFormProps = {
   experienceId: string;
@@ -14,6 +16,7 @@ type ExperienceBookingFormProps = {
   infantPrice?: number | null;
   capacity: number;
   schedules: string[];
+  pricingParams?: Partial<SmartPricingParams>;
 };
 
 type GuestCounts = {
@@ -36,7 +39,8 @@ export function ExperienceBookingForm({
   childPrice,
   infantPrice,
   capacity,
-  schedules
+  schedules,
+  pricingParams
 }: ExperienceBookingFormProps) {
   const router = useRouter();
   const [csrfToken, setCsrfToken] = useState('');
@@ -44,8 +48,7 @@ export function ExperienceBookingForm({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [threadId, setThreadId] = useState<string | null>(null);
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
+  const [date, setDate] = useState('');
   const [timeLabel, setTimeLabel] = useState(schedules[0] || '');
   const [guests, setGuests] = useState<GuestCounts>({ adults: 1, children: 0, infants: 0 });
 
@@ -64,15 +67,25 @@ export function ExperienceBookingForm({
     const safeAdult = Math.max(0, Number(adultPrice) || 0);
     const safeChild = Math.max(0, Number(childPrice ?? adultPrice) || 0);
     const safeInfant = Math.max(0, Number(infantPrice ?? 0) || 0);
-    const total =
-      guests.adults * safeAdult + guests.children * safeChild + guests.infants * safeInfant;
+    const quote = calculateExperienceCheckoutQuote({
+      adults: guests.adults,
+      children: guests.children,
+      infants: guests.infants,
+      adultPrice: safeAdult,
+      childPrice: safeChild,
+      infantPrice: safeInfant,
+      pricingParams
+    });
     return {
       safeAdult,
       safeChild,
       safeInfant,
-      total: Math.round(total * 100) / 100
+      hostSubtotal: quote.hostSubtotal,
+      guestServiceFee: quote.guestServiceFee,
+      adminCharges: quote.adminCharges,
+      total: quote.total
     };
-  }, [adultPrice, childPrice, infantPrice, guests]);
+  }, [adultPrice, childPrice, infantPrice, guests, pricingParams]);
 
   const updateGuest = (key: keyof GuestCounts, delta: number) => {
     setGuests((prev) => {
@@ -89,8 +102,8 @@ export function ExperienceBookingForm({
     setError('');
     setSuccess('');
 
-    if (!checkIn || !checkOut) {
-      setError('Selecciona check-in y check-out.');
+    if (!date) {
+      setError('Selecciona una fecha.');
       return;
     }
     if (totalGuests > capacity) {
@@ -107,8 +120,7 @@ export function ExperienceBookingForm({
           'x-csrf-token': csrfToken
         },
         body: JSON.stringify({
-          checkIn,
-          checkOut,
+          date,
           timeLabel,
           adults: guests.adults,
           children: guests.children,
@@ -146,15 +158,15 @@ export function ExperienceBookingForm({
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="space-y-2">
         <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <span>Check-in</span>
+          <span>Fecha</span>
           <div className="relative">
             <span
               aria-hidden="true"
               className={`pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm normal-case tracking-normal ${
-                checkIn ? 'text-slate-900' : 'text-slate-400'
+                date ? 'text-slate-900' : 'text-slate-400'
               }`}
             >
-              {toDateLabel(checkIn)}
+              {toDateLabel(date)}
             </span>
             <Calendar
               aria-hidden="true"
@@ -164,41 +176,8 @@ export function ExperienceBookingForm({
               type="date"
               lang="es-AR"
               required
-              value={checkIn}
-              onChange={(e) => {
-                const next = e.target.value;
-                setCheckIn(next);
-                if (checkOut && next && checkOut < next) {
-                  setCheckOut('');
-                }
-              }}
-              className="date-input date-input-overlay w-full text-slate-900"
-            />
-          </div>
-        </label>
-
-        <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <span>Check-out</span>
-          <div className="relative">
-            <span
-              aria-hidden="true"
-              className={`pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm normal-case tracking-normal ${
-                checkOut ? 'text-slate-900' : 'text-slate-400'
-              }`}
-            >
-              {toDateLabel(checkOut)}
-            </span>
-            <Calendar
-              aria-hidden="true"
-              className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
-            />
-            <Input
-              type="date"
-              lang="es-AR"
-              required
-              min={checkIn || undefined}
-              value={checkOut}
-              onChange={(e) => setCheckOut(e.target.value)}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
               className="date-input date-input-overlay w-full text-slate-900"
             />
           </div>
@@ -259,6 +238,18 @@ export function ExperienceBookingForm({
         <div className="flex items-center justify-between">
           <span>Total estimado</span>
           <span className="text-xl font-semibold text-slate-900">USD {totals.total.toFixed(2)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span>Tarifa base</span>
+          <span>USD {totals.hostSubtotal.toFixed(2)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span>Tarifa de servicio Hostea</span>
+          <span>USD {totals.guestServiceFee.toFixed(2)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span>Cargos administrativos / procesamiento</span>
+          <span>USD {totals.adminCharges.toFixed(2)}</span>
         </div>
         <div className="flex items-center justify-between text-xs text-slate-500">
           <span>Participantes</span>

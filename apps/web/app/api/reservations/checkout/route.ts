@@ -35,6 +35,14 @@ const schema = z.object({
     .optional()
 });
 
+const getTodayIso = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export async function POST(req: Request) {
   try {
     assertCsrf(req);
@@ -49,6 +57,10 @@ export async function POST(req: Request) {
     }
     const { listingId, checkIn, checkOut, guests, guestsBreakdown, upsellExperienceId } = parsed.data;
     await expireAwaitingPaymentReservations();
+    const todayIso = getTodayIso();
+    if (checkIn < todayIso) {
+      return NextResponse.json({ error: 'No puedes reservar fechas pasadas' }, { status: 400 });
+    }
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
     if (Number.isNaN(checkInDate.getTime()) || Number.isNaN(checkOutDate.getTime()) || checkOutDate <= checkInDate) {

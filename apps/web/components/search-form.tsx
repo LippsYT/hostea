@@ -8,6 +8,13 @@ import { Calendar } from 'lucide-react';
 
 export const SearchForm = () => {
   const router = useRouter();
+  const todayIso = (() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  })();
   const [city, setCity] = useState('');
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
@@ -84,17 +91,19 @@ export const SearchForm = () => {
               lang="es-AR"
               aria-label="Check-in"
               required
+              min={todayIso}
               value={checkIn}
               onFocus={(e) => openPickerOnFocus(e.currentTarget)}
               onChange={(e) => {
                 const next = e.target.value;
-                setCheckIn(next);
+                const normalized = next && next < todayIso ? todayIso : next;
+                setCheckIn(normalized);
 
-                if (checkOut && next && checkOut < next) {
+                if (checkOut && normalized && checkOut < normalized) {
                   setCheckOut('');
                 }
 
-                if (next) {
+                if (normalized) {
                   openCheckOutPicker();
                 }
               }}
@@ -123,10 +132,14 @@ export const SearchForm = () => {
               lang="es-AR"
               aria-label="Check-out"
               required
-              min={checkIn || undefined}
+              min={checkIn || todayIso}
               value={checkOut}
               onFocus={(e) => openPickerOnFocus(e.currentTarget)}
-              onChange={(e) => setCheckOut(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                const minCheckout = checkIn || todayIso;
+                setCheckOut(next && next < minCheckout ? minCheckout : next);
+              }}
             />
           </div>
         </label>

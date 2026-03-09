@@ -18,6 +18,13 @@ export const ListingHeader = () => {
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
+  const todayIso = (() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  })();
   const [expanded, setExpanded] = useState(false);
   const [guests, setGuests] = useState<GuestCounts>({ adults: 1, children: 0, infants: 0, pets: 0 });
   const [location, setLocation] = useState('');
@@ -154,13 +161,26 @@ export const ListingHeader = () => {
                   <input
                     type="date"
                     value={checkIn}
-                    onChange={(e) => setCheckIn(e.target.value)}
+                    min={todayIso}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      const normalized = next && next < todayIso ? todayIso : next;
+                      setCheckIn(normalized);
+                      if (checkOut && normalized && checkOut < normalized) {
+                        setCheckOut('');
+                      }
+                    }}
                     className="w-full text-xs text-slate-700 outline-none"
                   />
                   <input
                     type="date"
                     value={checkOut}
-                    onChange={(e) => setCheckOut(e.target.value)}
+                    min={checkIn || todayIso}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      const minCheckout = checkIn || todayIso;
+                      setCheckOut(next && next < minCheckout ? minCheckout : next);
+                    }}
                     className="w-full text-xs text-slate-700 outline-none"
                   />
                 </div>

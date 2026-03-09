@@ -28,6 +28,14 @@ const schema = z.object({
 
 const ACTIVE_BOOKING_STATUSES = ['CONFIRMED', 'PENDING_APPROVAL', 'AWAITING_PAYMENT'];
 
+const getTodayIso = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }
@@ -56,7 +64,11 @@ export async function POST(
     }
 
     const data = parsed.data;
-    const bookingDate = new Date(data.date || data.checkIn || '');
+    const requestedDate = data.date || data.checkIn || '';
+    if (requestedDate < getTodayIso()) {
+      return NextResponse.json({ error: 'No puedes reservar fechas pasadas' }, { status: 400 });
+    }
+    const bookingDate = new Date(requestedDate);
     if (Number.isNaN(bookingDate.getTime())) {
       return NextResponse.json({ error: 'Fecha invalida' }, { status: 400 });
     }
@@ -143,8 +155,8 @@ export async function POST(
 
     const messageBody =
       status === 'PENDING_APPROVAL'
-        ? `Solicitud de actividad enviada para ${experience.title} (${(data.date || data.checkIn)})${data.timeLabel ? `, horario ${data.timeLabel}` : ''}. Participantes: ${totalGuests}.`
-        : `Reserva de actividad confirmada para ${experience.title} (${(data.date || data.checkIn)})${data.timeLabel ? `, horario ${data.timeLabel}` : ''}. Participantes: ${totalGuests}.`;
+        ? `Solicitud de actividad enviada para ${experience.title} (${requestedDate})${data.timeLabel ? `, horario ${data.timeLabel}` : ''}. Participantes: ${totalGuests}.`
+        : `Reserva de actividad confirmada para ${experience.title} (${requestedDate})${data.timeLabel ? `, horario ${data.timeLabel}` : ''}. Participantes: ${totalGuests}.`;
 
     await prisma.message.create({
       data: {

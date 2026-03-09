@@ -43,6 +43,13 @@ export function ExperienceBookingForm({
   pricingParams
 }: ExperienceBookingFormProps) {
   const router = useRouter();
+  const todayIso = (() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  })();
   const [csrfToken, setCsrfToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -104,6 +111,10 @@ export function ExperienceBookingForm({
 
     if (!date) {
       setError('Selecciona una fecha.');
+      return;
+    }
+    if (date < todayIso) {
+      setError('No puedes reservar fechas pasadas.');
       return;
     }
     if (totalGuests > capacity) {
@@ -176,8 +187,12 @@ export function ExperienceBookingForm({
               type="date"
               lang="es-AR"
               required
+              min={todayIso}
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setDate(next && next < todayIso ? todayIso : next);
+              }}
               className="date-input date-input-overlay w-full text-slate-900"
             />
           </div>

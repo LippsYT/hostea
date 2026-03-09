@@ -63,6 +63,13 @@ export const BookingForm = ({
   pricingParams?: Partial<SmartPricingParams>;
   instantBook?: boolean;
 }) => {
+  const todayIso = (() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  })();
   const [csrfToken, setCsrfToken] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [guestOpen, setGuestOpen] = useState(false);
@@ -281,16 +288,21 @@ export const BookingForm = ({
               lang="es-AR"
               aria-label="Check-in"
               required
+              min={todayIso}
               className="date-input date-input-overlay min-w-0 w-full max-w-full overflow-hidden text-slate-900"
               {...checkInField}
               onFocus={(e) => openPickerOnFocus(e.currentTarget)}
               onChange={(e) => {
-                checkInField.onChange(e);
                 const next = e.target.value;
-                if (checkOut && next && checkOut < next) {
+                const normalized = next && next < todayIso ? todayIso : next;
+                if (normalized !== next) {
+                  e.target.value = normalized;
+                }
+                checkInField.onChange(e);
+                if (checkOut && normalized && checkOut < normalized) {
                   setValue('checkOut', '');
                 }
-                if (next) {
+                if (normalized) {
                   openCheckoutPicker();
                 }
               }}
@@ -317,7 +329,7 @@ export const BookingForm = ({
               lang="es-AR"
               aria-label="Check-out"
               required
-              min={checkIn || undefined}
+              min={checkIn || todayIso}
               className="date-input date-input-overlay min-w-0 w-full max-w-full overflow-hidden text-slate-900"
               {...checkOutField}
               ref={(node) => {
@@ -325,7 +337,13 @@ export const BookingForm = ({
                 checkOutRef.current = node;
               }}
               onFocus={(e) => openPickerOnFocus(e.currentTarget)}
-              onChange={(e) => checkOutField.onChange(e)}
+              onChange={(e) => {
+                const minCheckout = checkIn || todayIso;
+                if (e.target.value && e.target.value < minCheckout) {
+                  e.target.value = minCheckout;
+                }
+                checkOutField.onChange(e);
+              }}
             />
           </div>
         </label>

@@ -7,6 +7,14 @@ const parseGuests = (value: string | null) => {
   return Math.max(1, Math.trunc(parsed));
 };
 
+const getTodayIso = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const { searchParams } = new URL(req.url);
   const checkInRaw = searchParams.get('checkIn');
@@ -15,6 +23,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   if (!checkInRaw || !checkOutRaw) {
     return NextResponse.json({ error: 'checkIn y checkOut son requeridos' }, { status: 400 });
+  }
+  if (checkInRaw < getTodayIso()) {
+    return NextResponse.json({ error: 'No puedes consultar fechas pasadas' }, { status: 400 });
   }
 
   const checkIn = new Date(checkInRaw);

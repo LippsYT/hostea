@@ -43,6 +43,26 @@ const getTodayIso = () => {
   return `${year}-${month}-${day}`;
 };
 
+const resolveAppBaseUrl = (req: Request) => {
+  const candidates = [
+    process.env.APP_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXTAUTH_URL,
+    new URL(req.url).origin
+  ];
+
+  for (const value of candidates) {
+    if (!value) continue;
+    try {
+      return new URL(value).origin;
+    } catch {
+      // ignore invalid candidate
+    }
+  }
+
+  throw new Error('No se pudo resolver APP_URL valida');
+};
+
 export async function POST(req: Request) {
   try {
     assertCsrf(req);
@@ -197,6 +217,7 @@ export async function POST(req: Request) {
       });
     }
 
+    const appBaseUrl = resolveAppBaseUrl(req);
     const paymentExpiresAt = buildPaymentExpiresAt();
     const reservation = await prisma.reservation.create({
       data: {
@@ -214,46 +235,72 @@ export async function POST(req: Request) {
       }
     });
 
-    await createOrRefreshReservationHold({
-      listingId,
-      reservationId: reservation.id,
-      checkIn: checkInDate,
-      checkOut: checkOutDate,
-      expiresAt: paymentExpiresAt
-    });
+    try {
+      await createOrRefreshReservationHold({
+        listingId,
+        reservationId: reservation.id,
+        checkIn: checkInDate,
+        checkOut: checkOutDate,
+        expiresAt: paymentExpiresAt
+      });
+    } catch (holdError: any) {
+      await prisma.reservation.delete({ where: { id: reservation.id } }).catch(() => undefined);
+      return NextResponse.json(
+        { error: holdError?.message || 'No se pudo crear el bloqueo temporal' },
+        { status: 500 }
+      );
+    }
 
-    const stripeSession = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
-      success_url: `${process.env.APP_URL}/success?reservationId=${reservation.id}`,
-      cancel_url: `${process.env.APP_URL}/cancel?reservationId=${reservation.id}`,
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: { name: listing.title },
-            unit_amount: Math.round(pricing.total * 100)
-          },
-          quantity: 1
-        }
-      ],
-      metadata: { reservationId: reservation.id }
-    });
+    let stripeSession;
+    try {
+      stripeSession = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        success_url: `${appBaseUrl}/success?reservationId=${reservation.id}`,
+        cancel_url: `${appBaseUrl}/cancel?reservationId=${reservation.id}`,
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: { name: listing.title },
+              unit_amount: Math.round(pricing.total * 100)
+            },
+            quantity: 1
+          }
+        ],
+        metadata: { reservationId: reservation.id }
+      });
+    } catch (stripeError: any) {
+      await prisma.reservation.delete({ where: { id: reservation.id } }).catch(() => undefined);
+      return NextResponse.json(
+        { error: stripeError?.message || 'No se pudo crear checkout' },
+        { status: 500 }
+      );
+    }
 
-    if (!stripeSession.url) {
+    if (!stripeSession?.url) {
+      await prisma.reservation.delete({ where: { id: reservation.id } }).catch(() => undefined);
       return NextResponse.json({ error: 'No se pudo crear checkout' }, { status: 500 });
     }
 
-    await prisma.payment.create({
-      data: {
-        reservationId: reservation.id,
-        userId: (session.user as any).id,
-        stripeSessionId: stripeSession.id,
-        amount: pricing.total,
-        currency: 'USD',
-        status: PaymentStatus.REQUIRES_ACTION
-      }
-    });
+    try {
+      await prisma.payment.create({
+        data: {
+          reservationId: reservation.id,
+          userId: (session.user as any).id,
+          stripeSessionId: stripeSession.id,
+          amount: pricing.total,
+          currency: 'USD',
+          status: PaymentStatus.REQUIRES_ACTION
+        }
+      });
+    } catch (paymentError: any) {
+      await prisma.reservation.delete({ where: { id: reservation.id } }).catch(() => undefined);
+      return NextResponse.json(
+        { error: paymentError?.message || 'No se pudo preparar el pago' },
+        { status: 500 }
+      );
+    }
 
     await sendPushToHost(listing.hostId, {
       title: 'Nueva reserva',

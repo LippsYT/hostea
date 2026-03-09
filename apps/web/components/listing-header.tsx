@@ -34,6 +34,16 @@ export const ListingHeader = () => {
   const totalGuests = guests.adults + guests.children + guests.infants;
   const guestSummary = `${totalGuests} huesped${totalGuests === 1 ? '' : 'es'}` + (guests.pets ? `, ${guests.pets} mascota${guests.pets === 1 ? '' : 's'}` : '');
 
+  const addDaysIso = (value: string, days: number) => {
+    const base = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(base.getTime())) return value;
+    base.setDate(base.getDate() + days);
+    const year = base.getFullYear();
+    const month = String(base.getMonth() + 1).padStart(2, '0');
+    const day = String(base.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const updateGuest = (key: keyof GuestCounts, delta: number) => {
     setGuests((prev) => {
       const next = { ...prev, [key]: Math.max(0, prev[key] + delta) };
@@ -166,7 +176,7 @@ export const ListingHeader = () => {
                       const next = e.target.value;
                       const normalized = next && next < todayIso ? todayIso : next;
                       setCheckIn(normalized);
-                      if (checkOut && normalized && checkOut < normalized) {
+                      if (checkOut && normalized && checkOut <= normalized) {
                         setCheckOut('');
                       }
                     }}
@@ -175,10 +185,10 @@ export const ListingHeader = () => {
                   <input
                     type="date"
                     value={checkOut}
-                    min={checkIn || todayIso}
+                    min={checkIn ? addDaysIso(checkIn, 1) : todayIso}
                     onChange={(e) => {
                       const next = e.target.value;
-                      const minCheckout = checkIn || todayIso;
+                      const minCheckout = checkIn ? addDaysIso(checkIn, 1) : todayIso;
                       setCheckOut(next && next < minCheckout ? minCheckout : next);
                     }}
                     className="w-full text-xs text-slate-700 outline-none"

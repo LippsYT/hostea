@@ -28,6 +28,16 @@ export const SearchForm = () => {
     return `${day}/${month}/${year}`;
   };
 
+  const addDaysIso = (value: string, days: number) => {
+    const base = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(base.getTime())) return value;
+    base.setDate(base.getDate() + days);
+    const year = base.getFullYear();
+    const month = String(base.getMonth() + 1).padStart(2, '0');
+    const day = String(base.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const openCheckOutPicker = () => {
     const target = checkOutRef.current;
     if (!target) return;
@@ -99,7 +109,7 @@ export const SearchForm = () => {
                 const normalized = next && next < todayIso ? todayIso : next;
                 setCheckIn(normalized);
 
-                if (checkOut && normalized && checkOut < normalized) {
+                if (checkOut && normalized && checkOut <= normalized) {
                   setCheckOut('');
                 }
 
@@ -132,12 +142,12 @@ export const SearchForm = () => {
               lang="es-AR"
               aria-label="Check-out"
               required
-              min={checkIn || todayIso}
+              min={checkIn ? addDaysIso(checkIn, 1) : todayIso}
               value={checkOut}
               onFocus={(e) => openPickerOnFocus(e.currentTarget)}
               onChange={(e) => {
                 const next = e.target.value;
-                const minCheckout = checkIn || todayIso;
+                const minCheckout = checkIn ? addDaysIso(checkIn, 1) : todayIso;
                 setCheckOut(next && next < minCheckout ? minCheckout : next);
               }}
             />

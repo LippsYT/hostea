@@ -165,6 +165,16 @@ export const BookingForm = ({
     return `${day}/${month}/${year}`;
   };
 
+  const addDaysIso = (value: string, days: number) => {
+    const base = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(base.getTime())) return value;
+    base.setDate(base.getDate() + days);
+    const year = base.getFullYear();
+    const month = String(base.getMonth() + 1).padStart(2, '0');
+    const day = String(base.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   useEffect(() => {
     if (!checkIn || !checkOut) {
       setAvailability({ loading: false, available: null });
@@ -299,7 +309,7 @@ export const BookingForm = ({
                   e.target.value = normalized;
                 }
                 checkInField.onChange(e);
-                if (checkOut && normalized && checkOut < normalized) {
+                if (checkOut && normalized && checkOut <= normalized) {
                   setValue('checkOut', '');
                 }
                 if (normalized) {
@@ -329,7 +339,7 @@ export const BookingForm = ({
               lang="es-AR"
               aria-label="Check-out"
               required
-              min={checkIn || todayIso}
+              min={checkIn ? addDaysIso(checkIn, 1) : todayIso}
               className="date-input date-input-overlay min-w-0 w-full max-w-full overflow-hidden text-slate-900"
               {...checkOutField}
               ref={(node) => {
@@ -338,7 +348,7 @@ export const BookingForm = ({
               }}
               onFocus={(e) => openPickerOnFocus(e.currentTarget)}
               onChange={(e) => {
-                const minCheckout = checkIn || todayIso;
+                const minCheckout = checkIn ? addDaysIso(checkIn, 1) : todayIso;
                 if (e.target.value && e.target.value < minCheckout) {
                   e.target.value = minCheckout;
                 }

@@ -45,7 +45,8 @@ export default async function AdminPage() {
     id: u.id,
     email: u.email,
     name: u.profile?.name || '',
-    role: u.roles[0]?.role.name || 'CLIENT'
+    role: u.roles[0]?.role.name || 'CLIENT',
+    emailVerified: Boolean(u.emailVerified)
   }));
   const safeListings = listings.map((l) => ({
     id: l.id,

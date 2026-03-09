@@ -1,15 +1,12 @@
 import { PaymentStatus, ReservationStatus } from '@prisma/client';
-import { sendAutoMessagesOnConfirm } from '@/lib/auto-messages';
-import { sendPushToHost } from '@/lib/push-notifications';
 import { deleteReservationHold } from '@/lib/calendar-holds';
-import { ensureReservationNumber } from '@/lib/reservation-number';
 import {
   createCloudbedsReservation,
   getCloudbedsMappingForListing,
   isCloudbedsEnabled
 } from '@/lib/cloudbeds';
 import { enqueueReservationPrintJob } from '@/lib/print-jobs';
-import { sendReservationConfirmedEmails } from '@/lib/reservation-emails';
+import { confirmReservationPayment } from '@/lib/reservation-payment-confirmation';
 
 const ensureThreadMessage = async (
   prisma: any,
@@ -36,6 +33,56 @@ const enqueuePaidPrint = async (prisma: any, reservationId: string) => {
   await enqueueReservationPrintJob(prisma, reservationId, 'paid');
 };
 
+const syncCloudbedsAfterPayment = async (
+  prisma: any,
+  input: {
+    reservationId: string;
+    listingId: string;
+    userId: string;
+    checkIn: Date;
+    checkOut: Date;
+    guestsCount: number;
+    guestName: string;
+    guestEmail: string;
+  }
+) => {
+  if (!isCloudbedsEnabled() || !getCloudbedsMappingForListing(input.listingId)) {
+    return;
+  }
+
+  try {
+    const cloudbeds = await createCloudbedsReservation({
+      listingId: input.listingId,
+      reservationId: input.reservationId,
+      checkIn: input.checkIn,
+      checkOut: input.checkOut,
+      guests: input.guestsCount,
+      guestName: input.guestName,
+      guestEmail: input.guestEmail
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: input.userId,
+        action: 'CLOUDBEDS_RESERVATION_CREATED',
+        entity: 'Reservation',
+        entityId: input.reservationId,
+        meta: { externalId: cloudbeds.externalId, raw: cloudbeds.raw }
+      }
+    });
+  } catch (error: any) {
+    await prisma.auditLog.create({
+      data: {
+        actorId: input.userId,
+        action: 'CLOUDBEDS_RESERVATION_FAILED',
+        entity: 'Reservation',
+        entityId: input.reservationId,
+        meta: { error: error?.message || 'Cloudbeds sync error' }
+      }
+    });
+  }
+};
+
 export const handleStripeWebhook = async (event: any, prisma: any) => {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as any;
@@ -53,232 +100,154 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
         }
       });
 
-      if (offer && offer.status !== 'PAID') {
-        const total = Number(offer.clientTotal);
-        const reservation =
-          offer.reservation ||
-          (await prisma.reservation.create({
-            data: {
-              listingId: offer.listingId,
-              userId: offer.guestId,
-              checkIn: offer.checkIn,
-              checkOut: offer.checkOut,
-              guestsCount: offer.guestsCount,
-              total,
-              currency: offer.currency || 'USD',
-              status: ReservationStatus.CONFIRMED,
-              paymentExpiresAt: null,
-              holdExpiresAt: null
-            }
-          }));
+      if (!offer) {
+        console.warn('stripe-webhook-offer-not-found', { offerId });
+        return;
+      }
 
-        await prisma.payment.upsert({
-          where: { reservationId: reservation.id },
-          create: {
-            reservationId: reservation.id,
-            userId: offer.guestId,
-            stripeSessionId: session.id,
-            stripePaymentIntentId: session.payment_intent,
-            amount: total,
-            currency: offer.currency || 'USD',
-            status: PaymentStatus.SUCCEEDED
-          },
-          update: {
-            stripeSessionId: session.id,
-            stripePaymentIntentId: session.payment_intent,
-            amount: total,
-            currency: offer.currency || 'USD',
-            status: PaymentStatus.SUCCEEDED
-          }
-        });
+      if (offer.status === 'PAID' && offer.reservationId) {
+        return;
+      }
 
-        await prisma.reservation.update({
-          where: { id: reservation.id },
+      const total = Number(offer.clientTotal);
+      const reservation =
+        offer.reservation ||
+        (await prisma.reservation.create({
           data: {
-            status: ReservationStatus.CONFIRMED,
+            listingId: offer.listingId,
+            userId: offer.guestId,
+            checkIn: offer.checkIn,
+            checkOut: offer.checkOut,
+            guestsCount: offer.guestsCount,
+            total,
+            currency: offer.currency || 'USD',
+            status: ReservationStatus.AWAITING_PAYMENT,
             paymentExpiresAt: null,
             holdExpiresAt: null
           }
-        });
-        await ensureReservationNumber(prisma, reservation.id, reservation.createdAt);
+        }));
 
-        await prisma.offer.update({
-          where: { id: offer.id },
-          data: {
-            status: 'PAID',
-            paidAt: new Date(),
-            reservationId: reservation.id
-          }
-        });
-
-        await prisma.calendarBlock.deleteMany({
-          where: { listingId: offer.listingId, createdBy: `offer:${offer.id}` }
-        });
-        await deleteReservationHold(reservation.id, prisma);
-
-        if (!offer.thread.reservationId) {
-          await prisma.messageThread.update({
-            where: { id: offer.threadId },
-            data: {
-              reservationId: reservation.id,
-              status: 'RESERVATION',
-              offerTotal: offer.clientTotal,
-              offerCurrency: offer.currency || 'USD'
-            }
-          });
-        }
-
-        await sendAutoMessagesOnConfirm(reservation.id);
-        await sendReservationConfirmedEmails(reservation.id, prisma);
-        try {
-          await enqueuePaidPrint(prisma, reservation.id);
-        } catch {}
-        await sendPushToHost(
-          offer.listing.hostId,
-          {
-            title: 'Pago confirmado',
-            body: `Oferta pagada y reserva confirmada en ${offer.listing.title}.`,
-            url: `/dashboard/host/reservations?reservationId=${reservation.id}`,
-            type: 'PAYMENT_CONFIRMED'
-          },
-          prisma
-        );
-
-        if (isCloudbedsEnabled() && getCloudbedsMappingForListing(reservation.listingId)) {
-          try {
-            const cloudbeds = await createCloudbedsReservation({
-              listingId: reservation.listingId,
-              reservationId: reservation.id,
-              checkIn: reservation.checkIn,
-              checkOut: reservation.checkOut,
-              guests: reservation.guestsCount,
-              guestName:
-                offer.guest.profile?.name ||
-                offer.guest.email.split('@')[0] ||
-                'Huesped Hostea',
-              guestEmail: offer.guest.email
-            });
-
-            await prisma.auditLog.create({
-              data: {
-                actorId: offer.guestId,
-                action: 'CLOUDBEDS_RESERVATION_CREATED',
-                entity: 'Reservation',
-                entityId: reservation.id,
-                meta: { externalId: cloudbeds.externalId, raw: cloudbeds.raw }
-              }
-            });
-          } catch (error: any) {
-            await prisma.auditLog.create({
-              data: {
-                actorId: offer.guestId,
-                action: 'CLOUDBEDS_RESERVATION_FAILED',
-                entity: 'Reservation',
-                entityId: reservation.id,
-                meta: { error: error?.message || 'Cloudbeds sync error' }
-              }
-            });
-          }
-        }
-      }
-    }
-
-    if (reservationId) {
-      await prisma.payment.updateMany({
-        where: { reservationId },
+      const normalizedReservation = await prisma.reservation.update({
+        where: { id: reservation.id },
         data: {
-          status: PaymentStatus.SUCCEEDED,
-          stripePaymentIntentId: session.payment_intent
-        }
-      });
-      await prisma.reservation.update({
-        where: { id: reservationId },
-        data: {
-          status: ReservationStatus.CONFIRMED,
+          checkIn: offer.checkIn,
+          checkOut: offer.checkOut,
+          guestsCount: offer.guestsCount,
+          total,
+          currency: offer.currency || 'USD',
           paymentExpiresAt: null,
           holdExpiresAt: null
         }
       });
 
+      await prisma.offer.update({
+        where: { id: offer.id },
+        data: {
+          status: 'PAID',
+          paidAt: new Date(),
+          reservationId: reservation.id
+        }
+      });
+
+      await prisma.messageThread.update({
+        where: { id: offer.threadId },
+        data: {
+          reservationId: reservation.id,
+          status: 'RESERVATION',
+          offerTotal: offer.clientTotal,
+          offerCurrency: offer.currency || 'USD',
+          offerExpiresAt: null
+        }
+      });
+
+      await confirmReservationPayment(
+        {
+          reservationId: reservation.id,
+          stripeSessionId: session.id || null,
+          stripePaymentIntentId: session.payment_intent || null,
+          triggerPush: true
+        },
+        prisma
+      );
+
+      await prisma.calendarBlock.deleteMany({
+        where: { listingId: offer.listingId, createdBy: `offer:${offer.id}` }
+      });
+      await deleteReservationHold(reservation.id, prisma).catch(() => undefined);
+      await ensureThreadMessage(
+        prisma,
+        offer.thread?.id,
+        offer.listing.hostId,
+        'Oferta pagada y reserva confirmada.'
+      );
+
+      try {
+        await enqueuePaidPrint(prisma, reservation.id);
+      } catch {}
+
+      await syncCloudbedsAfterPayment(prisma, {
+        reservationId: normalizedReservation.id,
+        listingId: normalizedReservation.listingId,
+        userId: offer.guestId,
+        checkIn: normalizedReservation.checkIn,
+        checkOut: normalizedReservation.checkOut,
+        guestsCount: normalizedReservation.guestsCount,
+        guestName: offer.guest.profile?.name || offer.guest.email.split('@')[0] || 'Huesped Hostea',
+        guestEmail: offer.guest.email
+      });
+
+      return;
+    }
+
+    if (reservationId) {
+      const confirmation = await confirmReservationPayment(
+        {
+          reservationId,
+          stripeSessionId: session.id || null,
+          stripePaymentIntentId: session.payment_intent || null,
+          triggerPush: true
+        },
+        prisma
+      );
+      if (!confirmation.ok) {
+        console.warn('stripe-webhook-confirmation-skipped', {
+          reservationId,
+          reason: confirmation.reason
+        });
+        return;
+      }
+
       const reservation = await prisma.reservation.findUnique({
         where: { id: reservationId },
         include: {
           listing: true,
-          user: { include: { profile: true } },
-          thread: true
+          user: { include: { profile: true } }
         }
       });
-      if (reservation) {
-        await ensureReservationNumber(prisma, reservation.id, reservation.createdAt);
-        await deleteReservationHold(reservation.id, prisma);
+      if (!reservation) return;
 
-        if (reservation.thread?.id) {
-          await prisma.messageThread.update({
-            where: { id: reservation.thread.id },
-            data: { status: 'RESERVATION' }
-          });
-          await ensureThreadMessage(
-            prisma,
-            reservation.thread.id,
-            reservation.listing.hostId,
-            'Reserva confirmada.'
-          );
-        }
+      try {
+        await enqueuePaidPrint(prisma, reservation.id);
+      } catch {}
 
-        await sendAutoMessagesOnConfirm(reservation.id);
-        await sendReservationConfirmedEmails(reservation.id, prisma);
-        try {
-          await enqueuePaidPrint(prisma, reservation.id);
-        } catch {}
-        await sendPushToHost(
-          reservation.listing.hostId,
-          {
-            title: 'Pago confirmado',
-            body: `Nueva reserva confirmada en ${reservation.listing.title}.`,
-            url: `/dashboard/host/reservations?reservationId=${reservation.id}`,
-            type: 'PAYMENT_CONFIRMED'
-          },
-          prisma
-        );
-
-        if (isCloudbedsEnabled() && getCloudbedsMappingForListing(reservation.listingId)) {
-          try {
-            const cloudbeds = await createCloudbedsReservation({
-              listingId: reservation.listingId,
-              reservationId: reservation.id,
-              checkIn: reservation.checkIn,
-              checkOut: reservation.checkOut,
-              guests: reservation.guestsCount,
-              guestName:
-                reservation.user.profile?.name ||
-                reservation.user.email.split('@')[0] ||
-                'Huesped Hostea',
-              guestEmail: reservation.user.email
-            });
-
-            await prisma.auditLog.create({
-              data: {
-                actorId: reservation.userId,
-                action: 'CLOUDBEDS_RESERVATION_CREATED',
-                entity: 'Reservation',
-                entityId: reservation.id,
-                meta: { externalId: cloudbeds.externalId, raw: cloudbeds.raw }
-              }
-            });
-          } catch (error: any) {
-            await prisma.auditLog.create({
-              data: {
-                actorId: reservation.userId,
-                action: 'CLOUDBEDS_RESERVATION_FAILED',
-                entity: 'Reservation',
-                entityId: reservation.id,
-                meta: { error: error?.message || 'Cloudbeds sync error' }
-              }
-            });
-          }
-        }
-      }
+      await syncCloudbedsAfterPayment(prisma, {
+        reservationId: reservation.id,
+        listingId: reservation.listingId,
+        userId: reservation.userId,
+        checkIn: reservation.checkIn,
+        checkOut: reservation.checkOut,
+        guestsCount: reservation.guestsCount,
+        guestName:
+          reservation.user.profile?.name || reservation.user.email.split('@')[0] || 'Huesped Hostea',
+        guestEmail: reservation.user.email
+      });
+      return;
     }
+
+    console.warn('stripe-webhook-session-without-reservation', {
+      sessionId: session.id,
+      metadata: session.metadata || null
+    });
   }
 
   if (event.type === 'charge.refunded') {

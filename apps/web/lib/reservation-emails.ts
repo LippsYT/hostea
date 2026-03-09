@@ -7,15 +7,12 @@ import { calcBreakdown } from '@/lib/intelligent-pricing';
 import { sendEmail } from '@/lib/email';
 import { buildSimplePdfBuffer } from '@/lib/simple-pdf';
 import { ensureReservationNumber } from '@/lib/reservation-number';
+import { resolveAppOrigin } from '@/lib/app-url';
 
 const formatDateForEmail = (value: Date) => format(value, 'yyyy-MM-dd');
 const formatMoneyForEmail = (value: number) => `USD ${value.toFixed(2)}`;
 const contactEmail = process.env.EMAIL_FROM_CONTACT || 'contacto@gohostea.com';
-const appBaseUrl =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  process.env.APP_URL ||
-  process.env.NEXTAUTH_URL ||
-  'https://gohostea.com';
+const appBaseUrl = resolveAppOrigin();
 const CONFIRMABLE_RESERVATION_STATUSES: ReservationStatus[] = [
   ReservationStatus.CONFIRMED,
   ReservationStatus.CHECKED_IN,

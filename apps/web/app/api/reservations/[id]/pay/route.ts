@@ -9,9 +9,10 @@ import { checkListingAvailability } from '@/lib/listing-availability';
 import {
   expireAwaitingPaymentReservations
 } from '@/lib/reservation-request-flow';
-import { createOrRefreshReservationHold } from '@/lib/calendar-holds';
+import { createOrRefreshReservationHold, deleteReservationHold } from '@/lib/calendar-holds';
 import { getReservationWorkflowStatus } from '@/lib/reservation-workflow';
 import { sendPushToHost } from '@/lib/push-notifications';
+import { buildAppUrl } from '@/lib/app-url';
 
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
   try {
@@ -78,49 +79,78 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     });
 
     const amount = Number(reservation.total);
-    const stripeSession = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
-      success_url: `${process.env.APP_URL}/success?reservationId=${reservation.id}`,
-      cancel_url: `${process.env.APP_URL}/cancel?reservationId=${reservation.id}`,
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: { name: reservation.listing.title },
-            unit_amount: Math.round(amount * 100)
-          },
-          quantity: 1
-        }
-      ],
-      metadata: { reservationId: reservation.id, kind: 'reservation_approval_payment' }
-    });
+    let stripeSession;
+    try {
+      stripeSession = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        success_url: buildAppUrl(
+          `/success?reservationId=${reservation.id}&session_id={CHECKOUT_SESSION_ID}`,
+          _req.url
+        ),
+        cancel_url: buildAppUrl(`/cancel?reservationId=${reservation.id}`, _req.url),
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: { name: reservation.listing.title },
+              unit_amount: Math.round(amount * 100)
+            },
+            quantity: 1
+          }
+        ],
+        metadata: { reservationId: reservation.id, kind: 'reservation_approval_payment' }
+      });
+    } catch (stripeError: any) {
+      await deleteReservationHold(reservation.id).catch(() => undefined);
+      return NextResponse.json(
+        { error: stripeError?.message || 'No se pudo iniciar checkout' },
+        { status: 500 }
+      );
+    }
 
     if (!stripeSession.url) {
+      await deleteReservationHold(reservation.id).catch(() => undefined);
       return NextResponse.json({ error: 'No se pudo iniciar checkout' }, { status: 500 });
     }
 
     if (reservation.payment) {
-      await prisma.payment.update({
-        where: { id: reservation.payment.id },
-        data: {
-          stripeSessionId: stripeSession.id,
-          amount,
-          currency: reservation.currency || 'USD',
-          status: PaymentStatus.REQUIRES_ACTION
-        }
-      });
+      try {
+        await prisma.payment.update({
+          where: { id: reservation.payment.id },
+          data: {
+            stripeSessionId: stripeSession.id,
+            amount,
+            currency: reservation.currency || 'USD',
+            status: PaymentStatus.REQUIRES_ACTION
+          }
+        });
+      } catch (paymentError: any) {
+        await deleteReservationHold(reservation.id).catch(() => undefined);
+        return NextResponse.json(
+          { error: paymentError?.message || 'No se pudo preparar el pago' },
+          { status: 500 }
+        );
+      }
     } else {
-      await prisma.payment.create({
-        data: {
-          reservationId: reservation.id,
-          userId: reservation.userId,
-          stripeSessionId: stripeSession.id,
-          amount,
-          currency: reservation.currency || 'USD',
-          status: PaymentStatus.REQUIRES_ACTION
-        }
-      });
+      try {
+        await prisma.payment.create({
+          data: {
+            reservationId: reservation.id,
+            userId: reservation.userId,
+            stripeSessionId: stripeSession.id,
+            amount,
+            currency: reservation.currency || 'USD',
+            status: PaymentStatus.REQUIRES_ACTION
+          }
+        });
+      } catch (paymentError: any) {
+        await deleteReservationHold(reservation.id).catch(() => undefined);
+        return NextResponse.json(
+          { error: paymentError?.message || 'No se pudo preparar el pago' },
+          { status: 500 }
+        );
+      }
     }
 
     if (reservation.thread?.id) {

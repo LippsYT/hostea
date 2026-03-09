@@ -9,7 +9,8 @@ import { checkListingAvailability } from '@/lib/listing-availability';
 import { sendPushToHost } from '@/lib/push-notifications';
 import { PaymentStatus, ReservationStatus } from '@prisma/client';
 import { buildPaymentExpiresAt } from '@/lib/reservation-request-flow';
-import { createOrRefreshReservationHold } from '@/lib/calendar-holds';
+import { createOrRefreshReservationHold, deleteReservationHold } from '@/lib/calendar-holds';
+import { buildAppUrl } from '@/lib/app-url';
 
 const schema = z.object({
   offerId: z.string().optional()
@@ -95,6 +96,7 @@ export async function POST(
     }
 
     const paymentExpiresAt = buildPaymentExpiresAt();
+    const wasExistingReservation = Boolean(existingReservation);
     const reservation =
       existingReservation ||
       (await prisma.reservation.create({
@@ -121,40 +123,69 @@ export async function POST(
       }
     });
 
-    await createOrRefreshReservationHold({
-      listingId: offer.listingId,
-      reservationId: reservation.id,
-      checkIn: offer.checkIn,
-      checkOut: offer.checkOut,
-      expiresAt: paymentExpiresAt
-    });
-
-    const stripeSession = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
-      success_url: `${process.env.APP_URL}/success?offerId=${offer.id}&reservationId=${reservation.id}`,
-      cancel_url: `${process.env.APP_URL}/cancel?offerId=${offer.id}&reservationId=${reservation.id}`,
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: { name: `${offer.listing.title} (Oferta especial)` },
-            unit_amount: Math.round(offerAmount * 100)
-          },
-          quantity: 1
-        }
-      ],
-      metadata: {
-        kind: 'special_offer',
-        offerId: offer.id,
-        threadId: thread.id,
+    try {
+      await createOrRefreshReservationHold({
         listingId: offer.listingId,
-        guestId: userId,
-        reservationId: reservation.id
+        reservationId: reservation.id,
+        checkIn: offer.checkIn,
+        checkOut: offer.checkOut,
+        expiresAt: paymentExpiresAt
+      });
+    } catch (holdError: any) {
+      if (!wasExistingReservation) {
+        await prisma.reservation.delete({ where: { id: reservation.id } }).catch(() => undefined);
       }
-    });
+      return NextResponse.json(
+        { error: holdError?.message || 'No se pudo crear el bloqueo temporal' },
+        { status: 500 }
+      );
+    }
+
+    let stripeSession;
+    try {
+      stripeSession = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        success_url: buildAppUrl(
+          `/success?offerId=${offer.id}&reservationId=${reservation.id}&session_id={CHECKOUT_SESSION_ID}`,
+          req.url
+        ),
+        cancel_url: buildAppUrl(`/cancel?offerId=${offer.id}&reservationId=${reservation.id}`, req.url),
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: { name: `${offer.listing.title} (Oferta especial)` },
+              unit_amount: Math.round(offerAmount * 100)
+            },
+            quantity: 1
+          }
+        ],
+        metadata: {
+          kind: 'special_offer',
+          offerId: offer.id,
+          threadId: thread.id,
+          listingId: offer.listingId,
+          guestId: userId,
+          reservationId: reservation.id
+        }
+      });
+    } catch (stripeError: any) {
+      await deleteReservationHold(reservation.id).catch(() => undefined);
+      if (!wasExistingReservation) {
+        await prisma.reservation.delete({ where: { id: reservation.id } }).catch(() => undefined);
+      }
+      return NextResponse.json(
+        { error: stripeError?.message || 'No se pudo iniciar checkout' },
+        { status: 500 }
+      );
+    }
 
     if (!stripeSession.url) {
+      await deleteReservationHold(reservation.id).catch(() => undefined);
+      if (!wasExistingReservation) {
+        await prisma.reservation.delete({ where: { id: reservation.id } }).catch(() => undefined);
+      }
       return NextResponse.json({ error: 'No se pudo iniciar checkout' }, { status: 500 });
     }
 
@@ -180,26 +211,48 @@ export async function POST(
     });
 
     if (existingReservation?.payment) {
-      await prisma.payment.update({
-        where: { id: existingReservation.payment.id },
-        data: {
-          stripeSessionId: stripeSession.id,
-          amount: offer.clientTotal,
-          currency: offer.currency || 'USD',
-          status: PaymentStatus.REQUIRES_ACTION
+      try {
+        await prisma.payment.update({
+          where: { id: existingReservation.payment.id },
+          data: {
+            stripeSessionId: stripeSession.id,
+            amount: offer.clientTotal,
+            currency: offer.currency || 'USD',
+            status: PaymentStatus.REQUIRES_ACTION
+          }
+        });
+      } catch (paymentError: any) {
+        await deleteReservationHold(reservation.id).catch(() => undefined);
+        if (!wasExistingReservation) {
+          await prisma.reservation.delete({ where: { id: reservation.id } }).catch(() => undefined);
         }
-      });
+        return NextResponse.json(
+          { error: paymentError?.message || 'No se pudo preparar el pago' },
+          { status: 500 }
+        );
+      }
     } else {
-      await prisma.payment.create({
-        data: {
-          reservationId: reservation.id,
-          userId: offer.guestId,
-          stripeSessionId: stripeSession.id,
-          amount: offer.clientTotal,
-          currency: offer.currency || 'USD',
-          status: PaymentStatus.REQUIRES_ACTION
+      try {
+        await prisma.payment.create({
+          data: {
+            reservationId: reservation.id,
+            userId: offer.guestId,
+            stripeSessionId: stripeSession.id,
+            amount: offer.clientTotal,
+            currency: offer.currency || 'USD',
+            status: PaymentStatus.REQUIRES_ACTION
+          }
+        });
+      } catch (paymentError: any) {
+        await deleteReservationHold(reservation.id).catch(() => undefined);
+        if (!wasExistingReservation) {
+          await prisma.reservation.delete({ where: { id: reservation.id } }).catch(() => undefined);
         }
-      });
+        return NextResponse.json(
+          { error: paymentError?.message || 'No se pudo preparar el pago' },
+          { status: 500 }
+        );
+      }
     }
 
     await prisma.message.create({

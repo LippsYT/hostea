@@ -13,11 +13,12 @@ import {
   buildPaymentExpiresAt,
   expireAwaitingPaymentReservations
 } from '@/lib/reservation-request-flow';
-import { createOrRefreshReservationHold } from '@/lib/calendar-holds';
+import { createOrRefreshReservationHold, deleteReservationHold } from '@/lib/calendar-holds';
 import { isExperienceCompatibleWithListingZone } from '@/lib/experience-matching';
 import { createThreadWithParticipants, uniqueParticipantIds } from '@/lib/message-thread-utils';
 import { calculateListingCheckoutQuote } from '@/lib/listing-checkout-pricing';
 import { getSmartPricingParamsFromSettings } from '@/lib/pricing-settings';
+import { buildAppUrl } from '@/lib/app-url';
 
 const schema = z.object({
   listingId: z.string(),
@@ -41,26 +42,6 @@ const getTodayIso = () => {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-};
-
-const resolveAppBaseUrl = (req: Request) => {
-  const candidates = [
-    process.env.APP_URL,
-    process.env.NEXT_PUBLIC_APP_URL,
-    process.env.NEXTAUTH_URL,
-    new URL(req.url).origin
-  ];
-
-  for (const value of candidates) {
-    if (!value) continue;
-    try {
-      return new URL(value).origin;
-    } catch {
-      // ignore invalid candidate
-    }
-  }
-
-  throw new Error('No se pudo resolver APP_URL valida');
 };
 
 export async function POST(req: Request) {
@@ -217,7 +198,6 @@ export async function POST(req: Request) {
       });
     }
 
-    const appBaseUrl = resolveAppBaseUrl(req);
     const paymentExpiresAt = buildPaymentExpiresAt();
     const reservation = await prisma.reservation.create({
       data: {
@@ -234,6 +214,11 @@ export async function POST(req: Request) {
         holdExpiresAt: paymentExpiresAt
       }
     });
+    const successUrl = buildAppUrl(
+      `/success?reservationId=${reservation.id}&session_id={CHECKOUT_SESSION_ID}`,
+      req.url
+    );
+    const cancelUrl = buildAppUrl(`/cancel?reservationId=${reservation.id}`, req.url);
 
     try {
       await createOrRefreshReservationHold({
@@ -256,8 +241,8 @@ export async function POST(req: Request) {
       stripeSession = await stripe.checkout.sessions.create({
         mode: 'payment',
         payment_method_types: ['card'],
-        success_url: `${appBaseUrl}/success?reservationId=${reservation.id}`,
-        cancel_url: `${appBaseUrl}/cancel?reservationId=${reservation.id}`,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
         line_items: [
           {
             price_data: {
@@ -271,6 +256,7 @@ export async function POST(req: Request) {
         metadata: { reservationId: reservation.id }
       });
     } catch (stripeError: any) {
+      await deleteReservationHold(reservation.id).catch(() => undefined);
       await prisma.reservation.delete({ where: { id: reservation.id } }).catch(() => undefined);
       return NextResponse.json(
         { error: stripeError?.message || 'No se pudo crear checkout' },
@@ -279,6 +265,7 @@ export async function POST(req: Request) {
     }
 
     if (!stripeSession?.url) {
+      await deleteReservationHold(reservation.id).catch(() => undefined);
       await prisma.reservation.delete({ where: { id: reservation.id } }).catch(() => undefined);
       return NextResponse.json({ error: 'No se pudo crear checkout' }, { status: 500 });
     }
@@ -295,6 +282,7 @@ export async function POST(req: Request) {
         }
       });
     } catch (paymentError: any) {
+      await deleteReservationHold(reservation.id).catch(() => undefined);
       await prisma.reservation.delete({ where: { id: reservation.id } }).catch(() => undefined);
       return NextResponse.json(
         { error: paymentError?.message || 'No se pudo preparar el pago' },

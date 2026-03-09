@@ -85,6 +85,8 @@ export const AdminFinance = ({
   const [printConfig, setPrintConfig] = useState<AdminPrintSettingsRow>(printSettings);
   const [printBusy, setPrintBusy] = useState(false);
   const [printFeedback, setPrintFeedback] = useState('');
+  const [emailBusyReservationId, setEmailBusyReservationId] = useState<string | null>(null);
+  const [emailFeedback, setEmailFeedback] = useState('');
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
@@ -232,6 +234,23 @@ export const AdminFinance = ({
     if (res.ok) window.location.reload();
   };
 
+  const resendReservationEmail = async (reservationId: string) => {
+    setEmailFeedback('');
+    setEmailBusyReservationId(reservationId);
+    const res = await fetch('/api/admin/reservations/resend-confirmation-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify({ reservationId })
+    });
+    const data = await res.json().catch(() => ({}));
+    setEmailBusyReservationId(null);
+    if (!res.ok) {
+      setEmailFeedback(data?.error || 'No se pudo reenviar el email.');
+      return;
+    }
+    setEmailFeedback('Email de reserva reenviado correctamente.');
+  };
+
   return (
     <div className="space-y-8">
       <div className="surface-card">
@@ -345,6 +364,7 @@ export const AdminFinance = ({
           </div>
         </div>
         {printFeedback ? <p className="mt-3 text-sm text-slate-600">{printFeedback}</p> : null}
+        {emailFeedback ? <p className="mt-2 text-sm text-slate-600">{emailFeedback}</p> : null}
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <label className="surface-muted flex items-center gap-2 text-sm text-slate-700">
             <input
@@ -490,12 +510,22 @@ export const AdminFinance = ({
                   <p>{formatMoney(r.hostNet)}</p>
                   <Badge className={reservationStatusBadgeClass(r.status)}>{reservationStatusLabel(r.status)}</Badge>
                 </div>
-                <Link
-                  className="text-xs font-semibold text-slate-900"
-                  href={`/dashboard/admin/finance/reports/${selectedPeriod}?hostId=${r.hostId}`}
-                >
-                  Ver liquidacion
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link
+                    className="text-xs font-semibold text-slate-900"
+                    href={`/dashboard/admin/finance/reports/${selectedPeriod}?hostId=${r.hostId}`}
+                  >
+                    Ver liquidacion
+                  </Link>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => resendReservationEmail(r.id)}
+                    disabled={emailBusyReservationId === r.id}
+                  >
+                    {emailBusyReservationId === r.id ? 'Enviando...' : 'Reenviar email'}
+                  </Button>
+                </div>
               </div>
             ))}
             {pendingPayouts.length === 0 && <p className="text-sm text-slate-500">Sin pagos pendientes.</p>}
@@ -521,6 +551,14 @@ export const AdminFinance = ({
                   >
                     Ver liquidacion
                   </Link>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => resendReservationEmail(r.id)}
+                    disabled={emailBusyReservationId === r.id}
+                  >
+                    {emailBusyReservationId === r.id ? 'Enviando...' : 'Reenviar email'}
+                  </Button>
                   <Button size="sm" variant="outline" onClick={() => markPaid(r.id)}>
                     Marcar pagado
                   </Button>
@@ -543,12 +581,22 @@ export const AdminFinance = ({
               </div>
               <div className="text-right">
                 <p>{formatMoney(p.amount, p.currency)}</p>
-                <Link
-                  className="text-xs font-semibold text-slate-900"
-                  href={`/dashboard/admin/finance/reports/${selectedPeriod}${selectedHost !== 'all' ? `?hostId=${selectedHost}` : ''}`}
-                >
-                  Descargar PDF
-                </Link>
+                <div className="mt-1 flex items-center justify-end gap-2">
+                  <Link
+                    className="text-xs font-semibold text-slate-900"
+                    href={`/dashboard/admin/finance/reports/${selectedPeriod}${selectedHost !== 'all' ? `?hostId=${selectedHost}` : ''}`}
+                  >
+                    Descargar PDF
+                  </Link>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => resendReservationEmail(p.reservationId)}
+                    disabled={emailBusyReservationId === p.reservationId}
+                  >
+                    {emailBusyReservationId === p.reservationId ? 'Enviando...' : 'Reenviar email'}
+                  </Button>
+                </div>
               </div>
             </div>
           ))}

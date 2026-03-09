@@ -4,15 +4,18 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PushSubscribeCard } from '@/components/push-subscribe-card';
+import { AccountSecurityCard } from '@/components/account-security-card';
 
 export const ClientProfile = ({
   initialName,
   initialPhone,
+  email,
   kycStatus,
   roles
 }: {
   initialName: string;
   initialPhone: string | null;
+  email: string;
   kycStatus: string | null;
   roles: string[];
 }) => {
@@ -66,6 +69,8 @@ export const ClientProfile = ({
           <Input placeholder="Telefono" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
       </div>
+
+      <AccountSecurityCard email={email} />
 
       <div className="surface-card">
         <div className="flex flex-wrap items-center justify-between gap-3">

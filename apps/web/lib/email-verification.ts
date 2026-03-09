@@ -32,10 +32,38 @@ const ensureRole = async (name: RoleName, db = prisma) =>
   });
 
 export const markEmailAsVerified = async (email: string, db = prisma) => {
-  const user = await db.user.findUnique({
-    where: { email },
+  const normalizedEmail = email.trim().toLowerCase();
+  let user = await db.user.findUnique({
+    where: { email: normalizedEmail },
     include: { roles: true }
   });
+
+  if (!user) {
+    const pending = await db.settings.findUnique({
+      where: { key: `pendingEmailChange:${normalizedEmail}` }
+    });
+    const pendingUserId = typeof pending?.value === 'object' && pending?.value
+      ? (pending.value as any).userId as string | undefined
+      : undefined;
+
+    if (pendingUserId) {
+      user = await db.user.findUnique({
+        where: { id: pendingUserId },
+        include: { roles: true }
+      });
+      if (user) {
+        await db.user.update({
+          where: { id: user.id },
+          data: {
+            email: normalizedEmail,
+            emailVerified: user.emailVerified || new Date()
+          }
+        });
+        await db.settings.delete({ where: { key: `pendingEmailChange:${normalizedEmail}` } }).catch(() => undefined);
+      }
+    }
+  }
+
   if (!user) return null;
 
   const now = new Date();

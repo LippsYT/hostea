@@ -1,5 +1,7 @@
 import { addHours, differenceInCalendarDays, endOfDay, format, startOfDay, subHours } from 'date-fns';
 import { PaymentStatus, ReservationStatus } from '@prisma/client';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { prisma } from '@/lib/db';
 import { calcBreakdown } from '@/lib/intelligent-pricing';
 import { sendEmail } from '@/lib/email';
@@ -22,10 +24,51 @@ const hasEmailBeenSent = async (key: string, db = prisma) => {
 const markEmailSent = async (key: string, db = prisma) => {
   await db.settings.upsert({
     where: { key },
-    update: { value: true },
-    create: { key, value: true }
+    update: { value: { sentAt: new Date().toISOString() } },
+    create: { key, value: { sentAt: new Date().toISOString() } }
   });
 };
+
+let confirmationTemplateCache: string | null = null;
+
+const getReservationConfirmationTemplate = () => {
+  if (confirmationTemplateCache) return confirmationTemplateCache;
+
+  const configuredPath = process.env.RESERVATION_CONFIRMATION_TEMPLATE_PATH?.trim();
+  const candidates = [
+    configuredPath || '',
+    path.join(process.cwd(), 'templates', 'reservation-confirmed.html'),
+    path.join(process.cwd(), 'apps', 'web', 'templates', 'reservation-confirmed.html')
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      confirmationTemplateCache = readFileSync(candidate, 'utf-8');
+      return confirmationTemplateCache;
+    }
+  }
+
+  confirmationTemplateCache = `
+    <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.5">
+      <h2 style="margin-bottom:8px;">HOSTEA - Reserva confirmada</h2>
+      <p>Hola <strong>{{guest_name}}</strong>, tu reserva fue confirmada.</p>
+      <p><strong>{{property_name}}</strong></p>
+      <p>{{property_address}}</p>
+      <ul>
+        <li>Check-in: {{check_in}}</li>
+        <li>Check-out: {{check_out}}</li>
+        <li>Huespedes: {{guests}}</li>
+        <li>Total pagado: {{total_amount}}</li>
+      </ul>
+      <p><a href="{{reservation_url}}">Ver reserva</a></p>
+    </div>
+  `.trim();
+
+  return confirmationTemplateCache;
+};
+
+const renderTemplate = (template: string, variables: Record<string, string>) =>
+  template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key: string) => variables[key] ?? '');
 
 const ensureSystemMessage = async (reservationId: string, body: string, db = prisma) => {
   const reservation = await db.reservation.findUnique({
@@ -125,6 +168,7 @@ const buildInvoicePdf = (data: {
 
 const buildGuestConfirmationHtml = (input: {
   reservationNumber: string;
+  guestName: string;
   listingTitle: string;
   listingPhoto: string | null;
   address: string;
@@ -139,30 +183,30 @@ const buildGuestConfirmationHtml = (input: {
   assistancePhoneSecondary: string | null;
   reservationUrl: string;
 }) => {
-  const image = input.listingPhoto
-    ? `<img src="${input.listingPhoto}" alt="Alojamiento" style="width:100%;max-width:280px;border-radius:12px;display:block;margin:0 auto 16px;" />`
-    : '';
+  const template = getReservationConfirmationTemplate();
+  const content = renderTemplate(template, {
+    guest_name: input.guestName,
+    property_name: input.listingTitle,
+    property_address: input.address,
+    check_in: format(input.checkIn, 'yyyy-MM-dd'),
+    check_out: format(input.checkOut, 'yyyy-MM-dd'),
+    guests: String(input.guestsCount),
+    total_amount: money(input.total),
+    reservation_url: input.reservationUrl,
+    property_image_url:
+      input.listingPhoto || `${process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://gohostea.com'}/brand/hostea-logo.jpeg`
+  });
 
   return `
-    <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.5">
-      <h2 style="margin-bottom:8px;">HOSTEA - Reserva confirmada</h2>
-      <p style="margin-top:0;">Numero de reserva: <strong>${input.reservationNumber}</strong></p>
-      ${image}
-      <p><strong>${input.listingTitle}</strong></p>
-      <p>${input.address}</p>
-      <ul>
-        <li>Check-in: ${format(input.checkIn, 'yyyy-MM-dd')}</li>
-        <li>Check-out: ${format(input.checkOut, 'yyyy-MM-dd')}</li>
-        <li>Huespedes: ${input.guestsCount}</li>
-        <li>Total pagado: ${money(input.total)}</li>
-        <li>Estado del pago: ${input.paymentStatus}</li>
-      </ul>
+    ${content}
+    <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.5;margin-top:16px;">
+      <p><strong>Numero de reserva:</strong> ${input.reservationNumber}</p>
+      <p><strong>Estado del pago:</strong> ${input.paymentStatus}</p>
       <p><strong>Instrucciones check-in:</strong> ${safeText(input.checkInInstructions)}</p>
       <p><strong>Instrucciones check-out:</strong> ${safeText(input.checkOutInstructions)}</p>
       <p><strong>Asistencia:</strong> ${safeText(input.assistancePhone)}</p>
       <p><strong>Asistencia secundaria:</strong> ${safeText(input.assistancePhoneSecondary)}</p>
       <p>Te adjuntamos tu factura en PDF.</p>
-      <p><a href="${input.reservationUrl}" style="display:inline-block;padding:10px 14px;background:#0f172a;color:#fff;text-decoration:none;border-radius:999px;">Ver reserva</a></p>
       <p style="font-size:12px;color:#64748b;">Contacto: ${contactEmail}</p>
     </div>
   `;
@@ -212,10 +256,21 @@ const getReservationPayload = async (reservationId: string, db = prisma) => {
   });
 };
 
-export const sendReservationConfirmedEmails = async (reservationId: string, db = prisma) => {
+export const sendReservationConfirmedEmails = async (
+  reservationId: string,
+  db = prisma,
+  options?: { force?: boolean }
+) => {
+  const confirmationKey = emailKey(reservationId, 'confirmed');
+  if (!options?.force && (await hasEmailBeenSent(confirmationKey, db))) {
+    return { sent: false, reason: 'already-sent' as const };
+  }
+
   const payload = await getReservationPayload(reservationId, db);
-  if (!payload) return;
-  if (payload.payment?.status !== PaymentStatus.SUCCEEDED) return;
+  if (!payload) return { sent: false, reason: 'not-found' as const };
+  if (payload.payment?.status !== PaymentStatus.SUCCEEDED) {
+    return { sent: false, reason: 'payment-not-succeeded' as const };
+  }
 
   const reservationNumber =
     payload.reservationNumber ||
@@ -246,6 +301,7 @@ export const sendReservationConfirmedEmails = async (reservationId: string, db =
 
   const guestHtml = buildGuestConfirmationHtml({
     reservationNumber,
+    guestName,
     listingTitle: payload.listing.title,
     listingPhoto: payload.listing.photos[0]?.url || null,
     address: `${payload.listing.address}, ${payload.listing.neighborhood}, ${payload.listing.city}`,
@@ -295,6 +351,9 @@ export const sendReservationConfirmedEmails = async (reservationId: string, db =
     'Tu reserva fue confirmada. En este correo encontraras tu factura y las instrucciones de ingreso.',
     db
   );
+
+  await markEmailSent(confirmationKey, db);
+  return { sent: true as const };
 };
 
 export const sendCheckInReminderEmail = async (reservationId: string, db = prisma) => {

@@ -22,6 +22,7 @@ export default async function ClientProfilePage() {
       <ClientProfile
         initialName={profile?.name || ''}
         initialPhone={profile?.phone || ''}
+        email={(session?.user as any)?.email || ''}
         kycStatus={lastKyc?.status || null}
         roles={roles}
       />

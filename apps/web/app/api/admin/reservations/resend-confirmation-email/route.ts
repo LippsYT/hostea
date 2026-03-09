@@ -29,6 +29,18 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
+      if (result?.reason === 'email-error') {
+        return NextResponse.json(
+          { error: 'Fallo el envio del email. Revisa la configuracion de Resend.' },
+          { status: 502 }
+        );
+      }
+      if (result?.reason === 'not-confirmed') {
+        return NextResponse.json(
+          { error: 'La reserva aun no esta confirmada.' },
+          { status: 400 }
+        );
+      }
       if (result?.reason === 'not-found') {
         return NextResponse.json({ error: 'Reserva no encontrada.' }, { status: 404 });
       }

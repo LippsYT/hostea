@@ -8,25 +8,124 @@ import { sendEmail } from '@/lib/email';
 import { buildSimplePdfBuffer } from '@/lib/simple-pdf';
 import { ensureReservationNumber } from '@/lib/reservation-number';
 
-const money = (value: number) => `USD ${value.toFixed(2)}`;
+const formatDateForEmail = (value: Date) => format(value, 'yyyy-MM-dd');
+const formatMoneyForEmail = (value: number) => `USD ${value.toFixed(2)}`;
 const contactEmail = process.env.EMAIL_FROM_CONTACT || 'contacto@gohostea.com';
+const appBaseUrl =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.APP_URL ||
+  process.env.NEXTAUTH_URL ||
+  'https://gohostea.com';
+const CONFIRMABLE_RESERVATION_STATUSES: ReservationStatus[] = [
+  ReservationStatus.CONFIRMED,
+  ReservationStatus.CHECKED_IN,
+  ReservationStatus.COMPLETED
+];
 
 const safeText = (value: string | null | undefined, fallback = '-') =>
   (value || '').trim() || fallback;
 
 const emailKey = (reservationId: string, type: string) => `reservationEmail:${type}:${reservationId}`;
 
-const hasEmailBeenSent = async (key: string, db = prisma) => {
+const hasEmailBeenSentFallback = async (key: string, db = prisma) => {
   const row = await db.settings.findUnique({ where: { key } });
   return Boolean(row);
 };
 
-const markEmailSent = async (key: string, db = prisma) => {
+const markEmailSentFallback = async (key: string, db = prisma) => {
   await db.settings.upsert({
     where: { key },
     update: { value: { sentAt: new Date().toISOString() } },
     create: { key, value: { sentAt: new Date().toISOString() } }
   });
+};
+
+const markEmailErrorFallback = async (key: string, error: string, db = prisma) => {
+  await db.settings.upsert({
+    where: { key: `${key}:error` },
+    update: { value: { error, at: new Date().toISOString() } },
+    create: { key: `${key}:error`, value: { error, at: new Date().toISOString() } }
+  });
+};
+
+let reservationEmailColumnsCache: boolean | null = null;
+
+const hasReservationEmailColumns = async (db = prisma) => {
+  if (reservationEmailColumnsCache !== null) return reservationEmailColumnsCache;
+  try {
+    const rows = (await db.$queryRawUnsafe(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'Reservation'
+        AND column_name IN ('confirmation_email_sent','confirmation_email_sent_at')
+    `)) as Array<{ column_name: string }>;
+
+    const names = new Set(rows.map((row) => row.column_name));
+    reservationEmailColumnsCache =
+      names.has('confirmation_email_sent') && names.has('confirmation_email_sent_at');
+    return reservationEmailColumnsCache;
+  } catch {
+    reservationEmailColumnsCache = false;
+    return false;
+  }
+};
+
+const hasEmailBeenSent = async (reservationId: string, key: string, db = prisma) => {
+  if (await hasReservationEmailColumns(db)) {
+    try {
+      const rows = (await db.$queryRawUnsafe(
+        `SELECT "confirmation_email_sent" FROM public."Reservation" WHERE id = $1 LIMIT 1`,
+        reservationId
+      )) as Array<{ confirmation_email_sent: boolean }>;
+      return Boolean(rows[0]?.confirmation_email_sent);
+    } catch {
+      return hasEmailBeenSentFallback(key, db);
+    }
+  }
+  return hasEmailBeenSentFallback(key, db);
+};
+
+const markEmailSent = async (reservationId: string, key: string, db = prisma) => {
+  if (await hasReservationEmailColumns(db)) {
+    try {
+      await db.$executeRawUnsafe(
+        `
+        UPDATE public."Reservation"
+        SET "confirmation_email_sent" = true,
+            "confirmation_email_sent_at" = NOW(),
+            "confirmation_email_error" = NULL,
+            "updatedAt" = NOW()
+        WHERE id = $1
+        `,
+        reservationId
+      );
+      return;
+    } catch {
+      await markEmailSentFallback(key, db);
+      return;
+    }
+  }
+  await markEmailSentFallback(key, db);
+};
+
+const markEmailError = async (reservationId: string, key: string, error: string, db = prisma) => {
+  if (await hasReservationEmailColumns(db)) {
+    try {
+      await db.$executeRawUnsafe(
+        `
+        UPDATE public."Reservation"
+        SET "confirmation_email_sent" = false,
+            "confirmation_email_error" = $2,
+            "updatedAt" = NOW()
+        WHERE id = $1
+        `,
+        reservationId,
+        error.slice(0, 500)
+      );
+    } catch {}
+  }
+  await markEmailErrorFallback(key, error, db);
 };
 
 let confirmationTemplateCache: string | null = null;
@@ -153,11 +252,11 @@ const buildInvoicePdf = (data: {
     `Check-out: ${format(data.checkOut, 'yyyy-MM-dd')}`,
     `Huespedes: ${data.guestsCount}`,
     '',
-    `Tarifa base: ${money(Math.max(data.total - data.cleaning - data.taxes - data.serviceFee, 0))}`,
-    `Limpieza: ${money(data.cleaning)}`,
-    `Impuestos: ${money(data.taxes)}`,
-    `Tarifa servicio Hostea: ${money(data.serviceFee)}`,
-    `TOTAL PAGADO: ${money(data.total)}`,
+    `Tarifa base: ${formatMoneyForEmail(Math.max(data.total - data.cleaning - data.taxes - data.serviceFee, 0))}`,
+    `Limpieza: ${formatMoneyForEmail(data.cleaning)}`,
+    `Impuestos: ${formatMoneyForEmail(data.taxes)}`,
+    `Tarifa servicio Hostea: ${formatMoneyForEmail(data.serviceFee)}`,
+    `TOTAL PAGADO: ${formatMoneyForEmail(data.total)}`,
     `Estado del pago: ${data.paymentStatus}`,
     '',
     `Soporte Hostea: ${contactEmail}`
@@ -188,13 +287,13 @@ const buildGuestConfirmationHtml = (input: {
     guest_name: input.guestName,
     property_name: input.listingTitle,
     property_address: input.address,
-    check_in: format(input.checkIn, 'yyyy-MM-dd'),
-    check_out: format(input.checkOut, 'yyyy-MM-dd'),
+    check_in: formatDateForEmail(input.checkIn),
+    check_out: formatDateForEmail(input.checkOut),
     guests: String(input.guestsCount),
-    total_amount: money(input.total),
+    total_amount: formatMoneyForEmail(input.total),
     reservation_url: input.reservationUrl,
     property_image_url:
-      input.listingPhoto || `${process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://gohostea.com'}/brand/hostea-logo.jpeg`
+      input.listingPhoto || `${appBaseUrl}/brand/hostea-logo.jpeg`
   });
 
   return `
@@ -226,10 +325,10 @@ const buildHostReservationHtml = (input: {
     <p>Numero de reserva: <strong>${input.reservationNumber}</strong></p>
     <ul>
       <li>Huesped: ${input.guestName}</li>
-      <li>Check-in: ${format(input.checkIn, 'yyyy-MM-dd')}</li>
-      <li>Check-out: ${format(input.checkOut, 'yyyy-MM-dd')}</li>
-      <li>Total pagado: ${money(input.total)}</li>
-      <li>Neto estimado anfitrion: ${money(input.hostNet)}</li>
+      <li>Check-in: ${formatDateForEmail(input.checkIn)}</li>
+      <li>Check-out: ${formatDateForEmail(input.checkOut)}</li>
+      <li>Total pagado: ${formatMoneyForEmail(input.total)}</li>
+      <li>Neto estimado anfitrion: ${formatMoneyForEmail(input.hostNet)}</li>
     </ul>
     <p>
       <a href="${input.panelUrl}" style="display:inline-block;padding:10px 14px;background:#0f172a;color:#fff;text-decoration:none;border-radius:999px;">
@@ -262,12 +361,15 @@ export const sendReservationConfirmedEmails = async (
   options?: { force?: boolean }
 ) => {
   const confirmationKey = emailKey(reservationId, 'confirmed');
-  if (!options?.force && (await hasEmailBeenSent(confirmationKey, db))) {
+  if (!options?.force && (await hasEmailBeenSent(reservationId, confirmationKey, db))) {
     return { sent: false, reason: 'already-sent' as const };
   }
 
   const payload = await getReservationPayload(reservationId, db);
   if (!payload) return { sent: false, reason: 'not-found' as const };
+  if (!CONFIRMABLE_RESERVATION_STATUSES.includes(payload.status)) {
+    return { sent: false, reason: 'not-confirmed' as const };
+  }
   if (payload.payment?.status !== PaymentStatus.SUCCEEDED) {
     return { sent: false, reason: 'payment-not-succeeded' as const };
   }
@@ -279,9 +381,8 @@ export const sendReservationConfirmedEmails = async (
   const hostName = payload.listing.host.profile?.name || payload.listing.host.email;
   const guestName = payload.user.profile?.name || payload.user.email;
   const breakdown = buildInvoiceBreakdown(payload);
-  const appUrl = process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://gohostea.com';
-  const reservationUrl = `${appUrl}/dashboard/client/reservations`;
-  const panelUrl = `${appUrl}/dashboard/host/reservations?reservationId=${payload.id}`;
+  const reservationUrl = `${appBaseUrl}/dashboard/client/reservations`;
+  const panelUrl = `${appBaseUrl}/dashboard/host/reservations?reservationId=${payload.id}`;
 
   const pdfBuffer = buildInvoicePdf({
     reservationNumber,
@@ -327,39 +428,49 @@ export const sendReservationConfirmedEmails = async (
     panelUrl
   });
 
-  await sendEmail({
-    to: payload.user.email,
-    subject: `Reserva confirmada ${reservationNumber}`,
-    html: guestHtml,
-    attachments: [
-      {
-        filename: `factura-${reservationNumber}.pdf`,
-        content: pdfBuffer,
-        contentType: 'application/pdf'
-      }
-    ]
-  });
+  try {
+    await sendEmail({
+      to: payload.user.email,
+      subject: `Reserva confirmada ${reservationNumber}`,
+      html: guestHtml,
+      attachments: [
+        {
+          filename: `factura-${reservationNumber}.pdf`,
+          content: pdfBuffer,
+          contentType: 'application/pdf'
+        }
+      ]
+    });
 
-  await sendEmail({
-    to: payload.listing.host.email,
-    subject: `Nueva reserva ${reservationNumber}`,
-    html: hostHtml
-  });
+    await sendEmail({
+      to: payload.listing.host.email,
+      subject: `Nueva reserva ${reservationNumber}`,
+      html: hostHtml
+    });
 
-  await ensureSystemMessage(
-    payload.id,
-    'Tu reserva fue confirmada. En este correo encontraras tu factura y las instrucciones de ingreso.',
-    db
-  );
+    await ensureSystemMessage(
+      payload.id,
+      'Tu reserva fue confirmada. En este correo encontraras tu factura y las instrucciones de ingreso.',
+      db
+    );
 
-  await markEmailSent(confirmationKey, db);
-  return { sent: true as const };
+    await markEmailSent(payload.id, confirmationKey, db);
+    return { sent: true as const };
+  } catch (error: any) {
+    const reason = error?.message || 'Error enviando email de confirmacion';
+    await markEmailError(payload.id, confirmationKey, reason, db);
+    console.error('reservation-confirmation-email-error', {
+      reservationId: payload.id,
+      reason
+    });
+    return { sent: false as const, reason: 'email-error' as const };
+  }
 };
 
 export const sendCheckInReminderEmail = async (reservationId: string, db = prisma) => {
   const payload = await getReservationPayload(reservationId, db);
   if (!payload || payload.payment?.status !== PaymentStatus.SUCCEEDED) return;
-  const appUrl = process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://gohostea.com';
+  const appUrl = appBaseUrl;
   await sendEmail({
     to: payload.user.email,
     subject: 'Recordatorio de check-in (24h)',
@@ -368,7 +479,7 @@ export const sendCheckInReminderEmail = async (reservationId: string, db = prism
         <h2>Tu check-in es manana</h2>
         <p>Reserva: ${payload.reservationNumber || payload.id}</p>
         <p>Te compartimos la informacion importante para tu llegada.</p>
-        <p><strong>Check-in:</strong> ${format(payload.checkIn, 'yyyy-MM-dd')} (${payload.listing.checkInTime})</p>
+        <p><strong>Check-in:</strong> ${formatDateForEmail(payload.checkIn)} (${payload.listing.checkInTime})</p>
         <p><strong>Instrucciones:</strong> ${safeText(payload.listing.checkInInstructions)}</p>
         <p><strong>Asistencia:</strong> ${safeText(payload.listing.assistancePhone)}</p>
         <p><a href="${appUrl}/dashboard/client/reservations">Ver reserva</a></p>
@@ -392,7 +503,7 @@ export const sendPostCheckoutEmail = async (reservationId: string, db = prisma) 
       <div style="font-family:Arial,sans-serif;color:#0f172a">
         <h2>Gracias por tu estadia</h2>
         <p>Nos encantaria conocer tu experiencia en ${payload.listing.title}.</p>
-        <p><a href="${process.env.APP_URL || 'https://gohostea.com'}/dashboard/client/reservations">Dejar una resena</a></p>
+        <p><a href="${appBaseUrl}/dashboard/client/reservations">Dejar una resena</a></p>
       </div>
     `
   });
@@ -419,9 +530,9 @@ export const runReservationLifecycleEmailAutomation = async (db = prisma, now = 
 
   for (const row of reminderRows) {
     const key = emailKey(row.id, 'checkin-24h');
-    if (await hasEmailBeenSent(key, db)) continue;
+    if (await hasEmailBeenSent(row.id, key, db)) continue;
     await sendCheckInReminderEmail(row.id, db);
-    await markEmailSent(key, db);
+    await markEmailSent(row.id, key, db);
   }
 
   const postCheckoutRows = await db.reservation.findMany({
@@ -444,9 +555,9 @@ export const runReservationLifecycleEmailAutomation = async (db = prisma, now = 
 
   for (const row of postCheckoutRows) {
     const key = emailKey(row.id, 'post-checkout');
-    if (await hasEmailBeenSent(key, db)) continue;
+    if (await hasEmailBeenSent(row.id, key, db)) continue;
     await sendPostCheckoutEmail(row.id, db);
-    await markEmailSent(key, db);
+    await markEmailSent(row.id, key, db);
   }
 
   return {

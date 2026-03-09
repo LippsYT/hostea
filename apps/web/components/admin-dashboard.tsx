@@ -3,7 +3,15 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 
-type UserRow = { id: string; email: string; name: string; role: string; emailVerified?: boolean };
+type UserRow = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  emailVerified?: boolean;
+  authStatus?: 'missing' | 'pending' | 'confirmed';
+  authSupabaseUserId?: string | null;
+};
 type ListingRow = { id: string; title: string; status: string; hostEmail: string };
 type KycRow = { id: string; userEmail: string; status: string };
 type ReservationRow = { id: string; listingTitle: string; userEmail: string; status: string; total: number };
@@ -26,9 +34,10 @@ export const AdminDashboard = ({
   const [roleMap, setRoleMap] = useState<Record<string, string>>({});
   const [statusMap, setStatusMap] = useState<Record<string, string>>({});
   const [reservationTab, setReservationTab] = useState<'pending' | 'confirmed' | 'rejected'>('pending');
-  const [verifiedMap, setVerifiedMap] = useState<Record<string, boolean>>({});
   const [confirmingMap, setConfirmingMap] = useState<Record<string, boolean>>({});
   const [confirmMessageMap, setConfirmMessageMap] = useState<Record<string, string>>({});
+  const [authStatusMap, setAuthStatusMap] = useState<Record<string, 'missing' | 'pending' | 'confirmed'>>({});
+  const [createConfirmedMap, setCreateConfirmedMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetch('/api/security/csrf').then(async (res) => {
@@ -44,9 +53,11 @@ export const AdminDashboard = ({
   }, [users]);
 
   useEffect(() => {
-    const map: Record<string, boolean> = {};
-    users.forEach((u) => (map[u.id] = Boolean(u.emailVerified)));
-    setVerifiedMap(map);
+    const map: Record<string, 'missing' | 'pending' | 'confirmed'> = {};
+    users.forEach((u) => {
+      map[u.id] = u.authStatus || 'missing';
+    });
+    setAuthStatusMap(map);
   }, [users]);
 
   useEffect(() => {
@@ -99,12 +110,38 @@ export const AdminDashboard = ({
       if (!res.ok) {
         throw new Error(data?.error || 'No se pudo confirmar el email.');
       }
-      setVerifiedMap((prev) => ({ ...prev, [userId]: true }));
+      setAuthStatusMap((prev) => ({ ...prev, [userId]: 'confirmed' }));
       setConfirmMessageMap((prev) => ({ ...prev, [userId]: 'Email confirmado.' }));
     } catch (error: any) {
       setConfirmMessageMap((prev) => ({
         ...prev,
         [userId]: error?.message || 'No se pudo confirmar el email.'
+      }));
+    } finally {
+      setConfirmingMap((prev) => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const createAuthAccount = async (userId: string) => {
+    setConfirmingMap((prev) => ({ ...prev, [userId]: true }));
+    setConfirmMessageMap((prev) => ({ ...prev, [userId]: '' }));
+    try {
+      const res = await fetch('/api/admin/users/create-auth-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+        body: JSON.stringify({ userId, emailConfirm: Boolean(createConfirmedMap[userId]) })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'No se pudo crear la cuenta en Supabase Auth.');
+      }
+      const status = data?.authStatus === 'confirmed' ? 'confirmed' : 'pending';
+      setAuthStatusMap((prev) => ({ ...prev, [userId]: status }));
+      setConfirmMessageMap((prev) => ({ ...prev, [userId]: 'Cuenta creada en Supabase Auth.' }));
+    } catch (error: any) {
+      setConfirmMessageMap((prev) => ({
+        ...prev,
+        [userId]: error?.message || 'No se pudo crear la cuenta en Supabase Auth.'
       }));
     } finally {
       setConfirmingMap((prev) => ({ ...prev, [userId]: false }));
@@ -139,8 +176,20 @@ export const AdminDashboard = ({
               <div>
                 <p className="font-semibold text-slate-900">{u.name || u.email}</p>
                 <p className="text-slate-500">{u.email}</p>
-                <p className={`text-xs ${verifiedMap[u.id] ? 'text-emerald-600' : 'text-amber-600'}`}>
-                  {verifiedMap[u.id] ? 'Email confirmado' : 'Email sin confirmar'}
+                <p
+                  className={`text-xs ${
+                    authStatusMap[u.id] === 'confirmed'
+                      ? 'text-emerald-600'
+                      : authStatusMap[u.id] === 'pending'
+                        ? 'text-amber-600'
+                        : 'text-slate-500'
+                  }`}
+                >
+                  {authStatusMap[u.id] === 'confirmed'
+                    ? 'Email confirmado'
+                    : authStatusMap[u.id] === 'pending'
+                      ? 'Email pendiente de confirmacion'
+                      : 'Cuenta no creada en Supabase Auth'}
                 </p>
                 {confirmMessageMap[u.id] && (
                   <p className="text-xs text-slate-500">{confirmMessageMap[u.id]}</p>
@@ -159,14 +208,38 @@ export const AdminDashboard = ({
                   <option value="SUPPORT">SUPPORT</option>
                   <option value="FINANCE">FINANCE</option>
                 </select>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={verifiedMap[u.id] || confirmingMap[u.id]}
-                  onClick={() => confirmEmail(u.id)}
-                >
-                  {confirmingMap[u.id] ? 'Confirmando...' : 'Confirmar email'}
-                </Button>
+                {authStatusMap[u.id] === 'missing' && (
+                  <>
+                    <label className="flex items-center gap-2 text-xs text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(createConfirmedMap[u.id])}
+                        onChange={(e) =>
+                          setCreateConfirmedMap((prev) => ({ ...prev, [u.id]: e.target.checked }))
+                        }
+                      />
+                      Crear confirmada
+                    </label>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={confirmingMap[u.id]}
+                      onClick={() => createAuthAccount(u.id)}
+                    >
+                      {confirmingMap[u.id] ? 'Creando...' : 'Crear cuenta'}
+                    </Button>
+                  </>
+                )}
+                {authStatusMap[u.id] === 'pending' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={confirmingMap[u.id]}
+                    onClick={() => confirmEmail(u.id)}
+                  >
+                    {confirmingMap[u.id] ? 'Confirmando...' : 'Confirmar email'}
+                  </Button>
+                )}
                 <Button size="sm" onClick={() => updateRole(u.id)}>Guardar</Button>
               </div>
             </div>

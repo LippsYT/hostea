@@ -5,6 +5,11 @@ import { AdminDashboard } from '@/components/admin-dashboard';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
+import {
+  buildSupabaseAuthIndex,
+  listSupabaseAuthUsers,
+  resolveSupabaseAuthForLocalUser
+} from '@/lib/supabase-auth-users';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,13 +46,28 @@ export default async function AdminPage() {
     take: 200
   });
 
-  const safeUsers = users.map((u) => ({
-    id: u.id,
-    email: u.email,
-    name: u.profile?.name || '',
-    role: u.roles[0]?.role.name || 'CLIENT',
-    emailVerified: Boolean(u.emailVerified)
-  }));
+  let authIndex = buildSupabaseAuthIndex([]);
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const supabaseUsers = await listSupabaseAuthUsers();
+      authIndex = buildSupabaseAuthIndex(supabaseUsers);
+    } catch {
+      authIndex = buildSupabaseAuthIndex([]);
+    }
+  }
+
+  const safeUsers = users.map((u) => {
+    const authMatch = resolveSupabaseAuthForLocalUser({ id: u.id, email: u.email }, authIndex);
+    return {
+      id: u.id,
+      email: u.email,
+      name: u.profile?.name || '',
+      role: u.roles[0]?.role.name || 'CLIENT',
+      emailVerified: Boolean(u.emailVerified),
+      authStatus: authMatch.status,
+      authSupabaseUserId: authMatch.user?.id || null
+    };
+  });
   const safeListings = listings.map((l) => ({
     id: l.id,
     title: l.title,

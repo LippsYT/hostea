@@ -436,10 +436,6 @@ model Reservation {
   currency      String            @default("USD")
   paymentExpiresAt DateTime?
   holdExpiresAt DateTime?
-  paymentConfirmedAt DateTime?    @map("payment_confirmed_at")
-  confirmationEmailSent Boolean   @default(false) @map("confirmation_email_sent")
-  confirmationEmailSentAt DateTime? @map("confirmation_email_sent_at")
-  confirmationEmailError String?  @map("confirmation_email_error")
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 

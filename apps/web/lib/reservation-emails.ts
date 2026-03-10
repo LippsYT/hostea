@@ -1,15 +1,15 @@
-import { addHours, differenceInCalendarDays, endOfDay, format, startOfDay, subHours } from 'date-fns';
+﻿import { addHours, differenceInCalendarDays, endOfDay, format, startOfDay, subHours } from 'date-fns';
 import { PaymentStatus, ReservationStatus } from '@prisma/client';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { prisma } from '@/lib/db';
 import { calcBreakdown } from '@/lib/intelligent-pricing';
 import { sendEmail } from '@/lib/email';
-import { buildSimplePdfBuffer } from '@/lib/simple-pdf';
+import { buildHosteaInvoicePdf } from '@/lib/simple-pdf';
 import { ensureReservationNumber } from '@/lib/reservation-number';
 import { resolveAppOrigin } from '@/lib/app-url';
 
-const formatDateForEmail = (value: Date) => format(value, 'yyyy-MM-dd');
+const formatDateForEmail = (value: Date) => format(value, 'dd/MM/yyyy');
 const formatMoneyForEmail = (value: number) => `USD ${value.toFixed(2)}`;
 const contactEmail = process.env.EMAIL_FROM_CONTACT || 'contacto@gohostea.com';
 const appBaseUrl = resolveAppOrigin();
@@ -21,6 +21,13 @@ const CONFIRMABLE_RESERVATION_STATUSES: ReservationStatus[] = [
 
 const safeText = (value: string | null | undefined, fallback = '-') =>
   (value || '').trim() || fallback;
+const escapeHtml = (value: string | null | undefined) =>
+  (value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
 const emailKey = (reservationId: string, type: string) => `reservationEmail:${type}:${reservationId}`;
 
@@ -145,19 +152,99 @@ const getReservationConfirmationTemplate = () => {
   }
 
   confirmationTemplateCache = `
-    <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.5">
-      <h2 style="margin-bottom:8px;">HOSTEA - Reserva confirmada</h2>
-      <p>Hola <strong>{{guest_name}}</strong>, tu reserva fue confirmada.</p>
-      <p><strong>{{property_name}}</strong></p>
-      <p>{{property_address}}</p>
-      <ul>
-        <li>Check-in: {{check_in}}</li>
-        <li>Check-out: {{check_out}}</li>
-        <li>Huespedes: {{guests}}</li>
-        <li>Total pagado: {{total_amount}}</li>
-      </ul>
-      <p><a href="{{reservation_url}}">Ver reserva</a></p>
-    </div>
+  <div style="margin:0;padding:0;background:#f4f6fb;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6fb;padding:24px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" style="width:640px;max-width:92%;border-collapse:separate;border-spacing:0;background:#ffffff;border-radius:20px;overflow:hidden;border:1px solid #e5eaf3;">
+            <tr>
+              <td style="padding:24px 28px;background:linear-gradient(90deg,#ff8a4c 0%,#ff5a8e 48%,#6b3ef2 100%);">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td valign="middle">
+                      <img src="{{logo_url}}" width="112" alt="Hostea" style="display:block;max-width:112px;height:auto;border:0;" />
+                    </td>
+                    <td align="right" valign="middle" style="color:#ffffff;font-family:Arial,sans-serif;">
+                      <p style="margin:0;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;opacity:0.9;">{{booking_type_label}}</p>
+                      <p style="margin:6px 0 0 0;font-size:13px;font-weight:700;">Reserva {{reservation_number}}</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px 28px 8px 28px;font-family:Arial,sans-serif;color:#0f172a;">
+                <p style="margin:0;font-size:14px;color:#475569;">Hola {{guest_name}},</p>
+                <h1 style="margin:10px 0 8px 0;font-size:28px;line-height:1.2;color:#0f172a;">Tu reserva esta confirmada</h1>
+                <p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;color:#475569;">Tu pago fue acreditado correctamente. Te compartimos todos los detalles para tu viaje.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 28px 0 28px;">
+                <img src="{{property_image_url}}" alt="{{property_name}}" style="display:block;width:100%;height:auto;border:0;border-radius:16px;max-height:280px;object-fit:cover;" />
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 28px 0 28px;font-family:Arial,sans-serif;color:#0f172a;">
+                <h2 style="margin:0;font-size:22px;line-height:1.3;">{{property_name}}</h2>
+                <p style="margin:8px 0 0 0;font-size:14px;color:#64748b;line-height:1.5;">{{property_address}}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 28px 0 28px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;font-family:Arial,sans-serif;">
+                  <tr>
+                    <td style="padding:8px 0;color:#64748b;font-size:13px;">Estado del pago</td>
+                    <td style="padding:8px 0;text-align:right;color:#0f766e;font-size:13px;font-weight:700;">{{reservation_status}}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;color:#64748b;font-size:13px;">{{stay_primary_label}}</td>
+                    <td style="padding:8px 0;text-align:right;color:#0f172a;font-size:13px;font-weight:600;">{{stay_primary_value}}</td>
+                  </tr>
+                  {{stay_secondary_html}}
+                  <tr>
+                    <td style="padding:8px 0;color:#64748b;font-size:13px;">{{guests_label}}</td>
+                    <td style="padding:8px 0;text-align:right;color:#0f172a;font-size:13px;font-weight:600;">{{guests_value}}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 0 0 0;color:#334155;font-size:14px;font-weight:700;">Total pagado</td>
+                    <td style="padding:10px 0 0 0;text-align:right;color:#0f172a;font-size:22px;font-weight:700;">{{total_amount}}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 28px 0 28px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td style="vertical-align:top;padding-right:8px;">
+                      <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 14px;font-family:Arial,sans-serif;">
+                        <p style="margin:0 0 8px 0;font-size:12px;font-weight:700;letter-spacing:0.06em;color:#64748b;text-transform:uppercase;">Check-in</p>
+                        <p style="margin:0;font-size:13px;line-height:1.6;color:#0f172a;">{{checkin_instructions}}</p>
+                      </div>
+                    </td>
+                    <td style="vertical-align:top;padding-left:8px;">
+                      <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 14px;font-family:Arial,sans-serif;">
+                        <p style="margin:0 0 8px 0;font-size:12px;font-weight:700;letter-spacing:0.06em;color:#64748b;text-transform:uppercase;">Check-out y soporte</p>
+                        <p style="margin:0 0 8px 0;font-size:13px;line-height:1.6;color:#0f172a;">{{checkout_instructions}}</p>
+                        <p style="margin:0;font-size:13px;line-height:1.6;color:#0f172a;">{{support_phone}}</p>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 28px 26px 28px;">
+                <a href="{{reservation_url}}" style="display:inline-block;padding:12px 22px;border-radius:999px;background:linear-gradient(90deg,#ff8a4c 0%,#ff5a8e 48%,#6b3ef2 100%);color:#ffffff;font-family:Arial,sans-serif;font-size:14px;font-weight:700;text-decoration:none;">Ver mi reserva</a>
+                <p style="margin:16px 0 0 0;font-family:Arial,sans-serif;font-size:12px;line-height:1.5;color:#64748b;">Te adjuntamos la factura PDF de esta reserva. Si necesitas ayuda, escribinos a {{contact_email}}.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>
   `.trim();
 
   return confirmationTemplateCache;
@@ -225,52 +312,63 @@ const buildInvoiceBreakdown = (reservation: {
 const buildInvoicePdf = (data: {
   reservationNumber: string;
   issuedAt: Date;
+  bookingTypeLabel: string;
   guestName: string;
+  guestEmail: string;
   listingTitle: string;
   address: string;
-  checkIn: Date;
-  checkOut: Date;
-  guestsCount: number;
+  primaryDateLabel: string;
+  primaryDateValue: string;
+  secondaryDateLabel?: string;
+  secondaryDateValue?: string;
+  guestsLabel: string;
+  guestsValue: string;
   paymentStatus: string;
+  currency: string;
   total: number;
+  baseAmount: number;
   cleaning: number;
   taxes: number;
   serviceFee: number;
 }) => {
-  const lines = [
-    'HOSTEA - Factura de reserva',
-    `Reserva: ${data.reservationNumber}`,
-    `Emitida: ${format(data.issuedAt, 'yyyy-MM-dd HH:mm')}`,
-    '',
-    `Huesped: ${data.guestName}`,
-    `Alojamiento: ${data.listingTitle}`,
-    `Direccion: ${data.address}`,
-    `Check-in: ${format(data.checkIn, 'yyyy-MM-dd')}`,
-    `Check-out: ${format(data.checkOut, 'yyyy-MM-dd')}`,
-    `Huespedes: ${data.guestsCount}`,
-    '',
-    `Tarifa base: ${formatMoneyForEmail(Math.max(data.total - data.cleaning - data.taxes - data.serviceFee, 0))}`,
-    `Limpieza: ${formatMoneyForEmail(data.cleaning)}`,
-    `Impuestos: ${formatMoneyForEmail(data.taxes)}`,
-    `Tarifa servicio Hostea: ${formatMoneyForEmail(data.serviceFee)}`,
-    `TOTAL PAGADO: ${formatMoneyForEmail(data.total)}`,
-    `Estado del pago: ${data.paymentStatus}`,
-    '',
-    `Soporte Hostea: ${contactEmail}`
-  ];
-
-  return buildSimplePdfBuffer(lines);
+  return buildHosteaInvoicePdf({
+    reservationNumber: data.reservationNumber,
+    issuedAt: format(data.issuedAt, 'dd/MM/yyyy HH:mm'),
+    paymentStatus: data.paymentStatus,
+    bookingTypeLabel: data.bookingTypeLabel,
+    guestName: data.guestName,
+    guestEmail: data.guestEmail,
+    listingTitle: data.listingTitle,
+    address: data.address,
+    primaryDateLabel: data.primaryDateLabel,
+    primaryDateValue: data.primaryDateValue,
+    secondaryDateLabel: data.secondaryDateLabel,
+    secondaryDateValue: data.secondaryDateValue,
+    guestsLabel: data.guestsLabel,
+    guestsValue: data.guestsValue,
+    currency: data.currency,
+    baseAmount: data.baseAmount,
+    cleaningAmount: data.cleaning,
+    taxAmount: data.taxes,
+    serviceFeeAmount: data.serviceFee,
+    totalAmount: data.total,
+    supportEmail: contactEmail
+  });
 };
 
 const buildGuestConfirmationHtml = (input: {
   reservationNumber: string;
+  bookingTypeLabel: string;
   guestName: string;
   listingTitle: string;
   listingPhoto: string | null;
   address: string;
-  checkIn: Date;
-  checkOut: Date;
-  guestsCount: number;
+  primaryDateLabel: string;
+  primaryDateValue: string;
+  secondaryDateLabel?: string;
+  secondaryDateValue?: string;
+  guestsLabel: string;
+  guestsValue: string;
   total: number;
   paymentStatus: string;
   checkInInstructions: string | null;
@@ -279,33 +377,45 @@ const buildGuestConfirmationHtml = (input: {
   assistancePhoneSecondary: string | null;
   reservationUrl: string;
 }) => {
-  const template = getReservationConfirmationTemplate();
-  const content = renderTemplate(template, {
-    guest_name: input.guestName,
-    property_name: input.listingTitle,
-    property_address: input.address,
-    check_in: formatDateForEmail(input.checkIn),
-    check_out: formatDateForEmail(input.checkOut),
-    guests: String(input.guestsCount),
-    total_amount: formatMoneyForEmail(input.total),
-    reservation_url: input.reservationUrl,
-    property_image_url:
-      input.listingPhoto || `${appBaseUrl}/brand/hostea-logo.jpeg`
-  });
+  const secondaryDateHtml =
+    input.secondaryDateLabel && input.secondaryDateValue
+      ? `
+        <tr>
+          <td style="padding:8px 0;color:#64748b;font-size:13px;">${escapeHtml(input.secondaryDateLabel)}</td>
+          <td style="padding:8px 0;text-align:right;color:#0f172a;font-size:13px;font-weight:600;">${escapeHtml(input.secondaryDateValue)}</td>
+        </tr>
+      `
+      : '';
+  const logoUrl = process.env.EMAIL_LOGO_URL || `${appBaseUrl}/brand/hostea-logo.jpeg`;
+  const instructionsCheckIn = safeText(input.checkInInstructions, 'Se enviaran por mensaje antes de tu llegada.');
+  const instructionsCheckOut = safeText(input.checkOutInstructions, 'El anfitrion confirmara este dato en el chat.');
+  const supportLines = [safeText(input.assistancePhone), safeText(input.assistancePhoneSecondary)]
+    .filter((value, index, arr) => value !== '-' && arr.indexOf(value) === index)
+    .join(' | ');
+  const supportText = supportLines || contactEmail;
 
-  return `
-    ${content}
-    <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.5;margin-top:16px;">
-      <p><strong>Numero de reserva:</strong> ${input.reservationNumber}</p>
-      <p><strong>Estado del pago:</strong> ${input.paymentStatus}</p>
-      <p><strong>Instrucciones check-in:</strong> ${safeText(input.checkInInstructions)}</p>
-      <p><strong>Instrucciones check-out:</strong> ${safeText(input.checkOutInstructions)}</p>
-      <p><strong>Asistencia:</strong> ${safeText(input.assistancePhone)}</p>
-      <p><strong>Asistencia secundaria:</strong> ${safeText(input.assistancePhoneSecondary)}</p>
-      <p>Te adjuntamos tu factura en PDF.</p>
-      <p style="font-size:12px;color:#64748b;">Contacto: ${contactEmail}</p>
-    </div>
-  `;
+  const template = getReservationConfirmationTemplate();
+  return renderTemplate(template, {
+    logo_url: logoUrl,
+    guest_name: escapeHtml(input.guestName),
+    booking_type_label: escapeHtml(input.bookingTypeLabel),
+    reservation_number: escapeHtml(input.reservationNumber),
+    reservation_status: escapeHtml(input.paymentStatus),
+    property_name: escapeHtml(input.listingTitle),
+    property_address: escapeHtml(input.address),
+    property_image_url: input.listingPhoto || logoUrl,
+    stay_primary_label: escapeHtml(input.primaryDateLabel),
+    stay_primary_value: escapeHtml(input.primaryDateValue),
+    stay_secondary_html: secondaryDateHtml,
+    guests_label: escapeHtml(input.guestsLabel),
+    guests_value: escapeHtml(input.guestsValue),
+    total_amount: formatMoneyForEmail(input.total),
+    checkin_instructions: escapeHtml(instructionsCheckIn),
+    checkout_instructions: escapeHtml(instructionsCheckOut),
+    support_phone: escapeHtml(supportText),
+    contact_email: escapeHtml(contactEmail),
+    reservation_url: input.reservationUrl
+  });
 };
 
 const buildHostReservationHtml = (input: {
@@ -384,14 +494,21 @@ export const sendReservationConfirmedEmails = async (
   const pdfBuffer = buildInvoicePdf({
     reservationNumber,
     issuedAt: new Date(),
+    bookingTypeLabel: 'Alojamiento',
     guestName,
+    guestEmail: payload.user.email,
     listingTitle: payload.listing.title,
     address: `${payload.listing.address}, ${payload.listing.neighborhood}, ${payload.listing.city}`,
-    checkIn: payload.checkIn,
-    checkOut: payload.checkOut,
-    guestsCount: payload.guestsCount,
+    primaryDateLabel: 'Check-in',
+    primaryDateValue: formatDateForEmail(payload.checkIn),
+    secondaryDateLabel: 'Check-out',
+    secondaryDateValue: formatDateForEmail(payload.checkOut),
+    guestsLabel: 'Huespedes',
+    guestsValue: String(payload.guestsCount),
     paymentStatus: payload.payment.status,
+    currency: payload.currency || 'USD',
     total: Number(payload.total),
+    baseAmount: Math.max(Number(payload.total) - breakdown.cleaning - breakdown.taxes - breakdown.serviceFee, 0),
     cleaning: breakdown.cleaning,
     taxes: breakdown.taxes,
     serviceFee: breakdown.serviceFee
@@ -399,13 +516,17 @@ export const sendReservationConfirmedEmails = async (
 
   const guestHtml = buildGuestConfirmationHtml({
     reservationNumber,
+    bookingTypeLabel: 'Alojamiento',
     guestName,
     listingTitle: payload.listing.title,
     listingPhoto: payload.listing.photos[0]?.url || null,
     address: `${payload.listing.address}, ${payload.listing.neighborhood}, ${payload.listing.city}`,
-    checkIn: payload.checkIn,
-    checkOut: payload.checkOut,
-    guestsCount: payload.guestsCount,
+    primaryDateLabel: 'Check-in',
+    primaryDateValue: formatDateForEmail(payload.checkIn),
+    secondaryDateLabel: 'Check-out',
+    secondaryDateValue: formatDateForEmail(payload.checkOut),
+    guestsLabel: 'Huespedes',
+    guestsValue: String(payload.guestsCount),
     total: Number(payload.total),
     paymentStatus: payload.payment.status,
     checkInInstructions: payload.listing.checkInInstructions,
@@ -562,3 +683,4 @@ export const runReservationLifecycleEmailAutomation = async (db = prisma, now = 
     postCheckout: postCheckoutRows.length
   };
 };
+

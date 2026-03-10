@@ -170,53 +170,70 @@ export const buildHosteaInvoicePdf = (input: HosteaInvoicePdfInput) => {
   const successText: PdfColor = [0.04, 0.52, 0.33];
   const rowBg: PdfColor = [0.986, 0.989, 1];
 
+  const cardX = 28;
+  const cardY = 24;
+  const cardW = PAGE_WIDTH - 56;
+  const cardH = PAGE_HEIGHT - 48;
+  const contentLeft = 50;
+  const contentRight = cardX + cardW - 22;
+  const innerW = contentRight - contentLeft;
+
   const commands: string[] = [];
 
   commands.push(drawFilledRect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, pageBg));
-  commands.push(drawFilledRect(22, 20, PAGE_WIDTH - 44, PAGE_HEIGHT - 40, white, border));
+  commands.push(drawFilledRect(cardX, cardY, cardW, cardH, white, border));
 
-  commands.push(drawFilledRect(22, 20, PAGE_WIDTH - 44, 118, accentOrange));
-  commands.push(drawFilledRect(250, 20, PAGE_WIDTH - 272, 118, accentPink));
-  commands.push(drawFilledRect(392, 20, PAGE_WIDTH - 414, 118, accentPurple));
-  commands.push(drawText('HOSTEA', 44, 56, 27, white, 'F2'));
-  commands.push(drawText('Factura de reserva', 44, 84, 12, white, 'F1'));
-  commands.push(drawText(`Reserva ${input.reservationNumber}`, 356, 56, 11, white, 'F2'));
-  commands.push(drawText(`Emitida ${input.issuedAt}`, 356, 76, 10, white, 'F1'));
-  commands.push(drawText(input.bookingTypeLabel, 356, 95, 10, white, 'F1'));
+  commands.push(drawFilledRect(cardX, cardY, cardW * 0.43, 116, accentOrange));
+  commands.push(drawFilledRect(cardX + cardW * 0.43, cardY, cardW * 0.29, 116, accentPink));
+  commands.push(drawFilledRect(cardX + cardW * 0.72, cardY, cardW * 0.28, 116, accentPurple));
+  commands.push(drawText('HOSTEA', contentLeft, 58, 27, white, 'F2'));
+  commands.push(drawText('Factura de reserva', contentLeft, 86, 12, white, 'F1'));
+  commands.push(...drawWrappedText(`Reserva ${input.reservationNumber}`, 332, 58, 188, 11, white, 'F2', 14));
+  commands.push(...drawWrappedText(`Emitida ${input.issuedAt}`, 332, 76, 188, 10, white, 'F1', 13));
+  commands.push(...drawWrappedText(input.bookingTypeLabel, 332, 93, 188, 10, white, 'F1', 13));
 
-  commands.push(drawFilledRect(44, 156, 164, 96, softBg, border));
-  commands.push(drawText('Estado del pago', 56, 176, 10, slate500, 'F2'));
-  commands.push(drawFilledRect(56, 186, 140, 24, successBg));
-  commands.push(drawText(input.paymentStatus.toUpperCase(), 64, 202, 10, successText, 'F2'));
-  commands.push(drawText('Ref. reserva', 56, 223, 9, slate500, 'F1'));
-  commands.push(drawText(input.reservationNumber, 56, 236, 11, slate900, 'F2'));
+  const infoTop = 152;
+  const infoCardW = 154;
+  const infoGap = 10;
 
-  commands.push(drawFilledRect(220, 156, 164, 96, softBg, border));
-  commands.push(drawText('Huesped', 232, 176, 10, slate500, 'F2'));
-  commands.push(...drawWrappedText(input.guestName, 232, 193, 138, 12, slate900, 'F2'));
-  commands.push(...drawWrappedText(input.guestEmail, 232, 214, 138, 9, slate700, 'F1', 12));
-  commands.push(drawText(`${input.guestsLabel}: ${input.guestsValue}`, 232, 240, 9, slate700, 'F1'));
+  commands.push(drawFilledRect(contentLeft, infoTop, infoCardW, 104, softBg, border));
+  commands.push(drawText('Estado del pago', contentLeft + 12, infoTop + 20, 10, slate500, 'F2'));
+  commands.push(drawFilledRect(contentLeft + 12, infoTop + 30, 130, 24, successBg));
+  commands.push(drawText(input.paymentStatus.toUpperCase(), contentLeft + 18, infoTop + 46, 10, successText, 'F2'));
+  commands.push(drawText('Ref. reserva', contentLeft + 12, infoTop + 68, 9, slate500, 'F1'));
+  commands.push(...drawWrappedText(input.reservationNumber, contentLeft + 12, infoTop + 82, 130, 11, slate900, 'F2', 13));
 
-  commands.push(drawFilledRect(396, 156, 156, 96, softBg, border));
-  commands.push(drawText('Fechas', 408, 176, 10, slate500, 'F2'));
-  commands.push(drawText(`${input.primaryDateLabel}:`, 408, 193, 9, slate500, 'F1'));
-  commands.push(drawText(input.primaryDateValue, 408, 206, 11, slate900, 'F2'));
+  const guestX = contentLeft + infoCardW + infoGap;
+  commands.push(drawFilledRect(guestX, infoTop, infoCardW, 104, softBg, border));
+  commands.push(drawText('Huesped', guestX + 12, infoTop + 20, 10, slate500, 'F2'));
+  commands.push(...drawWrappedText(input.guestName, guestX + 12, infoTop + 37, 130, 12, slate900, 'F2', 14));
+  commands.push(...drawWrappedText(input.guestEmail, guestX + 12, infoTop + 55, 130, 9, slate700, 'F1', 11));
+  commands.push(drawText(`${input.guestsLabel}: ${input.guestsValue}`, guestX + 12, infoTop + 87, 9, slate700, 'F1'));
+
+  const dateX = guestX + infoCardW + infoGap;
+  const dateW = contentRight - dateX;
+  commands.push(drawFilledRect(dateX, infoTop, dateW, 104, softBg, border));
+  commands.push(drawText('Fechas', dateX + 12, infoTop + 20, 10, slate500, 'F2'));
+  commands.push(drawText(`${input.primaryDateLabel}:`, dateX + 12, infoTop + 38, 9, slate500, 'F1'));
+  commands.push(...drawWrappedText(input.primaryDateValue, dateX + 12, infoTop + 52, dateW - 24, 11, slate900, 'F2', 13));
   if (input.secondaryDateLabel && input.secondaryDateValue) {
-    commands.push(drawText(`${input.secondaryDateLabel}:`, 408, 221, 9, slate500, 'F1'));
-    commands.push(drawText(input.secondaryDateValue, 408, 234, 11, slate900, 'F2'));
+    commands.push(drawText(`${input.secondaryDateLabel}:`, dateX + 12, infoTop + 72, 9, slate500, 'F1'));
+    commands.push(...drawWrappedText(input.secondaryDateValue, dateX + 12, infoTop + 86, dateW - 24, 11, slate900, 'F2', 13));
   }
 
-  commands.push(drawFilledRect(44, 270, 508, 130, white, border));
-  commands.push(drawText('Detalle de la reserva', 56, 291, 11, slate500, 'F2'));
-  commands.push(...drawWrappedText(input.listingTitle, 56, 311, 486, 17, slate900, 'F2', 20));
-  commands.push(...drawWrappedText(input.address, 56, 344, 486, 11, slate700, 'F1', 15));
+  const detailTop = 274;
+  commands.push(drawFilledRect(contentLeft, detailTop, innerW, 124, white, border));
+  commands.push(drawText('Detalle de la reserva', contentLeft + 12, detailTop + 20, 11, slate500, 'F2'));
+  commands.push(...drawWrappedText(input.listingTitle, contentLeft + 12, detailTop + 40, innerW - 24, 16, slate900, 'F2', 19));
+  commands.push(...drawWrappedText(input.address, contentLeft + 12, detailTop + 72, innerW - 24, 11, slate700, 'F1', 14));
   if (input.propertyImageUrl) {
-    commands.push(drawText('Imagen de portada:', 56, 373, 9, slate500, 'F1'));
-    commands.push(...drawWrappedText(input.propertyImageUrl, 138, 373, 404, 8, slate500, 'F1', 11));
+    commands.push(drawText('Imagen de portada:', contentLeft + 12, detailTop + 99, 8.5, slate500, 'F1'));
+    commands.push(...drawWrappedText(input.propertyImageUrl, contentLeft + 102, detailTop + 99, innerW - 114, 8, slate500, 'F1', 10));
   }
 
-  commands.push(drawFilledRect(44, 416, 508, 284, white, border));
-  commands.push(drawText('Resumen economico', 56, 438, 12, slate900, 'F2'));
+  const summaryTop = 416;
+  commands.push(drawFilledRect(contentLeft, summaryTop, innerW, 292, white, border));
+  commands.push(drawText('Resumen economico', contentLeft + 12, summaryTop + 22, 12, slate900, 'F2'));
 
   const rows = [
     { label: 'Tarifa base', value: `${input.currency} ${input.baseAmount.toFixed(2)}` },
@@ -225,28 +242,39 @@ export const buildHosteaInvoicePdf = (input: HosteaInvoicePdfInput) => {
     { label: 'Tarifa de servicio Hostea', value: `${input.currency} ${input.serviceFeeAmount.toFixed(2)}` }
   ];
 
-  let currentTop = 465;
+  let currentTop = summaryTop + 48;
   rows.forEach((row, index) => {
-    commands.push(drawFilledRect(56, currentTop - 14, 484, 30, index % 2 === 0 ? rowBg : white));
-    commands.push(drawText(row.label, 70, currentTop, 11, slate700, 'F1'));
-    commands.push(drawText(row.value, 432, currentTop, 11, slate900, 'F2'));
+    commands.push(
+      drawFilledRect(
+        contentLeft + 12,
+        currentTop - 14,
+        innerW - 24,
+        30,
+        index % 2 === 0 ? rowBg : white
+      )
+    );
+    commands.push(drawText(row.label, contentLeft + 24, currentTop, 11, slate700, 'F1'));
+    commands.push(drawText(row.value, contentRight - 118, currentTop, 11, slate900, 'F2'));
     currentTop += 32;
   });
 
-  commands.push(drawFilledRect(56, 602, 484, 58, softBg, border));
-  commands.push(drawText('TOTAL PAGADO', 72, 625, 11, slate500, 'F2'));
-  commands.push(drawText(`${input.currency} ${input.totalAmount.toFixed(2)}`, 394, 627, 19, slate900, 'F2'));
-  commands.push(drawText('Pago procesado y acreditado correctamente.', 72, 644, 9, slate500, 'F1'));
+  const totalTop = summaryTop + 182;
+  commands.push(drawFilledRect(contentLeft + 12, totalTop, innerW - 24, 60, softBg, border));
+  commands.push(drawText('TOTAL PAGADO', contentLeft + 24, totalTop + 24, 11, slate500, 'F2'));
+  commands.push(drawText(`${input.currency} ${input.totalAmount.toFixed(2)}`, contentRight - 156, totalTop + 26, 20, slate900, 'F2'));
+  commands.push(drawText('Pago procesado y acreditado correctamente.', contentLeft + 24, totalTop + 44, 9, slate500, 'F1'));
 
   const supportLine = input.supportPhone?.trim()
     ? `${input.supportPhone} | ${input.supportEmail}`
     : input.supportEmail;
-  commands.push(drawText(`Soporte Hostea: ${supportLine}`, 56, 686, 10, slate500, 'F1'));
+  commands.push(
+    ...drawWrappedText(`Soporte Hostea: ${supportLine}`, contentLeft + 12, summaryTop + 258, innerW - 24, 10, slate500, 'F1', 12)
+  );
   commands.push(
     drawText(
       'Hostea actua como intermediario tecnologico entre huespedes y anfitriones.',
-      56,
-      704,
+      contentLeft + 12,
+      summaryTop + 274,
       9,
       slate500,
       'F1'
@@ -255,8 +283,8 @@ export const buildHosteaInvoicePdf = (input: HosteaInvoicePdfInput) => {
   commands.push(
     drawText(
       'Este documento es una constancia de pago digital emitida por Hostea.',
-      56,
-      719,
+      contentLeft + 12,
+      summaryTop + 287,
       9,
       slate500,
       'F1'

@@ -190,10 +190,10 @@ export default async function SuccessPage({ searchParams }: { searchParams: Sear
         }
         actions={
           <>
-            <Link href={`/dashboard/client/reservations?reservationId=${reservation.id}`} className="brand-gradient-bg rounded-full px-5 py-2 text-sm font-semibold text-white">
+            <Link href={`/dashboard/client?reservationId=${reservation.id}`} className="brand-gradient-bg rounded-full px-5 py-2 text-sm font-semibold text-white">
               Ver mi reserva
             </Link>
-            <Link href="/dashboard/client/reservations" className="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700">
+            <Link href="/dashboard/client" className="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700">
               Ir a mis reservas
             </Link>
             <Link href="/" className="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700">
@@ -246,7 +246,7 @@ export default async function SuccessPage({ searchParams }: { searchParams: Sear
           subtitle="La referencia no pertenece a tu cuenta o aun se esta sincronizando."
           actions={
             <>
-              <Link href="/dashboard/client/reservations" className="brand-gradient-bg rounded-full px-5 py-2 text-sm font-semibold text-white">
+              <Link href="/dashboard/client" className="brand-gradient-bg rounded-full px-5 py-2 text-sm font-semibold text-white">
                 Ir a mis reservas
               </Link>
               <Link href="/" className="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700">
@@ -265,10 +265,10 @@ export default async function SuccessPage({ searchParams }: { searchParams: Sear
         subtitle="Tu experiencia fue confirmada y ya esta lista en tu panel."
         actions={
           <>
-            <Link href="/dashboard/client/reservations" className="brand-gradient-bg rounded-full px-5 py-2 text-sm font-semibold text-white">
+            <Link href="/dashboard/client" className="brand-gradient-bg rounded-full px-5 py-2 text-sm font-semibold text-white">
               Ver mi reserva
             </Link>
-            <Link href="/dashboard/client/reservations" className="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700">
+            <Link href="/dashboard/client" className="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700">
               Ir a mis reservas
             </Link>
             <Link href="/" className="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700">
@@ -304,7 +304,7 @@ export default async function SuccessPage({ searchParams }: { searchParams: Sear
       subtitle="Si no ves la reserva inmediatamente, recarga la pagina en unos segundos."
       actions={
         <>
-          <Link href="/dashboard/client/reservations" className="brand-gradient-bg rounded-full px-5 py-2 text-sm font-semibold text-white">
+          <Link href="/dashboard/client" className="brand-gradient-bg rounded-full px-5 py-2 text-sm font-semibold text-white">
             Ir a mis reservas
           </Link>
           <Link href="/" className="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700">

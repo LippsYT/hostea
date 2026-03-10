@@ -378,7 +378,7 @@ export const sendReservationConfirmedEmails = async (
   const hostName = payload.listing.host.profile?.name || payload.listing.host.email;
   const guestName = payload.user.profile?.name || payload.user.email;
   const breakdown = buildInvoiceBreakdown(payload);
-  const reservationUrl = `${appBaseUrl}/dashboard/client/reservations`;
+  const reservationUrl = `${appBaseUrl}/dashboard/client?reservationId=${payload.id}`;
   const panelUrl = `${appBaseUrl}/dashboard/host/reservations?reservationId=${payload.id}`;
 
   const pdfBuffer = buildInvoicePdf({
@@ -479,7 +479,7 @@ export const sendCheckInReminderEmail = async (reservationId: string, db = prism
         <p><strong>Check-in:</strong> ${formatDateForEmail(payload.checkIn)} (${payload.listing.checkInTime})</p>
         <p><strong>Instrucciones:</strong> ${safeText(payload.listing.checkInInstructions)}</p>
         <p><strong>Asistencia:</strong> ${safeText(payload.listing.assistancePhone)}</p>
-        <p><a href="${appUrl}/dashboard/client/reservations">Ver reserva</a></p>
+        <p><a href="${appUrl}/dashboard/client?reservationId=${payload.id}">Ver reserva</a></p>
       </div>
     `
   });
@@ -500,7 +500,7 @@ export const sendPostCheckoutEmail = async (reservationId: string, db = prisma) 
       <div style="font-family:Arial,sans-serif;color:#0f172a">
         <h2>Gracias por tu estadia</h2>
         <p>Nos encantaria conocer tu experiencia en ${payload.listing.title}.</p>
-        <p><a href="${appBaseUrl}/dashboard/client/reservations">Dejar una resena</a></p>
+        <p><a href="${appBaseUrl}/dashboard/client?reservationId=${payload.id}">Dejar una resena</a></p>
       </div>
     `
   });

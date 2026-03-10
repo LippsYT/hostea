@@ -330,6 +330,8 @@ const buildInvoicePdf = (data: {
   cleaning: number;
   taxes: number;
   serviceFee: number;
+  supportPhone?: string;
+  propertyImageUrl?: string;
 }) => {
   return buildHosteaInvoicePdf({
     reservationNumber: data.reservationNumber,
@@ -352,7 +354,9 @@ const buildInvoicePdf = (data: {
     taxAmount: data.taxes,
     serviceFeeAmount: data.serviceFee,
     totalAmount: data.total,
-    supportEmail: contactEmail
+    supportEmail: contactEmail,
+    supportPhone: data.supportPhone,
+    propertyImageUrl: data.propertyImageUrl
   });
 };
 
@@ -457,7 +461,8 @@ const getReservationPayload = async (reservationId: string, db = prisma) => {
           photos: { orderBy: { sortOrder: 'asc' } },
           host: { include: { profile: true } }
         }
-      }
+      },
+      upsellExperience: true
     }
   });
 };
@@ -485,6 +490,8 @@ export const sendReservationConfirmedEmails = async (
     payload.reservationNumber ||
     (await ensureReservationNumber(db, payload.id, payload.createdAt)) ||
     payload.id;
+  const hasUpsellExperience = Boolean(payload.upsellExperienceId);
+  const bookingTypeLabel = hasUpsellExperience ? 'Alojamiento + experiencia' : 'Alojamiento';
   const hostName = payload.listing.host.profile?.name || payload.listing.host.email;
   const guestName = payload.user.profile?.name || payload.user.email;
   const breakdown = buildInvoiceBreakdown(payload);
@@ -494,7 +501,7 @@ export const sendReservationConfirmedEmails = async (
   const pdfBuffer = buildInvoicePdf({
     reservationNumber,
     issuedAt: new Date(),
-    bookingTypeLabel: 'Alojamiento',
+    bookingTypeLabel,
     guestName,
     guestEmail: payload.user.email,
     listingTitle: payload.listing.title,
@@ -511,12 +518,14 @@ export const sendReservationConfirmedEmails = async (
     baseAmount: Math.max(Number(payload.total) - breakdown.cleaning - breakdown.taxes - breakdown.serviceFee, 0),
     cleaning: breakdown.cleaning,
     taxes: breakdown.taxes,
-    serviceFee: breakdown.serviceFee
+    serviceFee: breakdown.serviceFee,
+    supportPhone: payload.listing.assistancePhone || undefined,
+    propertyImageUrl: payload.listing.photos[0]?.url || undefined
   });
 
   const guestHtml = buildGuestConfirmationHtml({
     reservationNumber,
-    bookingTypeLabel: 'Alojamiento',
+    bookingTypeLabel,
     guestName,
     listingTitle: payload.listing.title,
     listingPhoto: payload.listing.photos[0]?.url || null,

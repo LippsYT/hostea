@@ -1,4 +1,5 @@
 const DEFAULT_APP_ORIGIN = 'https://gohostea.com';
+const isProduction = process.env.NODE_ENV === 'production';
 
 const sanitizeCandidate = (value: string) => {
   let candidate = value.trim();
@@ -15,10 +16,23 @@ const sanitizeCandidate = (value: string) => {
   return candidate;
 };
 
+const isLocalHostName = (hostname: string) => {
+  const normalized = hostname.toLowerCase();
+  return (
+    normalized === 'localhost' ||
+    normalized === '127.0.0.1' ||
+    normalized === '0.0.0.0' ||
+    normalized.endsWith('.local')
+  );
+};
+
 const toOrigin = (value: string) => {
   try {
     const url = new URL(value);
     if (!url.hostname || ['https', 'http'].includes(url.hostname.toLowerCase())) {
+      return null;
+    }
+    if (isProduction && isLocalHostName(url.hostname)) {
       return null;
     }
     return url.origin;
@@ -29,10 +43,10 @@ const toOrigin = (value: string) => {
 
 export const resolveAppOrigin = (requestUrl?: string) => {
   const candidates = [
-    requestUrl,
     process.env.NEXT_PUBLIC_APP_URL,
     process.env.APP_URL,
-    process.env.NEXTAUTH_URL
+    process.env.NEXTAUTH_URL,
+    requestUrl
   ].filter(Boolean) as string[];
 
   for (const raw of candidates) {

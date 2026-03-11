@@ -248,8 +248,8 @@ export const ChatClient = ({
 
       {quickReplyOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-          <div className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <div className="flex h-[85vh] max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+            <div className="shrink-0 flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
                 <p className="text-base font-semibold text-slate-900">Respuestas rapidas</p>
                 <p className="text-xs text-slate-500">
@@ -265,7 +265,7 @@ export const ChatClient = ({
               </button>
             </div>
 
-            <div className="space-y-4 p-5">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 p-5">
               <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3">
                 <Search className="h-4 w-4 text-slate-400" />
                 <input
@@ -316,7 +316,7 @@ export const ChatClient = ({
                 </button>
               </div>
 
-              <div className="max-h-[52vh] space-y-2 overflow-y-auto pr-1">
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 pb-6">
                 {visibleQuickReplies.map((reply) => (
                   <button
                     key={reply.id}

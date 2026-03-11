@@ -2,10 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireSession } from '@/lib/permissions';
 import { assertCsrf } from '@/lib/csrf';
-import {
-  getHostMessagingConfig,
-  saveHostMessagingConfig
-} from '@/lib/host-messaging-config';
+import { getHostMessagingConfig, saveHostMessagingConfig } from '@/lib/host-messaging-config';
 
 const quickReplySchema = z.object({
   id: z.string().trim().min(1).max(80),
@@ -16,18 +13,21 @@ const quickReplySchema = z.object({
   enabled: z.boolean()
 });
 
-const schema = z.object({
+const automationSchema = z.object({
   enabled: z.boolean(),
-  templates: z.object({
-    inquiry: z.string().trim().min(1).max(800),
-    reservationConfirmed: z.string().trim().min(1).max(800),
-    preCheckIn: z.string().trim().min(1).max(800),
-    welcome: z.string().trim().min(1).max(800),
-    checkOut: z.string().trim().min(1).max(800)
+  templateId: z.string().trim().max(80).nullable()
+});
+
+const schema = z.object({
+  quickReplies: z.array(quickReplySchema).max(50),
+  automations: z.object({
+    inquiry: automationSchema,
+    reservation_confirmed: automationSchema,
+    pre_checkin: automationSchema,
+    post_checkout: automationSchema
   }),
-  quickReplies: z.array(quickReplySchema).max(20),
   suspicious: z.object({
-    keywords: z.array(z.string().trim().min(1).max(80)).min(1).max(30),
+    keywords: z.array(z.string().trim().min(1).max(80)).min(1).max(50),
     autoReplyEnabled: z.boolean(),
     autoReplyMessage: z.string().trim().min(1).max(500)
   })

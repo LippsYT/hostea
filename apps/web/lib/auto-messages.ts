@@ -5,18 +5,18 @@ import {
   getHostMessagingConfig,
   hasAutoMessageAudit,
   markAutoMessageAudit,
-  renderHostTemplate
+  renderHostTemplate,
+  resolveAutomationTemplate
 } from '@/lib/host-messaging-config';
 
 type ReservationWithContext = Awaited<ReturnType<typeof fetchReservationContext>>;
 
-type AutoMessageEvent = 'reservation_confirmed' | 'pre_checkin' | 'welcome' | 'check_out';
+type AutoMessageEvent = 'reservation_confirmed' | 'pre_checkin' | 'post_checkout';
 
 const eventActionMap: Record<AutoMessageEvent, string> = {
   reservation_confirmed: 'AUTO_MESSAGE_RESERVATION_CONFIRMED',
   pre_checkin: 'AUTO_MESSAGE_PRE_CHECKIN',
-  welcome: 'AUTO_MESSAGE_WELCOME',
-  check_out: 'AUTO_MESSAGE_CHECK_OUT'
+  post_checkout: 'AUTO_MESSAGE_CHECK_OUT'
 };
 
 const startOfDay = (value: Date) => {
@@ -62,30 +62,18 @@ const ensureThreadWithParticipants = async (
   });
 };
 
-const resolveTemplate = (
-  reservation: NonNullable<ReservationWithContext>,
-  event: AutoMessageEvent,
-  config: Awaited<ReturnType<typeof getHostMessagingConfig>>
-) => {
-  switch (event) {
-    case 'reservation_confirmed':
-      return config.templates.reservationConfirmed;
-    case 'pre_checkin':
-      return config.templates.preCheckIn;
-    case 'welcome':
-      return config.templates.welcome;
-    case 'check_out':
-      return config.templates.checkOut;
-    default:
-      return config.templates.reservationConfirmed;
-  }
+const eventAutomationMap: Record<AutoMessageEvent, 'reservation_confirmed' | 'pre_checkin' | 'post_checkout'> = {
+  reservation_confirmed: 'reservation_confirmed',
+  pre_checkin: 'pre_checkin',
+  post_checkout: 'post_checkout'
 };
 
 const buildTemplateVariables = (reservation: NonNullable<ReservationWithContext>) => ({
   guest_name: reservation.user.profile?.name || reservation.user.email || 'Huesped',
   property_name: reservation.listing.title,
   check_in: reservation.checkIn.toISOString().slice(0, 10),
-  check_out: reservation.checkOut.toISOString().slice(0, 10)
+  check_out: reservation.checkOut.toISOString().slice(0, 10),
+  booking_code: reservation.reservationNumber || reservation.id
 });
 
 const sendAutoMessageForReservation = async (
@@ -94,16 +82,14 @@ const sendAutoMessageForReservation = async (
 ) => {
   const hostId = reservation.listing.hostId;
   const config = await getHostMessagingConfig(hostId);
-  if (!config.enabled) return;
+  const template = resolveAutomationTemplate(config, eventAutomationMap[event]);
+  if (!template) return;
 
   const action = eventActionMap[event];
   const alreadySent = await hasAutoMessageAudit(reservation.id, action);
   if (alreadySent) return;
 
-  const body = renderHostTemplate(
-    resolveTemplate(reservation, event, config),
-    buildTemplateVariables(reservation)
-  ).trim();
+  const body = renderHostTemplate(template.body, buildTemplateVariables(reservation)).trim();
   if (!body) return;
 
   const thread = await ensureThreadWithParticipants(
@@ -121,13 +107,7 @@ const sendAutoMessageForReservation = async (
     }
   });
 
-  await markAutoMessageAudit(
-    reservation.id,
-    hostId,
-    action,
-    { event, threadId: thread.id },
-    prisma
-  );
+  await markAutoMessageAudit(reservation.id, hostId, action, { event, threadId: thread.id }, prisma);
 };
 
 let lastLifecycleSweepAt = 0;
@@ -152,11 +132,7 @@ export const sendScheduledHostLifecycleMessages = async (force = false) => {
   const reservations = await prisma.reservation.findMany({
     where: {
       status: {
-        in: [
-          ReservationStatus.CONFIRMED,
-          ReservationStatus.CHECKED_IN,
-          ReservationStatus.COMPLETED
-        ]
+        in: [ReservationStatus.CONFIRMED, ReservationStatus.CHECKED_IN, ReservationStatus.COMPLETED]
       },
       OR: [
         { checkIn: { gte: today, lt: dayAfterTomorrow } },
@@ -174,11 +150,8 @@ export const sendScheduledHostLifecycleMessages = async (force = false) => {
     if (sameDay(reservation.checkIn, tomorrow)) {
       await sendAutoMessageForReservation(reservation, 'pre_checkin');
     }
-    if (sameDay(reservation.checkIn, today)) {
-      await sendAutoMessageForReservation(reservation, 'welcome');
-    }
     if (sameDay(reservation.checkOut, today)) {
-      await sendAutoMessageForReservation(reservation, 'check_out');
+      await sendAutoMessageForReservation(reservation, 'post_checkout');
     }
   }
 };

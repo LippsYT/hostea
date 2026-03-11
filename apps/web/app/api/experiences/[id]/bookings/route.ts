@@ -7,7 +7,11 @@ import { sendPushToHost } from '@/lib/push-notifications';
 import { createThreadWithParticipants, uniqueParticipantIds } from '@/lib/message-thread-utils';
 import { getSmartPricingParamsFromSettings } from '@/lib/pricing-settings';
 import { calculateExperienceCheckoutQuote } from '@/lib/experience-checkout-pricing';
-import { getHostMessagingConfig, renderHostTemplate } from '@/lib/host-messaging-config';
+import {
+  getHostMessagingConfig,
+  renderHostTemplate,
+  resolveAutomationTemplate
+} from '@/lib/host-messaging-config';
 
 const schema = z.object({
   date: z.string().optional(),
@@ -168,12 +172,14 @@ export async function POST(
     });
 
     const hostConfig = await getHostMessagingConfig(experience.hostId);
-    if (hostConfig.enabled) {
-      const autoBody = renderHostTemplate(hostConfig.templates.inquiry, {
+    const inquiryTemplate = resolveAutomationTemplate(hostConfig, 'inquiry');
+    if (inquiryTemplate) {
+      const autoBody = renderHostTemplate(inquiryTemplate.body, {
         guest_name: (session.user as any)?.name || (session.user as any)?.email || 'Huesped',
         property_name: experience.title,
         check_in: requestedDate,
-        check_out: ''
+        check_out: '',
+        booking_code: ''
       });
       const already = await prisma.message.findFirst({
         where: {

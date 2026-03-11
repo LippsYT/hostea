@@ -8,7 +8,8 @@ import { expireAwaitingPaymentReservations } from '@/lib/reservation-request-flo
 import { createThreadWithParticipants, uniqueParticipantIds } from '@/lib/message-thread-utils';
 import {
   getHostMessagingConfig,
-  renderHostTemplate
+  renderHostTemplate,
+  resolveAutomationTemplate
 } from '@/lib/host-messaging-config';
 
 const unauthorized = (message = 'No autorizado') =>
@@ -118,13 +119,14 @@ export async function POST(req: Request) {
           where: { id: userId },
           include: { profile: true }
         });
-        const autoInquiryTemplate = hostConfig.templates.inquiry;
-        const autoInquiryBody = hostConfig.enabled
-          ? renderHostTemplate(autoInquiryTemplate, {
+        const inquiryTemplate = resolveAutomationTemplate(hostConfig, 'inquiry');
+        const autoInquiryBody = inquiryTemplate
+          ? renderHostTemplate(inquiryTemplate.body, {
               guest_name: guest?.profile?.name || guest?.email || 'Huesped',
               property_name: subject || 'la propiedad',
               check_in: '',
-              check_out: ''
+              check_out: '',
+              booking_code: ''
             })
           : 'Hola, gracias por tu consulta. El anfitrion respondera en breve.';
 

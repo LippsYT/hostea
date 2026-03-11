@@ -13,7 +13,7 @@ import { getReservationWorkflowStatus } from '@/lib/reservation-workflow';
 import { backfillReservationNumbers } from '@/lib/reservation-number';
 import { Home, Ticket } from 'lucide-react';
 import { getHostMessagingConfig, getRiskThreadIds } from '@/lib/host-messaging-config';
-import { HostMessageConfig } from '@/components/host-message-config';
+import { HostMessagesMenu } from '@/components/host-messages-menu';
 
 type ThreadState = 'consulta' | 'oferta' | 'reserva' | 'cerrada';
 
@@ -246,6 +246,7 @@ export default async function HostMessagesPage({
       <div>
         <p className="section-subtitle">Panel Host</p>
         <h1 className="section-title">Mensajes</h1>
+        <HostMessagesMenu active="inbox" />
       </div>
 
       <div className="grid min-h-0 flex-1 gap-4 lg:h-full lg:gap-6 lg:overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)_360px]">
@@ -527,7 +528,6 @@ export default async function HostMessagesPage({
             </div>
           )}
 
-          <HostMessageConfig />
         </aside>
       </div>
     </div>

@@ -22,17 +22,26 @@ const defaultConfig: HostMessagingConfig = {
   },
   quickReplies: [],
   suspicious: {
-    keywords: ['pagar directo', 'efectivo', 'transferencia al alojamiento', 'por fuera', 'sin plataforma', 'whatsapp'],
+    keywords: [
+      'pagar directo',
+      'efectivo',
+      'transferencia al alojamiento',
+      'por fuera',
+      'sin plataforma',
+      'whatsapp'
+    ],
     autoReplyEnabled: true,
-    autoReplyMessage:
-      'Por seguridad, toda reserva y pago debe completarse dentro de Hostea.'
+    autoReplyMessage: 'Por seguridad, toda reserva y pago debe completarse dentro de Hostea.'
   }
 };
 
 const createReply = (): HostQuickReply => ({
   id: `reply-${Math.random().toString(36).slice(2, 9)}`,
   label: '',
-  body: ''
+  body: '',
+  category: 'General',
+  favorite: false,
+  enabled: true
 });
 
 export const HostMessageConfig = () => {
@@ -66,7 +75,10 @@ export const HostMessageConfig = () => {
   }, []);
 
   const safeReplies = useMemo(
-    () => config.quickReplies.filter((reply) => reply.label.trim() && reply.body.trim()),
+    () =>
+      config.quickReplies.filter(
+        (reply) => reply.label.trim() && reply.body.trim() && reply.category.trim()
+      ),
     [config.quickReplies]
   );
 
@@ -79,7 +91,8 @@ export const HostMessageConfig = () => {
         quickReplies: config.quickReplies.map((reply) => ({
           ...reply,
           label: reply.label.trim(),
-          body: reply.body.trim()
+          body: reply.body.trim(),
+          category: (reply.category || 'General').trim() || 'General'
         })),
         suspicious: {
           ...config.suspicious,
@@ -120,7 +133,8 @@ export const HostMessageConfig = () => {
         <div>
           <p className="text-sm font-semibold text-slate-900">Automatizacion de mensajes</p>
           <p className="text-xs text-slate-500">
-            Variables: {'{guest_name}'} {'{property_name}'} {'{check_in}'} {'{check_out}'}
+            Variables: {'{guest_name}'} {'{property_name}'} {'{check_in}'} {'{check_out}'}{' '}
+            {'{booking_code}'}
           </p>
         </div>
         <label className="flex items-center gap-2 text-xs text-slate-600">
@@ -161,7 +175,9 @@ export const HostMessageConfig = () => {
           />
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reserva confirmada</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Reserva confirmada
+          </p>
           <Textarea
             rows={2}
             disabled={loading}
@@ -231,10 +247,12 @@ export const HostMessageConfig = () => {
             Agregar
           </Button>
         </div>
-        <p className="mt-1 text-xs text-slate-500">Se muestran en el composer del chat del host.</p>
+        <p className="mt-1 text-xs text-slate-500">
+          Se usan desde el icono del chat con buscador, categorias y favoritas.
+        </p>
         <div className="mt-3 space-y-2">
           {config.quickReplies.map((reply, index) => (
-            <div key={reply.id} className="rounded-xl border border-slate-200 bg-white p-2">
+            <div key={reply.id} className="rounded-xl border border-slate-200 bg-white p-3">
               <div className="grid gap-2">
                 <Input
                   value={reply.label}
@@ -243,6 +261,17 @@ export const HostMessageConfig = () => {
                     setConfig((prev) => {
                       const next = [...prev.quickReplies];
                       next[index] = { ...next[index], label: e.target.value };
+                      return { ...prev, quickReplies: next };
+                    })
+                  }
+                />
+                <Input
+                  value={reply.category}
+                  placeholder="Categoria (General, Check-in, Pago...)"
+                  onChange={(e) =>
+                    setConfig((prev) => {
+                      const next = [...prev.quickReplies];
+                      next[index] = { ...next[index], category: e.target.value };
                       return { ...prev, quickReplies: next };
                     })
                   }
@@ -259,6 +288,36 @@ export const HostMessageConfig = () => {
                     })
                   }
                 />
+                <div className="flex flex-wrap items-center gap-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={reply.enabled}
+                      onChange={(e) =>
+                        setConfig((prev) => {
+                          const next = [...prev.quickReplies];
+                          next[index] = { ...next[index], enabled: e.target.checked };
+                          return { ...prev, quickReplies: next };
+                        })
+                      }
+                    />
+                    Activa
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={reply.favorite}
+                      onChange={(e) =>
+                        setConfig((prev) => {
+                          const next = [...prev.quickReplies];
+                          next[index] = { ...next[index], favorite: e.target.checked };
+                          return { ...prev, quickReplies: next };
+                        })
+                      }
+                    />
+                    Favorita
+                  </label>
+                </div>
               </div>
               <div className="mt-2 flex justify-end">
                 <button
@@ -282,7 +341,9 @@ export const HostMessageConfig = () => {
         </div>
         {safeReplies.length ? (
           <p className="mt-2 text-[11px] text-slate-500">
-            Activas: {safeReplies.map((reply) => reply.label).join(', ')}
+            Disponibles: {safeReplies.length} · Activas:{' '}
+            {safeReplies.filter((reply) => reply.enabled).length} · Favoritas:{' '}
+            {safeReplies.filter((reply) => reply.favorite).length}
           </p>
         ) : null}
       </div>

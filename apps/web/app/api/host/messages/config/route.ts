@@ -10,7 +10,10 @@ import {
 const quickReplySchema = z.object({
   id: z.string().trim().min(1).max(80),
   label: z.string().trim().min(1).max(80),
-  body: z.string().trim().min(1).max(400)
+  body: z.string().trim().min(1).max(400),
+  category: z.string().trim().min(1).max(40),
+  favorite: z.boolean(),
+  enabled: z.boolean()
 });
 
 const schema = z.object({

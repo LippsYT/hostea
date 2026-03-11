@@ -416,6 +416,17 @@ export default async function HostMessagesPage({
                   currentUserId={userId}
                   currentUserName={userName}
                   quickReplies={hostMessagingConfig.quickReplies}
+                  quickReplyVariables={{
+                    guest_name: selectedGuestName || '',
+                    property_name: selectedListingTitle || '',
+                    check_in: selectedThread?.reservation?.checkIn
+                      ? selectedThread.reservation.checkIn.toISOString().slice(0, 10)
+                      : '',
+                    check_out: selectedThread?.reservation?.checkOut
+                      ? selectedThread.reservation.checkOut.toISOString().slice(0, 10)
+                      : '',
+                    booking_code: selectedThread?.reservation?.reservationNumber || ''
+                  }}
                 />
               </div>
               <div className="border-t border-slate-200/70 bg-white p-4 lg:hidden">

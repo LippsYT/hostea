@@ -7,6 +7,9 @@ export type HostQuickReply = {
   id: string;
   label: string;
   body: string;
+  category: string;
+  favorite: boolean;
+  enabled: boolean;
 };
 
 export type HostMessagingConfig = {
@@ -55,17 +58,26 @@ export const defaultHostMessagingConfig = (): HostMessagingConfig => ({
     {
       id: 'availability',
       label: 'Disponibilidad',
-      body: 'Si, tenemos disponibilidad para esas fechas. Si quieres, te ayudo a confirmar ahora.'
+      body: 'Si, tenemos disponibilidad para esas fechas. Si quieres, te ayudo a confirmar ahora.',
+      category: 'Reserva',
+      favorite: true,
+      enabled: true
     },
     {
       id: 'checkin',
       label: 'Check-in',
-      body: 'Perfecto. El check-in es desde las 15:00 y te comparto instrucciones el dia anterior.'
+      body: 'Perfecto. El check-in es desde las 15:00 y te comparto instrucciones el dia anterior.',
+      category: 'Check-in',
+      favorite: false,
+      enabled: true
     },
     {
       id: 'payment',
       label: 'Pago en plataforma',
-      body: 'Por seguridad, todo pago y confirmacion se realiza dentro de Hostea.'
+      body: 'Por seguridad, todo pago y confirmacion se realiza dentro de Hostea.',
+      category: 'Pagos',
+      favorite: false,
+      enabled: true
     }
   ],
   suspicious: {
@@ -86,7 +98,15 @@ const normalizeQuickReplies = (value: unknown): HostQuickReply[] => {
       const body = String(row.body || '').trim();
       if (!label || !body) return null;
       const id = String(row.id || `reply-${index + 1}`).trim();
-      return { id, label: label.slice(0, 80), body: body.slice(0, 400) };
+      const category = String(row.category || 'General').trim() || 'General';
+      return {
+        id,
+        label: label.slice(0, 80),
+        body: body.slice(0, 400),
+        category: category.slice(0, 40),
+        favorite: row.favorite === true,
+        enabled: row.enabled !== false
+      };
     })
     .filter((item): item is HostQuickReply => Boolean(item));
   return safe.length ? safe : defaultHostMessagingConfig().quickReplies;

@@ -17,14 +17,22 @@ type Message = {
   senderName: string;
 };
 
+type QuickReply = {
+  id: string;
+  label: string;
+  body: string;
+};
+
 export const ChatClient = ({
   initialThreadId,
   currentUserId,
-  currentUserName
+  currentUserName,
+  quickReplies
 }: {
   initialThreadId?: string;
   currentUserId: string;
   currentUserName: string;
+  quickReplies?: QuickReply[];
 }) => {
   const [threadId, setThreadId] = useState(initialThreadId);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -154,6 +162,20 @@ export const ChatClient = ({
         <div ref={bottomRef} />
       </div>
       <div className="border-t border-slate-200/70 bg-white/95 p-3 backdrop-blur">
+        {quickReplies && quickReplies.length ? (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {quickReplies.map((reply) => (
+              <button
+                key={reply.id}
+                type="button"
+                onClick={() => setBody(reply.body)}
+                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-100"
+              >
+                {reply.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div className="flex gap-2">
           <Input
             value={body}

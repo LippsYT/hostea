@@ -7,6 +7,7 @@ import {
 } from '@/lib/calendar-holds';
 import { checkListingAvailability } from '@/lib/listing-availability';
 import { sendPushToClient, sendPushToHost } from '@/lib/push-notifications';
+import { sendScheduledHostLifecycleMessages } from '@/lib/auto-messages';
 import {
   getReservationWorkflowStatus,
   isPendingApprovalReservation
@@ -283,6 +284,7 @@ export const clientRejectAwaitingPayment = async (reservationId: string, actorId
 };
 
 export const expireAwaitingPaymentReservations = async () => {
+  await sendScheduledHostLifecycleMessages().catch(() => undefined);
   const holdsExpired = await cleanupExpiredReservationHolds(prisma);
   const now = new Date();
   const expired = await prisma.reservation.findMany({

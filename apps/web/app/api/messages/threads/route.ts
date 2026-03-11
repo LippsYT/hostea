@@ -6,6 +6,10 @@ import { rateLimit } from '@/lib/rate-limit';
 import { sendPushToHost } from '@/lib/push-notifications';
 import { expireAwaitingPaymentReservations } from '@/lib/reservation-request-flow';
 import { createThreadWithParticipants, uniqueParticipantIds } from '@/lib/message-thread-utils';
+import {
+  getHostMessagingConfig,
+  renderHostTemplate
+} from '@/lib/host-messaging-config';
 
 const unauthorized = (message = 'No autorizado') =>
   NextResponse.json({ error: message }, { status: 401 });
@@ -109,11 +113,26 @@ export async function POST(req: Request) {
         participantIds
       });
       if (!reservationId && listingId) {
+        const hostConfig = await getHostMessagingConfig(hostId);
+        const guest = await prisma.user.findUnique({
+          where: { id: userId },
+          include: { profile: true }
+        });
+        const autoInquiryTemplate = hostConfig.templates.inquiry;
+        const autoInquiryBody = hostConfig.enabled
+          ? renderHostTemplate(autoInquiryTemplate, {
+              guest_name: guest?.profile?.name || guest?.email || 'Huesped',
+              property_name: subject || 'la propiedad',
+              check_in: '',
+              check_out: ''
+            })
+          : 'Hola, gracias por tu consulta. El anfitrion respondera en breve.';
+
         await prisma.message.create({
           data: {
             threadId: thread.id,
             senderId: hostId,
-            body: 'Hola, gracias por tu consulta. El anfitrion respondera en breve.'
+            body: autoInquiryBody
           }
         });
       }

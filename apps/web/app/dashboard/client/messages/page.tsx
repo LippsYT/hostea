@@ -10,10 +10,12 @@ import { expireAwaitingPaymentReservations } from '@/lib/reservation-request-flo
 import { getReservationWorkflowStatus } from '@/lib/reservation-workflow';
 import { backfillReservationNumbers } from '@/lib/reservation-number';
 import { Home, Ticket } from 'lucide-react';
+import { getRiskThreadIds } from '@/lib/host-messaging-config';
 
 const getThreadContext = (
   thread: any,
-  inquiryListingMap: Map<string, string>
+  inquiryListingMap: Map<string, string>,
+  inquiryActivityMap: Map<string, string>
 ): { type: 'listing' | 'activity'; title: string; label: string } => {
   const listingTitle =
     thread.reservation?.listing?.title ||
@@ -22,9 +24,10 @@ const getThreadContext = (
     return { type: 'listing', title: listingTitle, label: 'Alojamiento' };
   }
   if (thread.subject?.startsWith('ACTIVITY:')) {
+    const activityId = thread.subject.replace('ACTIVITY:', '').trim();
     return {
       type: 'activity',
-      title: `Actividad ${thread.subject.replace('ACTIVITY:', '').trim()}`,
+      title: inquiryActivityMap.get(activityId) || `Actividad ${activityId}`,
       label: 'Actividad'
     };
   }
@@ -81,13 +84,29 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
         .filter((id): id is string => Boolean(id))
     )
   );
+  const inquiryActivityIds = Array.from(
+    new Set(
+      threads
+        .map((thread) =>
+          thread.subject?.startsWith('ACTIVITY:') ? thread.subject.replace('ACTIVITY:', '').trim() : null
+        )
+        .filter((id): id is string => Boolean(id))
+    )
+  );
   const inquiryListings = inquiryListingIds.length
     ? await prisma.listing.findMany({
         where: { id: { in: inquiryListingIds } },
         select: { id: true, title: true }
       })
     : [];
+  const inquiryActivities = inquiryActivityIds.length
+    ? await prisma.experience.findMany({
+        where: { id: { in: inquiryActivityIds } },
+        select: { id: true, title: true }
+      })
+    : [];
   const inquiryListingMap = new Map(inquiryListings.map((listing) => [listing.id, listing.title]));
+  const inquiryActivityMap = new Map(inquiryActivities.map((activity) => [activity.id, activity.title]));
 
   const query =
     typeof searchParams.q === 'string' ? searchParams.q.trim().toLowerCase() : '';
@@ -95,10 +114,36 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
     searchParams.type === 'activity' || searchParams.type === 'listing'
       ? (searchParams.type as 'activity' | 'listing')
       : 'all';
+  const inboxFilter =
+    typeof searchParams.filter === 'string' ? searchParams.filter : 'all';
+  const riskThreadIds = await getRiskThreadIds(threads.map((thread) => thread.id));
 
   const filteredThreads = threads.filter((thread) => {
-    const context = getThreadContext(thread, inquiryListingMap);
+    const context = getThreadContext(thread, inquiryListingMap, inquiryActivityMap);
     if (typeFilter !== 'all' && context.type !== typeFilter) return false;
+    const workflow = thread.reservation
+      ? getReservationWorkflowStatus({
+          status: thread.reservation.status,
+          paymentExpiresAt: thread.reservation.paymentExpiresAt,
+          holdExpiresAt: thread.reservation.holdExpiresAt,
+          paymentStatus: thread.reservation.payment?.status || null
+        })
+      : null;
+    const unread = (thread._count?.messages || 0) > 0;
+    const lastMessage = thread.messages?.[0] || null;
+    const unanswered = Boolean(lastMessage && lastMessage.senderId === userId);
+    const isInquiry = !thread.reservation || workflow === 'pending_approval';
+    const isConfirmed = workflow === 'confirmed';
+    const isPendingPayment = workflow === 'awaiting_payment';
+    const isRisk = riskThreadIds.has(thread.id);
+
+    if (inboxFilter === 'unread' && !unread) return false;
+    if (inboxFilter === 'inquiries' && !isInquiry) return false;
+    if (inboxFilter === 'confirmed' && !isConfirmed) return false;
+    if (inboxFilter === 'pending_payment' && !isPendingPayment) return false;
+    if (inboxFilter === 'risk' && !isRisk) return false;
+    if (inboxFilter === 'unanswered' && !unanswered) return false;
+
     if (!query) return true;
     const hostParticipant = thread.participants.find((p) => p.userId !== userId);
     const hostName = hostParticipant?.user.profile?.name || '';
@@ -138,8 +183,9 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
     : null;
 
   const selectedContext = selectedThread
-    ? getThreadContext(selectedThread, inquiryListingMap)
+    ? getThreadContext(selectedThread, inquiryListingMap, inquiryActivityMap)
     : { type: 'listing' as const, title: 'Alojamiento', label: 'Alojamiento' };
+  const selectedIsRisk = selectedThread ? riskThreadIds.has(selectedThread.id) : false;
   const selectedListingTitle = selectedContext.title;
   const selectedHostParticipant = selectedThread?.participants.find((p) => p.userId !== userId);
   const selectedHostName =
@@ -160,6 +206,7 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
           <form className="mt-3" method="get">
             {selectedThread?.id ? <input type="hidden" name="threadId" value={selectedThread.id} /> : null}
             {typeFilter !== 'all' ? <input type="hidden" name="type" value={typeFilter} /> : null}
+            {inboxFilter !== 'all' ? <input type="hidden" name="filter" value={inboxFilter} /> : null}
             <input
               name="q"
               defaultValue={query}
@@ -176,6 +223,7 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
               const params = new URLSearchParams();
               if (query) params.set('q', query);
               if (item.key !== 'all') params.set('type', item.key);
+              if (inboxFilter !== 'all') params.set('filter', inboxFilter);
               return (
                 <Link
                   key={item.key}
@@ -191,16 +239,45 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
               );
             })}
           </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {[
+              { key: 'all', label: 'Todo' },
+              { key: 'unread', label: 'No leidos' },
+              { key: 'inquiries', label: 'Consultas' },
+              { key: 'confirmed', label: 'Reservas confirmadas' },
+              { key: 'pending_payment', label: 'Pago pendiente' },
+              { key: 'risk', label: 'Riesgo' },
+              { key: 'unanswered', label: 'Sin responder' }
+            ].map((item) => {
+              const params = new URLSearchParams();
+              if (query) params.set('q', query);
+              if (typeFilter !== 'all') params.set('type', typeFilter);
+              if (item.key !== 'all') params.set('filter', item.key);
+              return (
+                <Link
+                  key={item.key}
+                  href={`?${params.toString()}`}
+                  className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${
+                    inboxFilter === item.key
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-600'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
           <div className="mt-4 space-y-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
             {filteredThreads.map((thread) => {
               const hostParticipant = thread.participants.find((p) => p.userId !== userId);
               const hostName =
                 hostParticipant?.user.profile?.name || hostParticipant?.user.email || 'Anfitrion';
-              const listingTitle =
-                getThreadContext(thread, inquiryListingMap).title;
-              const context = getThreadContext(thread, inquiryListingMap);
+              const context = getThreadContext(thread, inquiryListingMap, inquiryActivityMap);
+              const listingTitle = context.title;
               const lastMessage = thread.messages[0];
               const unreadCount = thread._count?.messages || 0;
+              const isRisk = riskThreadIds.has(thread.id);
               const lastMessageDate = lastMessage?.createdAt
                 ? new Date(lastMessage.createdAt).toLocaleDateString('es-AR', {
                     day: '2-digit',
@@ -235,6 +312,11 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
                     {context.type === 'activity' ? <Ticket className="h-3 w-3" /> : <Home className="h-3 w-3" />}
                     <span>{context.label}</span>
                   </div>
+                  {isRisk ? (
+                    <span className="ml-1 inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                      Riesgo
+                    </span>
+                  ) : null}
                   <p className="truncate text-[11px] text-slate-400">{reservationMeta}</p>
                   {lastMessage && (
                     <p className="mt-1 truncate text-xs text-slate-400">
@@ -302,6 +384,11 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
         </section>
         <aside className="surface-card hidden h-full min-h-0 flex-col overflow-y-auto lg:flex">
           <h2 className="text-lg font-semibold text-slate-900">Reserva</h2>
+          {selectedIsRisk ? (
+            <div className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
+              Conversacion marcada por riesgo de pago por fuera. Mantene el pago dentro de Hostea.
+            </div>
+          ) : null}
           {selectedThread?.reservation ? (
             <div className="mt-4 space-y-3 text-sm text-slate-600">
               <p className="font-semibold text-slate-900">{selectedThread.reservation.listing.title}</p>

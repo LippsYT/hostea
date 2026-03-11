@@ -6,13 +6,30 @@ import { getIO } from '@/lib/socket';
 import { rateLimit } from '@/lib/rate-limit';
 import { sendPushToUser } from '@/lib/push-notifications';
 import { expireAwaitingPaymentReservations } from '@/lib/reservation-request-flow';
+import {
+  extractSuspiciousKeywords,
+  getHostMessagingConfig
+} from '@/lib/host-messaging-config';
 
 export async function GET(_req: Request, { params }: { params: { threadId: string } }) {
   await expireAwaitingPaymentReservations();
   const session = await requireSession();
   const userId = (session.user as any).id;
   const thread = await prisma.messageThread.findFirst({
-    where: { id: params.threadId, participants: { some: { userId } } }
+    where: { id: params.threadId, participants: { some: { userId } } },
+    include: {
+      reservation: { include: { listing: true } },
+      participants: {
+        include: {
+          user: {
+            include: {
+              profile: true,
+              roles: { include: { role: true } }
+            }
+          }
+        }
+      }
+    }
   });
   if (!thread) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   const isAssociated =
@@ -62,7 +79,20 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
     return NextResponse.json({ error: 'Mensaje invalido' }, { status: 400 });
   }
   const thread = await prisma.messageThread.findFirst({
-    where: { id: params.threadId, participants: { some: { userId } } }
+    where: { id: params.threadId, participants: { some: { userId } } },
+    include: {
+      reservation: { include: { listing: true } },
+      participants: {
+        include: {
+          user: {
+            include: {
+              profile: true,
+              roles: { include: { role: true } }
+            }
+          }
+        }
+      }
+    }
   });
   if (!thread) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   const isAssociated =
@@ -100,19 +130,65 @@ export async function POST(req: Request, { params }: { params: { threadId: strin
     io.to(`thread:${params.threadId}`).emit('message:new', payload);
   } catch {}
 
-  const participants = await prisma.messageThreadParticipant.findMany({
-    where: {
-      threadId: params.threadId,
-      userId: { not: userId }
-    },
-    include: {
-      user: {
-        include: {
-          roles: { include: { role: true } }
+  const hostParticipant =
+    thread.reservation?.listing?.hostId
+      ? thread.participants.find((participant) => participant.userId === thread.reservation?.listing?.hostId)
+      : thread.participants.find((participant) =>
+          participant.user.roles.some((roleRow) =>
+            ['HOST', 'EXPERIENCE_HOST', 'ADMIN'].includes(roleRow.role.name)
+          )
+        );
+
+  const suspiciousMatches = extractSuspiciousKeywords(body.body);
+  if (suspiciousMatches.length > 0) {
+    await prisma.auditLog.create({
+      data: {
+        actorId: userId,
+        action: 'THREAD_RISK_FLAGGED',
+        entity: 'MessageThread',
+        entityId: params.threadId,
+        meta: {
+          messageId: message.id,
+          keywords: suspiciousMatches
+        }
+      }
+    });
+
+    if (hostParticipant?.userId) {
+      await sendPushToUser(hostParticipant.userId, 'host', {
+        title: 'Conversacion en riesgo',
+        body: 'Se detecto un mensaje con posible pago por fuera de la plataforma.',
+        url: `/dashboard/host/messages?threadId=${params.threadId}`,
+        type: 'THREAD_RISK_FLAGGED'
+      });
+
+      if (hostParticipant.userId !== userId) {
+        const hostConfig = await getHostMessagingConfig(hostParticipant.userId);
+        if (hostConfig.suspicious.autoReplyEnabled) {
+          const autoMessage = await prisma.message.create({
+            data: {
+              threadId: params.threadId,
+              senderId: hostParticipant.userId,
+              body: hostConfig.suspicious.autoReplyMessage
+            }
+          });
+          try {
+            const io = getIO();
+            io.to(`thread:${params.threadId}`).emit('message:new', {
+              id: autoMessage.id,
+              body: autoMessage.body,
+              createdAt: autoMessage.createdAt,
+              seenAt: autoMessage.seenAt,
+              senderId: autoMessage.senderId,
+              senderName: hostParticipant.user.profile?.name || hostParticipant.user.email || 'Anfitrion'
+            });
+          } catch {}
         }
       }
     }
-  });
+  }
+
+  const participants = thread.participants.filter((participant) => participant.userId !== userId);
 
   for (const recipient of participants) {
     const roleNames = recipient.user.roles.map((roleRow) => roleRow.role.name);

@@ -214,6 +214,21 @@ export async function POST(req: Request) {
         holdExpiresAt: paymentExpiresAt
       }
     });
+    const reservationThread = await createThreadWithParticipants(prisma, {
+      reservationId: reservation.id,
+      status: 'RESERVATION',
+      subject: listing.title,
+      createdById: (session.user as any).id,
+      participantIds: uniqueParticipantIds([(session.user as any).id, listing.hostId])
+    });
+
+    await prisma.message.create({
+      data: {
+        threadId: reservationThread.id,
+        senderId: (session.user as any).id,
+        body: `Solicitud de reserva iniciada para ${listing.title} (${checkIn} - ${checkOut}).`
+      }
+    });
     const successUrl = buildAppUrl(
       `/success?reservationId=${reservation.id}&session_id={CHECKOUT_SESSION_ID}`,
       req.url
@@ -293,7 +308,7 @@ export async function POST(req: Request) {
     await sendPushToHost(listing.hostId, {
       title: 'Nueva reserva',
       body: `Nueva solicitud para ${listing.title}. Pendiente de pago.`,
-      url: `/dashboard/host/reservations?reservationId=${reservation.id}`,
+      url: `/dashboard/host/messages?threadId=${reservationThread.id}`,
       type: 'NEW_RESERVATION'
     });
     return NextResponse.json({ checkoutUrl: stripeSession.url });

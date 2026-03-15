@@ -24,11 +24,12 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
   icons: {
     icon: [
-      { url: '/icon.png?v=1', type: 'image/png', sizes: '32x32' },
-      { url: '/brand/hostea_nav_32.png?v=1', type: 'image/png', sizes: '32x32' }
+      { url: '/brand/favicon.ico' },
+      { url: '/brand/favicon-32.png', type: 'image/png', sizes: '32x32' },
+      { url: '/brand/favicon-48.png', type: 'image/png', sizes: '48x48' }
     ],
-    shortcut: ['/icon.png?v=1'],
-    apple: [{ url: '/brand/hostea_nav_32.png?v=1', type: 'image/png' }]
+    shortcut: ['/brand/favicon.ico'],
+    apple: [{ url: '/brand/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }]
   }
 };
 

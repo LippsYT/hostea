@@ -73,11 +73,19 @@ export default async function ExploreDetailPage({ params }: { params: { id: stri
               <h3 className="text-base font-semibold text-slate-900">Detalles</h3>
               <div className="mt-3 grid gap-2 text-sm text-slate-600 md:grid-cols-2">
                 <p>Categoria: {experience.category}</p>
+                {experience.country ? <p>Pais: {experience.country}</p> : null}
+                {experience.region ? <p>Region: {experience.region}</p> : null}
                 <p>Ciudad: {experience.city}</p>
                 {experience.zone && <p>Zona: {experience.zone}</p>}
+                {experience.exactAddress ? <p>Direccion: {experience.exactAddress}</p> : null}
                 <p>Duracion: {experience.durationMinutes} min</p>
                 <p>Idioma: {experience.language}</p>
                 <p>Cupos por salida: {experience.capacity}</p>
+                <p>Edad minima: {experience.minimumAge}+</p>
+                <p>
+                  Reserva:{' '}
+                  {experience.bookingMode === 'INQUIRY' ? 'Solo consulta' : 'Reserva inmediata'}
+                </p>
                 <p>Punto de encuentro: {experience.meetingPoint}</p>
                 <p>
                   Cobertura:{' '}
@@ -154,10 +162,15 @@ export default async function ExploreDetailPage({ params }: { params: { id: stri
                 <ExperienceBookingForm
                   experienceId={experience.id}
                   activityType={experience.activityType}
+                  bookingMode={experience.bookingMode}
                   adultPrice={Number(experience.pricePerPerson)}
                   childPrice={Number(experience.childPrice ?? experience.pricePerPerson)}
                   infantPrice={Number(experience.infantPrice ?? 0)}
                   capacity={experience.capacity}
+                  minimumAge={experience.minimumAge}
+                  infantMaxAge={experience.infantMaxAge}
+                  childMaxAge={experience.childMaxAge}
+                  adultMinAge={experience.adultMinAge}
                   schedules={schedules.length ? schedules : ['A coordinar con el anfitrion']}
                   pricingParams={pricingParams}
                 />

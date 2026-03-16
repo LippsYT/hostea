@@ -1,6 +1,8 @@
 import Link from 'next/link';
-import { prisma } from '@/lib/db';
 import { Button } from '@/components/ui/button';
+import { SearchForm } from '@/components/search-form';
+import { prisma } from '@/lib/db';
+import { buildOccupancySummary } from '@/lib/occupancy';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -9,6 +11,16 @@ type ExploreSearchParams = {
   q?: string;
   city?: string;
   category?: string;
+  date?: string;
+  adults?: string;
+  children?: string;
+  infants?: string;
+  guests?: string;
+};
+
+const parseCount = (value: string | undefined, fallback: number) => {
+  const raw = Number(value);
+  return Number.isFinite(raw) ? Math.max(0, raw) : fallback;
 };
 
 export default async function ExplorePage({
@@ -19,28 +31,50 @@ export default async function ExplorePage({
   const q = searchParams?.q?.trim() || '';
   const city = searchParams?.city?.trim() || '';
   const category = searchParams?.category?.trim() || '';
+  const date = searchParams?.date?.trim() || '';
+  const adults = Math.max(1, parseCount(searchParams?.adults, parseCount(searchParams?.guests, 2)));
+  const children = parseCount(searchParams?.children, 0);
+  const infants = parseCount(searchParams?.infants, 0);
+  const totalGuests = adults + children + infants;
 
-  const where = {
-    status: 'ACTIVE',
+  const filters = [
+    { status: 'ACTIVE' as const },
+    { capacity: { gte: totalGuests } },
     ...(q
-      ? {
-          OR: [
-            { title: { contains: q, mode: 'insensitive' as const } },
-            { description: { contains: q, mode: 'insensitive' as const } }
-          ]
-        }
-      : {}),
-    ...(city ? { city: { equals: city, mode: 'insensitive' as const } } : {}),
-    ...(category ? { category: { equals: category, mode: 'insensitive' as const } } : {})
-  };
+      ? [
+          {
+            OR: [
+              { title: { contains: q, mode: 'insensitive' as const } },
+              { description: { contains: q, mode: 'insensitive' as const } },
+              { category: { contains: q, mode: 'insensitive' as const } }
+            ]
+          }
+        ]
+      : []),
+    ...(city
+      ? [
+          {
+            OR: [
+              { city: { contains: city, mode: 'insensitive' as const } },
+              { zone: { contains: city, mode: 'insensitive' as const } }
+            ]
+          }
+        ]
+      : []),
+    ...(category
+      ? [{ category: { equals: category, mode: 'insensitive' as const } }]
+      : [])
+  ];
+  const where = { AND: filters };
 
   const [experiences, cities, categories] = await Promise.all([
     prisma.experience.findMany({
       where,
       include: {
-        photos: { orderBy: { sortOrder: 'asc' } }
+        photos: { orderBy: { sortOrder: 'asc' } },
+        _count: { select: { bookings: true } }
       },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
       take: 60
     }),
     prisma.experience.findMany({
@@ -64,23 +98,49 @@ export default async function ExplorePage({
     <main className="px-4 pb-20 pt-10 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl space-y-8">
         <section className="rounded-3xl border border-slate-200/70 bg-white/85 p-8 shadow-soft backdrop-blur">
-          <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Marketplace global</p>
-          <h1 className="mt-4 text-4xl font-semibold leading-tight text-slate-900 md:text-5xl">
-            Explorar experiencias en cualquier ciudad
-          </h1>
-          <p className="mt-4 max-w-3xl text-base text-slate-600 md:text-lg">
-            HOSTEA conecta viajeros con tours, paseos, excursiones y actividades culturales
-            creadas por anfitriones locales.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/dashboard/host/explore/new">
-              <Button size="lg">Publicar mi experiencia</Button>
-            </Link>
-            <a href="#catalogo">
-              <Button size="lg" variant="outline">
-                Ver experiencias
-              </Button>
-            </a>
+          <div className="grid gap-8 lg:grid-cols-[1fr_420px]">
+            <div>
+              <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Marketplace global</p>
+              <h1 className="mt-4 text-4xl font-semibold leading-tight text-slate-900 md:text-5xl">
+                Explorar actividades con fecha y participantes reales
+              </h1>
+              <p className="mt-4 max-w-3xl text-base text-slate-600 md:text-lg">
+                HOSTEA conecta viajeros con tours, shows, paseos y experiencias creadas por
+                anfitriones locales, sin mezclar la logica de alojamientos.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link href="/dashboard/host/explore/new">
+                  <Button size="lg">Publicar mi actividad</Button>
+                </Link>
+                <a href="#catalogo">
+                  <Button size="lg" variant="outline">
+                    Ver catalogo
+                  </Button>
+                </a>
+              </div>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {city ? (
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+                    {city}
+                  </span>
+                ) : null}
+                {date ? (
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+                    {date}
+                  </span>
+                ) : null}
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+                  {buildOccupancySummary({ adults, children, infants })}
+                </span>
+              </div>
+            </div>
+            <div className="rounded-[2rem] border border-slate-200 bg-slate-50/70 p-4">
+              <SearchForm
+                mode="activity"
+                initialValues={{ city, date, adults, children, infants }}
+                compact
+              />
+            </div>
           </div>
         </section>
 
@@ -117,7 +177,7 @@ export default async function ExplorePage({
               ))}
             </select>
             <Button className="h-11" type="submit">
-              Filtrar
+              Filtrar catalogo
             </Button>
           </form>
         </section>
@@ -149,21 +209,29 @@ export default async function ExplorePage({
                     )}
                   </Link>
                   <div className="space-y-2 p-4">
-                    <Link href={`/explorar/${experience.id}`}>
-                      <h3 className="line-clamp-2 text-base font-semibold text-slate-900">
-                        {experience.title}
-                      </h3>
-                    </Link>
-                    <p className="text-sm text-slate-500">{experience.city}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <Link href={`/explorar/${experience.id}`}>
+                        <h3 className="line-clamp-2 text-base font-semibold text-slate-900">
+                          {experience.title}
+                        </h3>
+                      </Link>
+                      <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                        {experience.category}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-500">
+                      {experience.city}
+                      {experience.zone ? ` · ${experience.zone}` : ''}
+                    </p>
                     <p className="text-xs text-slate-500">
-                      {experience.category} · {experience.durationMinutes} min
+                      {experience.durationMinutes} min · {experience._count.bookings} reservas
                     </p>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-slate-900">
                         USD {Number(experience.pricePerPerson).toFixed(2)}
                       </span>
                       <Link href={`/explorar/${experience.id}`} className="pill-link">
-                        Reservar
+                        Ver detalle
                       </Link>
                     </div>
                   </div>
@@ -172,7 +240,8 @@ export default async function ExplorePage({
             })}
             {experiences.length === 0 && (
               <div className="surface-card text-sm text-slate-500">
-                No hay experiencias con esos filtros. Prueba con otra ciudad o categoria.
+                No hay actividades con esos filtros. Cambia ciudad, categoria o cantidad de
+                participantes.
               </div>
             )}
           </div>

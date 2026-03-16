@@ -85,6 +85,18 @@ export async function POST(
         { status: 400 }
       );
     }
+    if (data.infants > 0 && Number(experience.minimumAge || 0) > Number(experience.infantMaxAge || 0)) {
+      return NextResponse.json(
+        { error: 'La actividad no admite infantes para la edad minima configurada.' },
+        { status: 400 }
+      );
+    }
+    if (data.children > 0 && Number(experience.minimumAge || 0) > Number(experience.childMaxAge || 0)) {
+      return NextResponse.json(
+        { error: 'La actividad no admite ninos para la edad minima configurada.' },
+        { status: 400 }
+      );
+    }
 
     const occupied = await prisma.experienceBooking.aggregate({
       where: {
@@ -123,21 +135,29 @@ export async function POST(
       pricingParams
     });
 
-    const status = experience.activityType === 'PRIVATE' ? 'PENDING_APPROVAL' : 'CONFIRMED';
-    const booking = await prisma.experienceBooking.create({
-      data: {
-        experienceId: experience.id,
-        userId,
-        date: bookingDate,
-        timeLabel: data.timeLabel || null,
-        adults: data.adults,
-        children: data.children,
-        infants: data.infants,
-        total: quote.total,
-        currency: 'USD',
-        status
-      }
-    });
+    const status =
+      experience.bookingMode === 'INQUIRY'
+        ? 'INQUIRY'
+        : experience.activityType === 'PRIVATE'
+          ? 'PENDING_APPROVAL'
+          : 'CONFIRMED';
+    const booking =
+      experience.bookingMode === 'INQUIRY'
+        ? null
+        : await prisma.experienceBooking.create({
+            data: {
+              experienceId: experience.id,
+              userId,
+              date: bookingDate,
+              timeLabel: data.timeLabel || null,
+              adults: data.adults,
+              children: data.children,
+              infants: data.infants,
+              total: quote.total,
+              currency: 'USD',
+              status
+            }
+          });
 
     const threadSubject = `ACTIVITY:${experience.id}`;
     let thread = await prisma.messageThread.findFirst({
@@ -159,9 +179,11 @@ export async function POST(
     }
 
     const messageBody =
-      status === 'PENDING_APPROVAL'
-        ? `Solicitud de actividad enviada para ${experience.title} (${requestedDate})${data.timeLabel ? `, horario ${data.timeLabel}` : ''}. Participantes: ${totalGuests}.`
-        : `Reserva de actividad confirmada para ${experience.title} (${requestedDate})${data.timeLabel ? `, horario ${data.timeLabel}` : ''}. Participantes: ${totalGuests}.`;
+      status === 'INQUIRY'
+        ? `Consulta enviada para ${experience.title} (${requestedDate})${data.timeLabel ? `, horario ${data.timeLabel}` : ''}. Participantes: ${totalGuests}.`
+        : status === 'PENDING_APPROVAL'
+          ? `Solicitud de actividad enviada para ${experience.title} (${requestedDate})${data.timeLabel ? `, horario ${data.timeLabel}` : ''}. Participantes: ${totalGuests}.`
+          : `Reserva de actividad confirmada para ${experience.title} (${requestedDate})${data.timeLabel ? `, horario ${data.timeLabel}` : ''}. Participantes: ${totalGuests}.`;
 
     await prisma.message.create({
       data: {
@@ -201,16 +223,21 @@ export async function POST(
 
     try {
       await sendPushToHost(experience.hostId, {
-        title: status === 'PENDING_APPROVAL' ? 'Nueva solicitud de actividad' : 'Nueva reserva de actividad',
+        title:
+          status === 'INQUIRY'
+            ? 'Nueva consulta de actividad'
+            : status === 'PENDING_APPROVAL'
+              ? 'Nueva solicitud de actividad'
+              : 'Nueva reserva de actividad',
         body: `${experience.title} · ${totalGuests} participante${totalGuests === 1 ? '' : 's'}`,
         url: `/dashboard/host/messages?threadId=${thread.id}`,
-        type: status === 'PENDING_APPROVAL' ? 'NEW_INQUIRY' : 'NEW_RESERVATION'
+        type: status === 'CONFIRMED' ? 'NEW_RESERVATION' : 'NEW_INQUIRY'
       });
     } catch {
       // La reserva no debe fallar por problemas de push.
     }
 
-    return NextResponse.json({ bookingId: booking.id, status, threadId: thread.id });
+    return NextResponse.json({ bookingId: booking?.id || null, status, threadId: thread.id });
   } catch (error: any) {
     if (error?.message === 'CSRF token invalido') {
       return NextResponse.json({ error: error.message }, { status: 403 });

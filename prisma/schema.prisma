@@ -102,6 +102,12 @@ enum ExperienceCoverageType {
   @@schema("public")
 }
 
+enum ExperienceBookingMode {
+  INSTANT
+  INQUIRY
+  @@schema("public")
+}
+
 enum ThreadType {
   RESERVATION
   SUPPORT
@@ -211,6 +217,7 @@ model Listing {
   type          ListingType
   address       String
   country       String?
+  region        String?
   city          String
   citySlug      String?
   neighborhood  String
@@ -275,11 +282,14 @@ model Experience {
   title           String
   description     String
   category        String
+  country         String?
+  region          String?
   city            String
   citySlug        String?
   zone            String?
   zoneSlug        String?
   meetingPoint    String
+  exactAddress    String?
   coverageType    ExperienceCoverageType @default(FIXED)
   serviceRadiusKm Int?
   coveredZones    String?
@@ -289,6 +299,11 @@ model Experience {
   childPrice      Decimal?               @db.Decimal(10,2)
   infantPrice     Decimal?               @db.Decimal(10,2)
   capacity        Int
+  minimumAge      Int                    @default(0)
+  infantMaxAge    Int                    @default(2)
+  childMaxAge     Int                    @default(12)
+  adultMinAge     Int                    @default(13)
+  bookingMode     ExperienceBookingMode  @default(INSTANT)
   scheduleText    String
   includesText    String?
   excludesText    String?

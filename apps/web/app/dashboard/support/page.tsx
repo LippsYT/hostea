@@ -11,17 +11,15 @@ export default async function SupportPage() {
     redirect('/dashboard');
   }
   const tickets = await prisma.ticket.findMany({
-    include: { messages: true, createdBy: true },
+    include: {
+      createdBy: { include: { profile: true } },
+      messages: {
+        include: { sender: { include: { profile: true } } },
+        orderBy: { createdAt: 'asc' }
+      }
+    },
     orderBy: { createdAt: 'desc' }
   });
-
-  const safeTickets = tickets.map((t) => ({
-    id: t.id,
-    subject: t.subject,
-    status: t.status,
-    requester: t.createdBy.email,
-    lastMessage: t.messages[0]?.body || ''
-  }));
 
   return (
     <div className="space-y-8">
@@ -29,7 +27,7 @@ export default async function SupportPage() {
         <p className="section-subtitle">Moderacion y Soporte</p>
         <h1 className="section-title">Bandeja de soporte</h1>
       </div>
-      <SupportInbox tickets={safeTickets} />
+      <SupportInbox tickets={tickets} />
     </div>
   );
 }

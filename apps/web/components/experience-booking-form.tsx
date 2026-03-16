@@ -11,10 +11,15 @@ import type { SmartPricingParams } from '@/lib/intelligent-pricing';
 type ExperienceBookingFormProps = {
   experienceId: string;
   activityType: 'PRIVATE' | 'SHARED';
+  bookingMode: 'INSTANT' | 'INQUIRY';
   adultPrice: number;
   childPrice?: number | null;
   infantPrice?: number | null;
   capacity: number;
+  minimumAge: number;
+  infantMaxAge: number;
+  childMaxAge: number;
+  adultMinAge: number;
   schedules: string[];
   pricingParams?: Partial<SmartPricingParams>;
 };
@@ -35,10 +40,15 @@ const toDateLabel = (value?: string) => {
 export function ExperienceBookingForm({
   experienceId,
   activityType,
+  bookingMode,
   adultPrice,
   childPrice,
   infantPrice,
   capacity,
+  minimumAge,
+  infantMaxAge,
+  childMaxAge,
+  adultMinAge,
   schedules,
   pricingParams
 }: ExperienceBookingFormProps) {
@@ -151,8 +161,10 @@ export function ExperienceBookingForm({
         return;
       }
 
-      setSuccess(
-        data?.status === 'PENDING_APPROVAL'
+        setSuccess(
+        data?.status === 'INQUIRY'
+          ? 'Consulta enviada. El anfitrion continuara la gestion por mensaje.'
+          : data?.status === 'PENDING_APPROVAL'
           ? 'Solicitud enviada. El anfitrion debe aprobar tu reserva.'
           : 'Reserva confirmada correctamente.'
       );
@@ -216,6 +228,9 @@ export function ExperienceBookingForm({
 
       <div className="rounded-2xl border border-slate-200 bg-white p-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Viajeros</p>
+        <p className="mt-1 text-xs text-slate-500">
+          Configuracion actual: infantes hasta {infantMaxAge}, ninos hasta {childMaxAge}, adultos desde {adultMinAge}.
+        </p>
         <div className="mt-2 space-y-2">
           {[
             { key: 'adults' as const, label: 'Adultos', price: totals.safeAdult },
@@ -287,13 +302,21 @@ export function ExperienceBookingForm({
       )}
 
       <Button type="submit" size="lg" disabled={loading}>
-        {loading ? 'Procesando...' : activityType === 'PRIVATE' ? 'Enviar solicitud' : 'Reservar actividad'}
+        {loading
+          ? 'Procesando...'
+          : bookingMode === 'INQUIRY'
+            ? 'Abrir consulta'
+            : activityType === 'PRIVATE'
+              ? 'Enviar solicitud'
+              : 'Reservar actividad'}
       </Button>
 
       <p className="text-xs text-slate-500">
-        {activityType === 'PRIVATE'
+        {bookingMode === 'INQUIRY'
+          ? `Esta actividad opera solo por consulta. Edad minima permitida: ${minimumAge}+`
+          : activityType === 'PRIVATE'
           ? 'La actividad privada requiere aprobacion del anfitrion.'
-          : 'Reserva inmediata sujeta a disponibilidad de cupos.'}
+          : `Reserva inmediata sujeta a disponibilidad de cupos. Edad minima permitida: ${minimumAge}+`}
       </p>
     </form>
   );

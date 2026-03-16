@@ -17,6 +17,8 @@ type HostMessageActionsProps = {
   defaultCheckIn?: string | null;
   defaultCheckOut?: string | null;
   defaultGuestsCount?: number | null;
+  contextType?: 'listing' | 'activity';
+  contextTitle?: string | null;
 };
 
 export const HostMessageActions = ({
@@ -25,7 +27,9 @@ export const HostMessageActions = ({
   guestPhone,
   defaultCheckIn,
   defaultCheckOut,
-  defaultGuestsCount
+  defaultGuestsCount,
+  contextType = 'listing',
+  contextTitle
 }: HostMessageActionsProps) => {
   const [csrf, setCsrf] = useState('');
   const [offerHostNet, setOfferHostNet] = useState('');
@@ -161,7 +165,7 @@ export const HostMessageActions = ({
           disabled={sending || isClosed || isAwaitingPayment}
           onClick={() => sendAction('preapprove')}
         >
-          Invitar a reservar
+          {contextType === 'activity' ? 'Invitar a continuar por Hostea' : 'Invitar a reservar'}
         </Button>
       )}
 
@@ -171,72 +175,82 @@ export const HostMessageActions = ({
         </div>
       )}
 
-      <div className="space-y-2 rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Oferta especial</p>
-        <input
-          value={offerHostNet}
-          onChange={(e) => setOfferHostNet(e.target.value)}
-          type="number"
-          step="0.01"
-          placeholder="Neto a recibir (USD)"
-          className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-        />
-        <div className="grid gap-2 sm:grid-cols-2">
+      {contextType === 'listing' ? (
+        <div className="space-y-2 rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Oferta especial</p>
           <input
-            value={offerCheckIn}
-            onChange={(e) => setOfferCheckIn(e.target.value)}
-            type="date"
-            className="date-input w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+            value={offerHostNet}
+            onChange={(e) => setOfferHostNet(e.target.value)}
+            type="number"
+            step="0.01"
+            placeholder="Neto a recibir (USD)"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
           />
-          <input
-            value={offerCheckOut}
-            onChange={(e) => setOfferCheckOut(e.target.value)}
-            type="date"
-            className="date-input w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-          />
-        </div>
-        <input
-          value={offerGuestsCount}
-          onChange={(e) => setOfferGuestsCount(e.target.value)}
-          type="number"
-          min={1}
-          placeholder="Huespedes"
-          className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-        />
-        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
-          <p className="font-semibold text-slate-900">Resumen de oferta</p>
-          <div className="mt-2 space-y-1">
-            <div className="flex items-center justify-between">
-              <span>Neto anfitrion</span>
-              <span>USD {offerBreakdown.hostNet.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Cargos administrativos</span>
-              <span>USD {offerBreakdown.stripeFee.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Tarifa de servicio Hostea (huesped)</span>
-              <span>USD {offerBreakdown.guestFee.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Comision Hostea (anfitrion)</span>
-              <span>USD {offerBreakdown.platformFee.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between font-semibold text-slate-900">
-              <span>Precio final al cliente</span>
-              <span>USD {offerClientPrice.toFixed(2)}</span>
-            </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input
+              value={offerCheckIn}
+              onChange={(e) => setOfferCheckIn(e.target.value)}
+              type="date"
+              className="date-input w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+            />
+            <input
+              value={offerCheckOut}
+              onChange={(e) => setOfferCheckOut(e.target.value)}
+              type="date"
+              className="date-input w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+            />
           </div>
-          <p className="mt-2 text-xs text-slate-500">La oferta vence automaticamente en 48 horas.</p>
+          <input
+            value={offerGuestsCount}
+            onChange={(e) => setOfferGuestsCount(e.target.value)}
+            type="number"
+            min={1}
+            placeholder="Huespedes"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+          />
+          <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
+            <p className="font-semibold text-slate-900">Resumen de oferta</p>
+            <div className="mt-2 space-y-1">
+              <div className="flex items-center justify-between">
+                <span>Neto anfitrion</span>
+                <span>USD {offerBreakdown.hostNet.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Cargos administrativos</span>
+                <span>USD {offerBreakdown.stripeFee.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Tarifa de servicio Hostea (huesped)</span>
+                <span>USD {offerBreakdown.guestFee.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Comision Hostea (anfitrion)</span>
+                <span>USD {offerBreakdown.platformFee.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between font-semibold text-slate-900">
+                <span>Precio final al cliente</span>
+                <span>USD {offerClientPrice.toFixed(2)}</span>
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">La oferta vence automaticamente en 48 horas.</p>
+          </div>
+          <Button
+            className="w-full"
+            disabled={sending || !desiredNet || !offerCheckIn || !offerCheckOut}
+            onClick={() => sendAction('offer')}
+          >
+            Enviar oferta especial
+          </Button>
         </div>
-        <Button
-          className="w-full"
-          disabled={sending || !desiredNet || !offerCheckIn || !offerCheckOut}
-          onClick={() => sendAction('offer')}
-        >
-          Enviar oferta especial
-        </Button>
-      </div>
+      ) : (
+        <div className="rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3 text-sm text-slate-600">
+          <p className="font-semibold text-slate-900">Conversacion por actividad</p>
+          <p className="mt-1">
+            {contextTitle || 'Esta actividad'} no usa check-out ni oferta de alojamiento. La
+            operacion se resuelve por consulta o reserva inmediata desde la ficha.
+          </p>
+        </div>
+      )}
 
       <Button
         variant="outline"

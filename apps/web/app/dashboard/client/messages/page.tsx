@@ -15,7 +15,7 @@ import { getRiskThreadIds } from '@/lib/host-messaging-config';
 const getThreadContext = (
   thread: any,
   inquiryListingMap: Map<string, string>,
-  inquiryActivityMap: Map<string, string>
+  inquiryActivityMap: Map<string, { title: string }>
 ): { type: 'listing' | 'activity'; title: string; label: string } => {
   const listingTitle =
     thread.reservation?.listing?.title ||
@@ -27,7 +27,7 @@ const getThreadContext = (
     const activityId = thread.subject.replace('ACTIVITY:', '').trim();
     return {
       type: 'activity',
-      title: inquiryActivityMap.get(activityId) || `Actividad ${activityId}`,
+      title: inquiryActivityMap.get(activityId)?.title || `Actividad ${activityId}`,
       label: 'Actividad'
     };
   }
@@ -102,11 +102,19 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
   const inquiryActivities = inquiryActivityIds.length
     ? await prisma.experience.findMany({
         where: { id: { in: inquiryActivityIds } },
-        select: { id: true, title: true }
+        select: {
+          id: true,
+          title: true,
+          city: true,
+          zone: true,
+          durationMinutes: true,
+          scheduleText: true,
+          bookingMode: true
+        }
       })
     : [];
   const inquiryListingMap = new Map(inquiryListings.map((listing) => [listing.id, listing.title]));
-  const inquiryActivityMap = new Map(inquiryActivities.map((activity) => [activity.id, activity.title]));
+  const inquiryActivityMap = new Map(inquiryActivities.map((activity) => [activity.id, activity]));
 
   const query =
     typeof searchParams.q === 'string' ? searchParams.q.trim().toLowerCase() : '';
@@ -187,6 +195,10 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
     : { type: 'listing' as const, title: 'Alojamiento', label: 'Alojamiento' };
   const selectedIsRisk = selectedThread ? riskThreadIds.has(selectedThread.id) : false;
   const selectedListingTitle = selectedContext.title;
+  const selectedActivityId = selectedThread?.subject?.startsWith('ACTIVITY:')
+    ? selectedThread.subject.replace('ACTIVITY:', '').trim()
+    : null;
+  const selectedActivity = selectedActivityId ? inquiryActivityMap.get(selectedActivityId) : null;
   const selectedHostParticipant = selectedThread?.participants.find((p) => p.userId !== userId);
   const selectedHostName =
     selectedHostParticipant?.user.profile?.name ||
@@ -434,6 +446,19 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
                   guestsCount={visibleOffer.guestsCount}
                 />
               )}
+            </div>
+          ) : selectedContext.type === 'activity' && selectedActivity ? (
+            <div className="mt-4 space-y-3 text-sm text-slate-600">
+              <p className="font-semibold text-slate-900">{selectedActivity.title}</p>
+              <p>
+                {selectedActivity.city}
+                {selectedActivity.zone ? ` · ${selectedActivity.zone}` : ''}
+              </p>
+              <p>Duracion: {selectedActivity.durationMinutes} min</p>
+              <p>Horarios: {selectedActivity.scheduleText}</p>
+              <p>
+                Reserva: {selectedActivity.bookingMode === 'INQUIRY' ? 'Solo consulta' : 'Inmediata'}
+              </p>
             </div>
           ) : (
             <div className="mt-3 text-sm text-slate-500">

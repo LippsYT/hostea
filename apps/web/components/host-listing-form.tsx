@@ -58,6 +58,7 @@ export const HostListingForm = () => {
     inventoryQty: 1,
     address: '',
     country: initialCountry,
+    region: '',
     city: initialCity,
     neighborhood: initialNeighborhood,
     checkInInstructions: '',
@@ -220,6 +221,18 @@ export const HostListingForm = () => {
 
   const onSubmit = async () => {
     setErrorMsg('');
+    if (
+      !form.country.trim() ||
+      !form.region.trim() ||
+      !form.city.trim() ||
+      !form.neighborhood.trim() ||
+      !form.address.trim()
+    ) {
+      setErrorMsg(
+        'Completa pais, estado/provincia/región, ciudad, barrio/zona y direccion exacta.'
+      );
+      return;
+    }
     setSaving(true);
     const payload = {
       ...form,
@@ -284,7 +297,9 @@ export const HostListingForm = () => {
           />
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Direccion</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Direccion exacta
+          </p>
           <Input
             placeholder="Calle y numero"
             value={form.address}
@@ -306,6 +321,16 @@ export const HostListingForm = () => {
               </option>
             ))}
           </select>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Estado / provincia / region
+          </p>
+          <Input
+            placeholder="Provincia, estado o region"
+            value={form.region}
+            onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))}
+          />
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ciudad</p>
@@ -338,9 +363,29 @@ export const HostListingForm = () => {
           </select>
           {neighborhoods.length === 0 && (
             <p className="mt-1 text-xs text-slate-500">
-              Sin barrios automáticos para esta ciudad. Puedes escribir barrio en Dirección.
+              Sin barrios automaticos para esta ciudad. Usa la zona mas cercana disponible.
             </p>
           )}
+        </div>
+        <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Reglas de edad de la publicacion
+          </p>
+          <p className="mt-2 text-sm text-slate-600">
+            El selector de personas ya diferencia adultos, ninos e infantes. La configuracion
+            fina por edades queda lista para conectarse por publicacion en la siguiente iteracion.
+          </p>
+          <div className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-3">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+              Infantes: 0 a 2
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+              Ninos: 3 a 12
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+              Adultos: 13+
+            </div>
+          </div>
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">

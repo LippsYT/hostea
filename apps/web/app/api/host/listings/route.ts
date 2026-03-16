@@ -26,6 +26,7 @@ const schema = z
     propertyType: z.preprocess(emptyToUndefined, z.enum(['apartment', 'hotel']).optional()),
     address: z.preprocess(emptyToUndefined, z.string().optional()),
     country: z.preprocess(emptyToUndefined, z.string().optional()),
+    region: z.preprocess(emptyToUndefined, z.string().optional()),
     city: z.preprocess(emptyToUndefined, z.string().optional()),
     neighborhood: z.preprocess(emptyToUndefined, z.string().optional()),
     pricePerNight: z.preprocess(emptyToUndefined, z.coerce.number().optional()),
@@ -133,10 +134,20 @@ export async function POST(req: Request) {
         : data.propertyType === 'apartment'
           ? ListingType.APARTMENT
           : ListingType.APARTMENT);
-    const address = data.address?.trim() || 'Direccion pendiente';
-    const country = data.country?.trim() || 'Argentina';
-    const city = data.city?.trim() || 'Buenos Aires';
-    const neighborhood = data.neighborhood?.trim() || 'Palermo';
+    const address = data.address?.trim();
+    const country = data.country?.trim();
+    const region = data.region?.trim();
+    const city = data.city?.trim();
+    const neighborhood = data.neighborhood?.trim();
+    if (!address || !country || !region || !city || !neighborhood) {
+      return NextResponse.json(
+        {
+          error:
+            'La ubicacion internacional es obligatoria: pais, region, ciudad, barrio/zona y direccion exacta.'
+        },
+        { status: 400 }
+      );
+    }
     const citySlug = toGeoSlug(city);
     const zoneSlug = toGeoSlug(neighborhood);
     const pricingParams = await getSmartPricingParamsFromSettings();
@@ -179,6 +190,7 @@ export async function POST(req: Request) {
         type,
         address,
         country,
+        region,
         city,
         citySlug,
         neighborhood,

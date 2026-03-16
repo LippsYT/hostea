@@ -3,7 +3,11 @@ import { z } from 'zod';
 import { requireSession } from '@/lib/permissions';
 import { assertCsrf } from '@/lib/csrf';
 import { prisma } from '@/lib/db';
-import { ExperienceActivityType, ExperienceCoverageType } from '@prisma/client';
+import {
+  ExperienceActivityType,
+  ExperienceBookingMode,
+  ExperienceCoverageType
+} from '@prisma/client';
 import { ensureExperienceHostRole } from '@/lib/server-roles';
 import { toGeoSlug } from '@/lib/experience-matching';
 import { ensureUserCanPublish } from '@/lib/email-verification';
@@ -18,8 +22,11 @@ const schema = z.object({
   title: z.string().min(3),
   description: z.string().min(20),
   category: z.string().min(2),
+  country: z.string().min(2),
+  region: z.string().min(2),
   city: z.string().min(2),
   zone: z.string().optional(),
+  exactAddress: z.string().min(3),
   meetingPoint: z.string().min(3),
   coverageType: z.nativeEnum(ExperienceCoverageType).default(ExperienceCoverageType.FIXED),
   serviceRadiusKm: z.coerce.number().int().min(0).max(200).optional(),
@@ -30,6 +37,11 @@ const schema = z.object({
   childPrice: z.coerce.number().min(0).optional(),
   infantPrice: z.coerce.number().min(0).optional(),
   capacity: z.coerce.number().int().min(1).max(200),
+  minimumAge: z.coerce.number().int().min(0).max(120).default(0),
+  infantMaxAge: z.coerce.number().int().min(0).max(17).default(2),
+  childMaxAge: z.coerce.number().int().min(0).max(17).default(12),
+  adultMinAge: z.coerce.number().int().min(1).max(120).default(13),
+  bookingMode: z.nativeEnum(ExperienceBookingMode).default(ExperienceBookingMode.INSTANT),
   schedules: z.array(z.string().min(2)).min(1),
   includesText: z.string().max(4000).optional(),
   excludesText: z.string().max(4000).optional(),
@@ -113,11 +125,14 @@ export async function POST(req: Request) {
         title: data.title.trim(),
         description: data.description.trim(),
         category: data.category.trim(),
+        country: data.country.trim(),
+        region: data.region.trim(),
         city: data.city.trim(),
         citySlug: toGeoSlug(data.city),
         zone: data.zone?.trim() || null,
         zoneSlug: data.zone?.trim() ? toGeoSlug(data.zone) : null,
         meetingPoint: data.meetingPoint.trim(),
+        exactAddress: data.exactAddress.trim(),
         coverageType: data.coverageType,
         serviceRadiusKm: data.coverageType === ExperienceCoverageType.PICKUP ? data.serviceRadiusKm ?? null : null,
         coveredZones:
@@ -130,6 +145,11 @@ export async function POST(req: Request) {
         childPrice: data.childPrice,
         infantPrice: data.infantPrice,
         capacity: data.capacity,
+        minimumAge: data.minimumAge,
+        infantMaxAge: data.infantMaxAge,
+        childMaxAge: data.childMaxAge,
+        adultMinAge: data.adultMinAge,
+        bookingMode: data.bookingMode,
         scheduleText: data.schedules.join(' | '),
         includesText: data.includesText?.trim() || null,
         excludesText: data.excludesText?.trim() || null,

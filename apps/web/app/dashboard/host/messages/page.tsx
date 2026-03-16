@@ -47,7 +47,7 @@ const getInquiryActivityId = (subject?: string | null) =>
 const getThreadContext = (
   thread: any,
   inquiryListingMap: Map<string, string>,
-  inquiryActivityMap: Map<string, string>
+  inquiryActivityMap: Map<string, { title: string }>
 ): { type: 'listing' | 'activity'; title: string; label: string } => {
   const listingTitle =
     thread.reservation?.listing?.title ||
@@ -59,7 +59,7 @@ const getThreadContext = (
   if (activityId) {
     return {
       type: 'activity',
-      title: inquiryActivityMap.get(activityId) || `Actividad ${activityId}`,
+      title: inquiryActivityMap.get(activityId)?.title || `Actividad ${activityId}`,
       label: 'Actividad'
     };
   }
@@ -140,14 +140,20 @@ export default async function HostMessagesPage({
   const inquiryActivities = inquiryActivityIds.length
     ? await prisma.experience.findMany({
         where: { id: { in: inquiryActivityIds } },
-        select: { id: true, title: true }
+        select: {
+          id: true,
+          title: true,
+          city: true,
+          zone: true,
+          durationMinutes: true,
+          scheduleText: true,
+          bookingMode: true
+        }
       })
     : [];
 
   const inquiryListingMap = new Map(inquiryListings.map((listing) => [listing.id, listing.title]));
-  const inquiryActivityMap = new Map(
-    inquiryActivities.map((activity) => [activity.id, activity.title])
-  );
+  const inquiryActivityMap = new Map(inquiryActivities.map((activity) => [activity.id, activity]));
 
   const query =
     typeof searchParams.q === 'string' ? searchParams.q.trim().toLowerCase() : '';
@@ -236,6 +242,11 @@ export default async function HostMessagesPage({
     ? getThreadContext(selectedThread, inquiryListingMap, inquiryActivityMap)
     : null;
   const selectedListingTitle = selectedContext?.title || null;
+  const selectedActivityId =
+    selectedThread?.subject?.startsWith('ACTIVITY:')
+      ? selectedThread.subject.replace('ACTIVITY:', '').trim()
+      : null;
+  const selectedActivity = selectedActivityId ? inquiryActivityMap.get(selectedActivityId) : null;
 
   const selectedLastMessage = selectedThread?.messages?.[0];
   const selectedLatestOffer = selectedThread?.offers?.[0];
@@ -438,6 +449,8 @@ export default async function HostMessagesPage({
                   defaultCheckIn={selectedThread?.reservation?.checkIn?.toISOString().slice(0, 10) || null}
                   defaultCheckOut={selectedThread?.reservation?.checkOut?.toISOString().slice(0, 10) || null}
                   defaultGuestsCount={selectedThread?.reservation?.guestsCount || 1}
+                  contextType={selectedContext?.type}
+                  contextTitle={selectedListingTitle}
                 />
               </div>
             </>
@@ -462,6 +475,8 @@ export default async function HostMessagesPage({
             defaultCheckIn={selectedThread?.reservation?.checkIn?.toISOString().slice(0, 10) || null}
             defaultCheckOut={selectedThread?.reservation?.checkOut?.toISOString().slice(0, 10) || null}
             defaultGuestsCount={selectedThread?.reservation?.guestsCount || 1}
+            contextType={selectedContext?.type}
+            contextTitle={selectedListingTitle}
           />
           {selectedIsRisk ? (
             <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
@@ -501,6 +516,24 @@ export default async function HostMessagesPage({
                 <Badge className={reservationStatusBadgeClass(reservationStatus)}>
                   {reservationStatusLabel(reservationStatus)}
                 </Badge>
+              </div>
+            ) : selectedContext?.type === 'activity' && selectedActivity ? (
+              <div className="mt-3 space-y-2 text-sm text-slate-600">
+                <p className="font-semibold text-slate-900">{selectedActivity.title}</p>
+                <p>
+                  {selectedActivity.city}
+                  {selectedActivity.zone ? ` · ${selectedActivity.zone}` : ''}
+                </p>
+                <p>Duracion: {selectedActivity.durationMinutes} min</p>
+                <p>Horarios: {selectedActivity.scheduleText}</p>
+                <p>
+                  Reserva: {selectedActivity.bookingMode === 'INQUIRY' ? 'Solo consulta' : 'Inmediata'}
+                </p>
+                {selectedLastMessage ? (
+                  <p className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+                    Ultima referencia del cliente: {selectedLastMessage.body}
+                  </p>
+                ) : null}
               </div>
             ) : (
               <div className="mt-3 space-y-1 text-sm text-slate-500">

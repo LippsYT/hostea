@@ -3,9 +3,11 @@ import { prisma } from '@/lib/db';
 import { requireSession } from '@/lib/permissions';
 import { assertCsrf } from '@/lib/csrf';
 import { z } from 'zod';
+import { TicketStatus } from '@prisma/client';
 
 const schema = z.object({
-  message: z.string().min(2)
+  message: z.string().min(0).optional(),
+  status: z.nativeEnum(TicketStatus).optional()
 });
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
@@ -22,13 +24,23 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const canReply = isOwner || roles.includes('SUPPORT') || roles.includes('ADMIN') || roles.includes('MODERATOR');
   if (!canReply) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
 
-  await prisma.ticketMessage.create({
-    data: {
-      ticketId: params.id,
-      senderId: (session.user as any).id,
-      body: parsed.data.message
-    }
-  });
+  if (parsed.data.status) {
+    await prisma.ticket.update({
+      where: { id: params.id },
+      data: { status: parsed.data.status }
+    });
+  }
+
+  const message = parsed.data.message?.trim();
+  if (message) {
+    await prisma.ticketMessage.create({
+      data: {
+        ticketId: params.id,
+        senderId: (session.user as any).id,
+        body: message
+      }
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

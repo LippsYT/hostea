@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Compass, Flame, Home, MapPin, Sparkles, Star } from 'lucide-react';
+import { Compass, Flame, Home, Sparkles, Star } from 'lucide-react';
 import { ListingCard } from '@/components/listing-card';
 import { PricePopout } from '@/components/price-popout';
 import { SearchForm } from '@/components/search-form';
@@ -114,9 +114,6 @@ export default async function HomePage() {
     })
     .slice(0, 6);
 
-  const hosteaActivityPicks = curation.experienceIds?.length
-    ? experiences.filter((experience) => curation.experienceIds?.includes(experience.id))
-    : experiences.slice(0, 6);
   const activityShelves = {
     mostBooked: [...experiences].sort((a, b) => b._count.bookings - a._count.bookings).slice(0, 4),
     topRated: [...experiences].sort((a, b) => b._count.bookings - a._count.bookings).slice(4, 8),
@@ -165,7 +162,7 @@ export default async function HomePage() {
               </div>
             </div>
 
-            <div className="card-glass w-full min-w-0 overflow-hidden rounded-[2rem] p-6 shadow-soft">
+            <div className="card-glass w-full min-w-0 rounded-[2rem] p-6 shadow-soft">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Buscador principal</p>
@@ -344,56 +341,6 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-            <article className="rounded-3xl border border-slate-200/70 bg-white/90 p-6 shadow-soft">
-              <div className="flex items-center gap-2">
-                <Flame className="h-4 w-4 text-slate-500" />
-                <h2 className="text-xl font-semibold text-slate-900">Tendencias de esta semana</h2>
-              </div>
-              <div className="mt-5 grid gap-4 md:grid-cols-3">
-                {trendingListings.slice(0, 3).map((listing) => (
-                  <div
-                    key={listing.id}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
-                  >
-                    <p className="text-xs uppercase tracking-wide text-slate-400">
-                      {listing.city}
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{listing.title}</p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      {listing._count.reservations} reservas recientes
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            <article className="rounded-3xl border border-slate-200/70 bg-white/90 p-6 shadow-soft">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-slate-500" />
-                <h2 className="text-xl font-semibold text-slate-900">Recomendados por HOSTEA</h2>
-              </div>
-              <div className="mt-4 space-y-3">
-                {hosteaActivityPicks.slice(0, 4).map((experience) => (
-                  <Link
-                    key={experience.id}
-                    href={`/explorar/${experience.id}`}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition hover:border-slate-300"
-                  >
-                    <div>
-                      <p className="font-semibold text-slate-900">{experience.title}</p>
-                      <p className="text-xs text-slate-500">
-                        {experience.city} · {experience.category}
-                      </p>
-                    </div>
-                    <span className="font-semibold text-slate-900">
-                      USD {Number(experience.pricePerPerson).toFixed(0)}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </article>
-          </div>
         </div>
       </section>
     </div>

@@ -7,6 +7,8 @@ import { sendPushToHost } from '@/lib/push-notifications';
 import { createThreadWithParticipants, uniqueParticipantIds } from '@/lib/message-thread-utils';
 import { getSmartPricingParamsFromSettings } from '@/lib/pricing-settings';
 import { calculateExperienceCheckoutQuote } from '@/lib/experience-checkout-pricing';
+import { stripe } from '@/lib/stripe';
+import { buildAppUrl } from '@/lib/app-url';
 import {
   getHostMessagingConfig,
   renderHostTemplate,
@@ -140,7 +142,7 @@ export async function POST(
         ? 'INQUIRY'
         : experience.activityType === 'PRIVATE'
           ? 'PENDING_APPROVAL'
-          : 'CONFIRMED';
+          : 'AWAITING_PAYMENT';
     const booking =
       experience.bookingMode === 'INQUIRY'
         ? null
@@ -158,6 +160,63 @@ export async function POST(
               status
             }
           });
+
+    if (status === 'AWAITING_PAYMENT' && booking) {
+      let stripeSession;
+      try {
+        stripeSession = await stripe.checkout.sessions.create({
+          mode: 'payment',
+          payment_method_types: ['card'],
+          success_url: buildAppUrl(
+            `/success?experienceBookingId=${booking.id}&session_id={CHECKOUT_SESSION_ID}`,
+            req.url
+          ),
+          cancel_url: buildAppUrl(`/explorar/${experience.id}`, req.url),
+          line_items: [
+            {
+              price_data: {
+                currency: 'usd',
+                product_data: {
+                  name: experience.title,
+                  description: `${requestedDate}${data.timeLabel ? ` · ${data.timeLabel}` : ''}`
+                },
+                unit_amount: Math.round(Number(quote.total) * 100)
+              },
+              quantity: 1
+            }
+          ],
+          metadata: {
+            experienceBookingId: booking.id,
+            experienceId: experience.id,
+            hostId: experience.hostId,
+            guestId: userId,
+            requestedDate,
+            timeLabel: data.timeLabel || '',
+            totalGuests: String(totalGuests)
+          }
+        });
+      } catch (stripeError: any) {
+        await prisma.experienceBooking.delete({ where: { id: booking.id } }).catch(() => undefined);
+        return NextResponse.json(
+          { error: stripeError?.message || 'No se pudo crear el checkout para la actividad.' },
+          { status: 500 }
+        );
+      }
+
+      if (!stripeSession?.url) {
+        await prisma.experienceBooking.delete({ where: { id: booking.id } }).catch(() => undefined);
+        return NextResponse.json(
+          { error: 'No se pudo crear el checkout para la actividad.' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        bookingId: booking.id,
+        status,
+        checkoutUrl: stripeSession.url
+      });
+    }
 
     const threadSubject = `ACTIVITY:${experience.id}`;
     let thread = await prisma.messageThread.findFirst({
@@ -231,7 +290,7 @@ export async function POST(
               : 'Nueva reserva de actividad',
         body: `${experience.title} · ${totalGuests} participante${totalGuests === 1 ? '' : 's'}`,
         url: `/dashboard/host/messages?threadId=${thread.id}`,
-        type: status === 'CONFIRMED' ? 'NEW_RESERVATION' : 'NEW_INQUIRY'
+        type: 'NEW_INQUIRY'
       });
     } catch {
       // La reserva no debe fallar por problemas de push.

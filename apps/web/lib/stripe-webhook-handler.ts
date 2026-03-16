@@ -7,6 +7,8 @@ import {
 } from '@/lib/cloudbeds';
 import { enqueueReservationPrintJob } from '@/lib/print-jobs';
 import { confirmReservationPayment } from '@/lib/reservation-payment-confirmation';
+import { createThreadWithParticipants, uniqueParticipantIds } from '@/lib/message-thread-utils';
+import { sendPushToHost } from '@/lib/push-notifications';
 
 const ensureThreadMessage = async (
   prisma: any,
@@ -88,6 +90,76 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
     const session = event.data.object as any;
     const reservationId = session.metadata?.reservationId;
     const offerId = session.metadata?.offerId;
+    const experienceBookingId = session.metadata?.experienceBookingId;
+
+    if (experienceBookingId) {
+      const booking = await prisma.experienceBooking.findUnique({
+        where: { id: experienceBookingId },
+        include: {
+          experience: true,
+          user: { include: { profile: true } }
+        }
+      });
+
+      if (!booking) {
+        console.warn('stripe-webhook-experience-booking-not-found', { experienceBookingId });
+        return;
+      }
+
+      if (booking.status === 'CONFIRMED') {
+        return;
+      }
+
+      const confirmedBooking = await prisma.experienceBooking.update({
+        where: { id: booking.id },
+        data: { status: 'CONFIRMED' }
+      });
+
+      const threadSubject = `ACTIVITY:${booking.experienceId}`;
+      let thread = await prisma.messageThread.findFirst({
+        where: {
+          subject: threadSubject,
+          createdById: booking.userId,
+          participants: {
+            every: {
+              userId: { in: [booking.userId, booking.experience.hostId] }
+            }
+          }
+        }
+      });
+
+      if (!thread) {
+        thread = await createThreadWithParticipants(prisma, {
+          status: 'RESERVATION',
+          subject: threadSubject,
+          createdById: booking.userId,
+          participantIds: uniqueParticipantIds([booking.userId, booking.experience.hostId])
+        });
+      } else if (thread.status !== 'RESERVATION') {
+        thread = await prisma.messageThread.update({
+          where: { id: thread.id },
+          data: { status: 'RESERVATION' }
+        });
+      }
+
+      await ensureThreadMessage(
+        prisma,
+        thread.id,
+        booking.userId,
+        `Reserva de actividad pagada para ${booking.experience.title} (${booking.date.toISOString().slice(0, 10)})${booking.timeLabel ? `, horario ${booking.timeLabel}` : ''}. Participantes: ${booking.adults + booking.children + booking.infants}.`
+      );
+
+      try {
+        await sendPushToHost(booking.experience.hostId, {
+          title: 'Nueva reserva de actividad pagada',
+          body: `${booking.experience.title} · ${booking.adults + booking.children + booking.infants} participante${booking.adults + booking.children + booking.infants === 1 ? '' : 's'}`,
+          url: `/dashboard/host/messages?threadId=${thread.id}`,
+          type: 'NEW_RESERVATION'
+        });
+      } catch {}
+
+      return confirmedBooking;
+    }
 
     if (offerId) {
       const offer = await prisma.offer.findUnique({
@@ -271,6 +343,15 @@ export const handleStripeWebhook = async (event: any, prisma: any) => {
     const session = event.data.object as any;
     const reservationId = session.metadata?.reservationId;
     const offerId = session.metadata?.offerId;
+    const experienceBookingId = session.metadata?.experienceBookingId;
+
+    if (experienceBookingId) {
+      await prisma.experienceBooking.updateMany({
+        where: { id: experienceBookingId, status: 'AWAITING_PAYMENT' },
+        data: { status: 'EXPIRED' }
+      });
+    }
+
     if (offerId) {
       const offer = await prisma.offer.findUnique({ where: { id: offerId } });
       if (offer) {

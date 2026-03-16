@@ -161,12 +161,17 @@ export function ExperienceBookingForm({
         return;
       }
 
-        setSuccess(
+      if (data?.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+
+      setSuccess(
         data?.status === 'INQUIRY'
           ? 'Consulta enviada. El anfitrion continuara la gestion por mensaje.'
           : data?.status === 'PENDING_APPROVAL'
-          ? 'Solicitud enviada. El anfitrion debe aprobar tu reserva.'
-          : 'Reserva confirmada correctamente.'
+            ? 'Solicitud enviada. El anfitrion debe aprobar tu reserva.'
+            : 'Reserva confirmada correctamente.'
       );
       setThreadId(typeof data?.threadId === 'string' ? data.threadId : null);
       router.refresh();
@@ -289,7 +294,7 @@ export function ExperienceBookingForm({
 
       {error && <p className="text-xs text-red-600">{error}</p>}
       {success && <p className="text-xs text-emerald-700">{success}</p>}
-      {threadId && (
+      {threadId && (bookingMode === 'INQUIRY' || activityType === 'PRIVATE') && (
         <button
           type="button"
           onClick={() => {

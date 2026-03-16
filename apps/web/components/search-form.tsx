@@ -259,23 +259,25 @@ export function SearchForm({
         </label>
       )}
 
-      <div className="relative">
+      <div>
         <button
           type="button"
           onClick={() => setGuestOpen((current) => !current)}
           className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left"
         >
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Personas</p>
-            <p className="mt-1 text-sm text-slate-900">{buildOccupancySummary(guests)}</p>
+            <p className="mt-1 break-words text-sm leading-snug text-slate-900">
+              {buildOccupancySummary(guests)}
+            </p>
           </div>
-          <span className="text-xs font-semibold text-slate-500">
+          <span className="shrink-0 text-xs font-semibold text-slate-500">
             {guestOpen ? 'Cerrar' : 'Editar'}
           </span>
         </button>
 
         {guestOpen ? (
-          <div className="absolute z-20 mt-2 w-full">
+          <div className="mt-2 w-full">
             <OccupancySelector
               value={guests}
               onChange={setGuests}

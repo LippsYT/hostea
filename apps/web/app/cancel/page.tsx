@@ -1,5 +1,13 @@
 import { Suspense } from 'react';
 import { CancelClient } from './cancel-client';
+import { buildPageMetadata } from '@/lib/seo';
+
+export const metadata = buildPageMetadata({
+  title: 'Pago cancelado',
+  description: 'El flujo de pago fue cancelado.',
+  path: '/cancel',
+  indexable: false
+});
 
 export default function CancelPage() {
   return (

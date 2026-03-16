@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { SearchForm } from '@/components/search-form';
 import { prisma } from '@/lib/db';
 import { buildOccupancySummary } from '@/lib/occupancy';
+import { buildPageMetadata } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -22,6 +23,32 @@ const parseCount = (value: string | undefined, fallback: number) => {
   const raw = Number(value);
   return Number.isFinite(raw) ? Math.max(0, raw) : fallback;
 };
+
+export async function generateMetadata({
+  searchParams
+}: {
+  searchParams?: ExploreSearchParams;
+}) {
+  const hasFilters = Boolean(
+    searchParams?.q ||
+      searchParams?.city ||
+      searchParams?.category ||
+      searchParams?.date ||
+      searchParams?.adults ||
+      searchParams?.children ||
+      searchParams?.infants ||
+      searchParams?.guests
+  );
+
+  return buildPageMetadata({
+    title: 'Actividades',
+    description:
+      'Explora actividades, tours, shows y experiencias en Hostea con fecha y participantes reales.',
+    path: '/explorar',
+    keywords: ['actividades', 'experiencias', 'tours', 'shows'],
+    indexable: !hasFilters
+  });
+}
 
 export default async function ExplorePage({
   searchParams

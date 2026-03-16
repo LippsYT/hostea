@@ -3,11 +3,33 @@ import { SearchForm } from '@/components/search-form';
 import { prisma } from '@/lib/db';
 import { checkListingAvailability } from '@/lib/listing-availability';
 import { buildOccupancySummary } from '@/lib/occupancy';
+import { buildPageMetadata } from '@/lib/seo';
 
 const parseCount = (value: string | string[] | undefined, fallback: number) => {
   const raw = typeof value === 'string' ? Number(value) : Number.NaN;
   return Number.isFinite(raw) ? Math.max(0, raw) : fallback;
 };
+
+export async function generateMetadata({
+  searchParams
+}: {
+  searchParams: Record<string, string | string[] | undefined>;
+}) {
+  const city = typeof searchParams.city === 'string' ? searchParams.city : '';
+  const hasFilters = Object.values(searchParams).some((value) =>
+    Array.isArray(value) ? value.length > 0 : Boolean(value)
+  );
+
+  return buildPageMetadata({
+    title: city ? `Alojamientos en ${city}` : 'Alojamientos',
+    description: city
+      ? `Busca alojamientos en ${city} con check-in, check-out y ocupacion real en Hostea.`
+      : 'Explora alojamientos en Hostea con disponibilidad real, fotos, precios y reservas.',
+    path: '/search',
+    keywords: [city, 'busqueda de alojamientos', 'propiedades'].filter(Boolean),
+    indexable: !hasFilters
+  });
+}
 
 export default async function SearchPage({
   searchParams

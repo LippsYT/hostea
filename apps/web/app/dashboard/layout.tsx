@@ -1,8 +1,15 @@
-﻿import { getServerSession } from 'next-auth';
+﻿import type { Metadata } from 'next';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { ReservationAlerts } from '@/components/reservation-alerts';
 import { DashboardShell } from '@/components/dashboard-shell';
 import { getEffectiveRoles } from '@/lib/server-roles';
+import { getRobotsForPage } from '@/lib/seo';
+
+export const metadata: Metadata = {
+  title: 'Dashboard',
+  robots: getRobotsForPage(false)
+};
 
 type NavItem = { href: string; label: string; roles?: string[] };
 
@@ -74,3 +81,4 @@ export default async function DashboardLayout({ children }: { children: React.Re
     </div>
   );
 }
+

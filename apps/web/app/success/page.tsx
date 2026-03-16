@@ -6,6 +6,14 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { stripe } from '@/lib/stripe';
 import { confirmReservationPayment } from '@/lib/reservation-payment-confirmation';
+import { buildPageMetadata } from '@/lib/seo';
+
+export const metadata = buildPageMetadata({
+  title: 'Reserva confirmada',
+  description: 'Pagina privada de confirmacion de reserva y pago.',
+  path: '/success',
+  indexable: false
+});
 
 type SearchParams = {
   reservationId?: string | string[];

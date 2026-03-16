@@ -4,9 +4,17 @@ import { ListingCard } from '@/components/listing-card';
 import { PricePopout } from '@/components/price-popout';
 import { SearchForm } from '@/components/search-form';
 import { Button } from '@/components/ui/button';
+import { buildPageMetadata } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+export const metadata = buildPageMetadata({
+  title: 'Alojamientos y reservas',
+  description:
+    'Descubre alojamientos, destinos y reservas en Hostea. Explora propiedades activas, actividades y vitrinas inteligentes en una sola plataforma.',
+  path: '/',
+  keywords: ['inicio hostea', 'alojamientos hostea', 'reservas']
+});
 
 type CurationSettings = {
   listingIds?: string[];

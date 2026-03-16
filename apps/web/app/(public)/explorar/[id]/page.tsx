@@ -1,8 +1,59 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 import { ExperienceBookingForm } from '@/components/experience-booking-form';
 import { getSmartPricingParamsFromSettings } from '@/lib/pricing-settings';
+import { buildPageMetadata, getRobotsForPage, SITE_LOCALE, SITE_NAME } from '@/lib/seo';
+import { buildAbsoluteUrl, toAbsoluteImageUrl } from '@/lib/url';
+
+export async function generateMetadata({
+  params
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  const experience = await prisma.experience.findUnique({
+    where: { id: params.id },
+    include: { photos: { orderBy: { sortOrder: 'asc' } } }
+  });
+
+  if (!experience || experience.status !== 'ACTIVE') {
+    return buildPageMetadata({
+      title: 'Actividad no disponible',
+      description: 'La actividad que buscas no esta disponible en este momento.',
+      path: `/explorar/${params.id}`,
+      indexable: false
+    });
+  }
+
+  const description = `${experience.title} en ${experience.city}. ${experience.durationMinutes} min, categoria ${experience.category}, reserva ${experience.bookingMode === 'INQUIRY' ? 'por consulta' : 'inmediata'} en Hostea.`;
+  const canonical = buildAbsoluteUrl(`/explorar/${experience.id}`);
+  const image = toAbsoluteImageUrl(
+    experience.photos.find((photo) => photo.isCover)?.url || experience.photos[0]?.url
+  );
+
+  return {
+    title: `${experience.title} en ${experience.city}`,
+    description,
+    alternates: { canonical, languages: { 'x-default': canonical } },
+    robots: getRobotsForPage(true),
+    openGraph: {
+      type: 'website',
+      locale: SITE_LOCALE,
+      url: canonical,
+      title: `${experience.title} en ${experience.city}`,
+      description,
+      siteName: SITE_NAME,
+      images: [{ url: image, alt: experience.title }]
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${experience.title} en ${experience.city}`,
+      description,
+      images: [image]
+    }
+  };
+}
 
 export default async function ExploreDetailPage({ params }: { params: { id: string } }) {
   const experience = await prisma.experience.findUnique({

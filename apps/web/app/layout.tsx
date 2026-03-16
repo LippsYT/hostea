@@ -2,8 +2,22 @@
 import './theme.css';
 import type { Metadata, Viewport } from 'next';
 import { Newsreader, Space_Grotesk } from 'next/font/google';
+import { StructuredDataScript } from '@/components/structured-data-script';
 import { Providers } from '@/components/providers';
 import { PwaRegister } from '@/components/pwa-register';
+import {
+  createMetadataBase,
+  DEFAULT_DESCRIPTION,
+  DEFAULT_KEYWORDS,
+  DEFAULT_OG_IMAGE,
+  DEFAULT_TITLE,
+  getRobotsForPage,
+  SITE_LOCALE,
+  SITE_NAME,
+  TITLE_TEMPLATE
+} from '@/lib/seo';
+import { buildOrganizationJsonLd, buildWebsiteJsonLd } from '@/lib/structured-data';
+import { buildAbsoluteUrl } from '@/lib/url';
 
 const display = Newsreader({
   subsets: ['latin'],
@@ -19,8 +33,33 @@ const body = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: 'HOSTEA | Hospedajes premium',
-  description: 'Plataforma tipo Airbnb para reservas, pagos y gestion de propiedades.',
+  metadataBase: createMetadataBase(),
+  title: {
+    default: DEFAULT_TITLE,
+    template: TITLE_TEMPLATE
+  },
+  description: DEFAULT_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: DEFAULT_KEYWORDS,
+  authors: [{ name: SITE_NAME, url: buildAbsoluteUrl('/') }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  openGraph: {
+    type: 'website',
+    locale: SITE_LOCALE,
+    url: buildAbsoluteUrl('/'),
+    siteName: SITE_NAME,
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [{ url: buildAbsoluteUrl(DEFAULT_OG_IMAGE), alt: SITE_NAME }]
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [buildAbsoluteUrl(DEFAULT_OG_IMAGE)]
+  },
+  robots: getRobotsForPage(true),
   manifest: '/manifest.webmanifest',
   icons: {
     icon: [
@@ -41,6 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <body className={`${display.variable} ${body.variable} font-body relative min-h-screen`}>
+        <StructuredDataScript data={[buildOrganizationJsonLd(), buildWebsiteJsonLd()]} />
         <div aria-hidden className="hostea-bg">
           <div className="hostea-blob-1" />
           <div className="hostea-blob-2" />
@@ -56,3 +96,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+

@@ -1,26 +1,27 @@
 ﻿import Image from 'next/image';
-import { prisma } from '@/lib/db';
-import { BookingForm } from '@/components/booking-form';
+import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Ban, Clock, Home, MapPin, PawPrint, ShieldCheck, Sparkles } from 'lucide-react';
 import { ListingHeader } from '@/components/listing-header';
 import { ContactHostButton } from '@/components/contact-host-button';
 import { getSmartPricingParamsFromSettings } from '@/lib/pricing-settings';
+import { BookingForm } from '@/components/booking-form';
+import { StructuredDataScript } from '@/components/structured-data-script';
+import { getPublicListingById } from '@/lib/public-catalog';
+import { buildPropertyMetadata, isListingIndexable } from '@/lib/seo';
+import { buildBreadcrumbJsonLd, buildPropertyJsonLd } from '@/lib/structured-data';
+import { slugify } from '@/lib/slug';
+
+export async function generateMetadata({ params }: { params: { id: string } }) {
+  const listing = await getPublicListingById(params.id);
+  return buildPropertyMetadata(listing);
+}
 
 export default async function ListingDetail({ params }: { params: { id: string } }) {
-  const listing = await prisma.listing.findUnique({
-    where: { id: params.id },
-    include: {
-      photos: { orderBy: { sortOrder: 'asc' } },
-      amenities: { include: { amenity: true } },
-      host: { include: { profile: true } },
-      reviews: true,
-      roomTypes: true
-    }
-  });
+  const listing = await getPublicListingById(params.id);
 
-  if (!listing) {
-    return <div className="p-10">Listing no encontrado</div>;
+  if (!listing || !isListingIndexable(listing)) {
+    notFound();
   }
 
   const primaryPhoto = listing.photos[0];
@@ -29,7 +30,8 @@ export default async function ListingDetail({ params }: { params: { id: string }
     ? (listing.reviews.reduce((acc, r) => acc + r.rating, 0) / listing.reviews.length).toFixed(1)
     : 'Nuevo';
 
-  const hasAmenity = (name: string) => listing.amenities.some((a) => a.amenity.name.toLowerCase().includes(name.toLowerCase()));
+  const hasAmenity = (name: string) =>
+    listing.amenities.some((a) => a.amenity.name.toLowerCase().includes(name.toLowerCase()));
 
   const highlights = [
     {
@@ -66,6 +68,17 @@ export default async function ListingDetail({ params }: { params: { id: string }
 
   return (
     <div className="bg-white">
+      <StructuredDataScript
+        data={[
+          buildBreadcrumbJsonLd([
+            { name: 'Inicio', path: '/' },
+            { name: 'Alojamientos', path: '/search' },
+            { name: listing.city, path: `/city/${listing.citySlug || slugify(listing.city)}` },
+            { name: listing.title, path: `/listings/${listing.id}` }
+          ]),
+          buildPropertyJsonLd(listing)
+        ]}
+      />
       <ListingHeader />
       <div className="px-6 pb-24 pt-10">
         <div className="mx-auto max-w-6xl space-y-8">

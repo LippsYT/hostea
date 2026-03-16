@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db';
+import { buildPageMetadata } from '@/lib/seo';
 
 const legalDefaults: Record<string, { title: string; content: string }> = {
   'terminos-condiciones': {
@@ -81,6 +82,19 @@ HOSTEA puede intervenir como mediador, pero no garantiza reembolsos automaticos.
 El uso de la plataforma es bajo responsabilidad del usuario, quien libera expresamente a HOSTEA de reclamos por danos, perdidas o disputas entre partes.`
   }
 };
+
+export async function generateMetadata({ params }: { params: { slug: string } }) {
+  const page = legalDefaults[params.slug];
+  const fallbackTitle = page?.title || 'Legal';
+  const fallbackDescription = page?.content || 'Informacion legal y politicas de Hostea.';
+
+  return buildPageMetadata({
+    title: fallbackTitle.replace(/\s*-\s*HOSTEA$/i, ''),
+    description: fallbackDescription,
+    path: `/legal/${params.slug}`,
+    keywords: ['legal hostea', params.slug, 'terminos y condiciones', 'privacidad'].filter(Boolean)
+  });
+}
 
 const legalSlugAlias: Record<string, string> = {
   terminos: 'terminos-condiciones',

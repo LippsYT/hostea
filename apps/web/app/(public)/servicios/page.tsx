@@ -1,6 +1,15 @@
 import Link from 'next/link';
 import { Wrench, ShieldCheck, Banknote, Headset } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { buildPageMetadata } from '@/lib/seo';
+
+export const metadata = buildPageMetadata({
+  title: 'Servicios',
+  description:
+    'Conoce los servicios de Hostea para anfitriones: cobros, soporte operativo, seguridad y automatizaciones.',
+  path: '/servicios',
+  keywords: ['servicios hostea', 'soporte para anfitriones', 'gestion de cobros']
+});
 
 const services = [
   {

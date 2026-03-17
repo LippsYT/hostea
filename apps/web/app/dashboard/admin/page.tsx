@@ -45,16 +45,40 @@ export default async function AdminPage() {
     orderBy: { createdAt: 'desc' },
     take: 200
   });
-  const accessLogs = await prisma.accessLog.findMany({
-    include: { user: { include: { profile: true } } },
-    orderBy: { createdAt: 'desc' },
-    take: 20
-  });
-  const notifications = await prisma.notification.findMany({
-    where: { userId: (session?.user as any)?.id as string },
-    orderBy: { createdAt: 'desc' },
-    take: 20
-  });
+  let accessLogs: Array<{
+    id: string;
+    createdAt: Date;
+    role: string;
+    ip: string | null;
+    userAgent: string | null;
+    user: { email: string; profile: { name: string | null } | null };
+  }> = [];
+  let notifications: Array<{
+    id: string;
+    title: string;
+    body: string;
+    createdAt: Date;
+  }> = [];
+
+  try {
+    accessLogs = await prisma.accessLog.findMany({
+      include: { user: { include: { profile: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    });
+  } catch {
+    accessLogs = [];
+  }
+
+  try {
+    notifications = await prisma.notification.findMany({
+      where: { userId: (session?.user as any)?.id as string },
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    });
+  } catch {
+    notifications = [];
+  }
 
   let authIndex = buildSupabaseAuthIndex([]);
   if (process.env.SUPABASE_SERVICE_ROLE_KEY) {

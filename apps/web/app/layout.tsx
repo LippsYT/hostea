@@ -62,13 +62,9 @@ export const metadata: Metadata = {
   robots: getRobotsForPage(true),
   manifest: '/manifest.webmanifest',
   icons: {
-    icon: [
-      { url: '/brand/favicon.ico' },
-      { url: '/brand/favicon-32.png', type: 'image/png', sizes: '32x32' },
-      { url: '/brand/favicon-48.png', type: 'image/png', sizes: '48x48' }
-    ],
-    shortcut: ['/brand/favicon.ico'],
-    apple: [{ url: '/brand/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }]
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/icon.png'
   }
 };
 
@@ -79,6 +75,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
+      <head>
+        <link rel="icon" href="/icon.png" sizes="any" />
+      </head>
       <body className={`${display.variable} ${body.variable} font-body relative min-h-screen`}>
         <StructuredDataScript data={[buildOrganizationJsonLd(), buildWebsiteJsonLd()]} />
         <div aria-hidden className="hostea-bg">

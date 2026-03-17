@@ -58,7 +58,9 @@ enum KycStatus {
 
 enum TicketStatus {
   OPEN
-  PENDING
+  IN_REVIEW
+  WAITING_FOR_USER
+  ESCALATED
   RESOLVED
   CLOSED
   @@schema("public")
@@ -69,6 +71,14 @@ enum TicketPriority {
   MEDIUM
   HIGH
   URGENT
+  @@schema("public")
+}
+
+enum NotificationKind {
+  SUCCESS
+  ERROR
+  INFO
+  WARNING
   @@schema("public")
 }
 
@@ -142,7 +152,10 @@ model User {
   createdThreads MessageThread[] @relation("ThreadCreator")
   threadParticipants MessageThreadParticipant[]
   tickets       Ticket[]    @relation("TicketCreator")
+  assignedTickets Ticket[]  @relation("TicketAssignee")
   ticketMessages TicketMessage[]
+  notifications Notification[]
+  accessLogs    AccessLog[]
   kycSubmissions KycSubmission[]
   reviews       Review[]    @relation("ReviewAuthor")
   payments      Payment[]
@@ -589,19 +602,23 @@ model Message {
 }
 
 model Ticket {
-  id           String         @id @default(cuid())
-  createdById  String
-  assigneeId   String?
-  status       TicketStatus   @default(OPEN)
-  priority     TicketPriority @default(MEDIUM)
-  subject      String
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-
-  createdBy    User           @relation("TicketCreator", fields: [createdById], references: [id])
-  messages     TicketMessage[]
-  @@schema("public")
-}
+    id           String         @id @default(cuid())
+    caseSequence Int            @unique @default(autoincrement())
+    createdById  String
+    assigneeId   String?
+    status       TicketStatus   @default(OPEN)
+    priority     TicketPriority @default(MEDIUM)
+    subject      String
+    summary      String?
+    createdAt    DateTime       @default(now())
+    updatedAt    DateTime       @updatedAt
+  
+    createdBy    User           @relation("TicketCreator", fields: [createdById], references: [id])
+    assignee     User?          @relation("TicketAssignee", fields: [assigneeId], references: [id])
+    messages     TicketMessage[]
+    @@index([createdById, status, updatedAt])
+    @@schema("public")
+  }
 
 model TicketMessage {
   id        String   @id @default(cuid())
@@ -615,7 +632,7 @@ model TicketMessage {
   @@schema("public")
 }
 
-model KycSubmission {
+  model KycSubmission {
   id          String    @id @default(cuid())
   userId      String
   status      KycStatus @default(PENDING)
@@ -627,7 +644,37 @@ model KycSubmission {
 
   user        User      @relation(fields: [userId], references: [id])
   @@schema("public")
-}
+  }
+
+model Notification {
+    id        String           @id @default(cuid())
+    userId    String
+    kind      NotificationKind @default(INFO)
+    title     String
+    body      String
+    link      String?
+    readAt    DateTime?
+    createdAt DateTime         @default(now())
+
+    user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+    @@index([userId, readAt, createdAt])
+    @@schema("public")
+  }
+
+model AccessLog {
+    id        String   @id @default(cuid())
+    userId    String
+    role      String
+    ip        String?
+    userAgent String?
+    createdAt DateTime @default(now())
+
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    @@index([createdAt, role])
+    @@index([userId, createdAt])
+    @@map("logs_accesos")
+    @@schema("public")
+  }
 
 model Review {
   id            String      @id @default(cuid())

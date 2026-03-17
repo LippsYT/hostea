@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { TicketPriority, TicketStatus } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { extractTicketCategory, formatSupportCaseNumber, ticketStatusLabel } from '@/lib/support';
 
 type TicketMessageRow = {
   id: string;
@@ -17,9 +18,11 @@ type TicketMessageRow = {
 
 export type TicketRow = {
   id: string;
+  caseSequence: number;
   subject: string;
   status: TicketStatus;
   priority: TicketPriority;
+  summary?: string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
   createdBy: {
@@ -36,12 +39,17 @@ const priorityTone: Record<TicketPriority, string> = {
   URGENT: 'border-rose-200 bg-rose-50 text-rose-700'
 };
 
-const extractCategory = (subject: string) => {
-  const match = subject.match(/^\[([^\]]+)\]/);
-  return match?.[1] || 'General';
-};
+const statusOptions: TicketStatus[] = [
+  'OPEN',
+  'IN_REVIEW',
+  'WAITING_FOR_USER',
+  'ESCALATED',
+  'RESOLVED',
+  'CLOSED'
+];
 
 export function SupportInbox({ tickets }: { tickets: TicketRow[] }) {
+  const [ticketRows, setTicketRows] = useState<TicketRow[]>(tickets);
   const [csrf, setCsrf] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | TicketStatus>('all');
@@ -57,18 +65,37 @@ export function SupportInbox({ tickets }: { tickets: TicketRow[] }) {
     });
   }, []);
 
+  useEffect(() => {
+    setTicketRows(tickets);
+  }, [tickets]);
+
+  useEffect(() => {
+    const poll = async () => {
+      const res = await fetch('/api/tickets', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setTicketRows(data.tickets || []);
+    };
+
+    poll().catch(() => undefined);
+    const timer = window.setInterval(() => {
+      poll().catch(() => undefined);
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const filteredTickets = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return tickets.filter((ticket) => {
+    return ticketRows.filter((ticket) => {
       if (statusFilter !== 'all' && ticket.status !== statusFilter) return false;
       if (priorityFilter !== 'all' && ticket.priority !== priorityFilter) return false;
       if (!needle) return true;
       const requester = ticket.createdBy.profile?.name || ticket.createdBy.email;
-      const category = extractCategory(ticket.subject);
+      const category = extractTicketCategory(ticket.subject);
       const messageBlob = ticket.messages.map((message) => message.body).join(' ');
       return [ticket.subject, requester, category, messageBlob].join(' ').toLowerCase().includes(needle);
     });
-  }, [priorityFilter, query, statusFilter, tickets]);
+  }, [priorityFilter, query, statusFilter, ticketRows]);
 
   useEffect(() => {
     if (!filteredTickets.some((ticket) => ticket.id === selectedId)) {
@@ -82,12 +109,15 @@ export function SupportInbox({ tickets }: { tickets: TicketRow[] }) {
     const message = replyMap[id]?.trim() || '';
     const status = statusMap[id];
     if (!message && !status) return;
-    await fetch(`/api/tickets/${id}`, {
+    const res = await fetch(`/api/tickets/${id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
       body: JSON.stringify({ message, status })
     });
-    window.location.reload();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ticket) return;
+    setTicketRows((current) => current.map((ticket) => (ticket.id === id ? data.ticket : ticket)));
+    setReplyMap((current) => ({ ...current, [id]: '' }));
   };
 
   return (
@@ -104,7 +134,7 @@ export function SupportInbox({ tickets }: { tickets: TicketRow[] }) {
           className="mt-4"
         />
         <div className="mt-3 flex flex-wrap gap-2">
-          {(['all', 'OPEN', 'PENDING', 'RESOLVED', 'CLOSED'] as const).map((status) => (
+          {(['all', ...statusOptions] as const).map((status) => (
             <button
               key={status}
               type="button"
@@ -115,7 +145,7 @@ export function SupportInbox({ tickets }: { tickets: TicketRow[] }) {
                   : 'border-slate-200 bg-white text-slate-600'
               }`}
             >
-              {status === 'all' ? 'Todos' : status}
+              {status === 'all' ? 'Todos' : ticketStatusLabel(status)}
             </button>
           ))}
         </div>
@@ -139,7 +169,6 @@ export function SupportInbox({ tickets }: { tickets: TicketRow[] }) {
           {filteredTickets.map((ticket) => {
             const requester = ticket.createdBy.profile?.name || ticket.createdBy.email;
             const lastMessage = ticket.messages[ticket.messages.length - 1];
-            const category = extractCategory(ticket.subject);
             const selected = ticket.id === selectedTicket?.id;
             return (
               <button
@@ -153,14 +182,19 @@ export function SupportInbox({ tickets }: { tickets: TicketRow[] }) {
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="line-clamp-2 text-sm font-semibold text-slate-900">{ticket.subject}</p>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold text-slate-500">
+                      {formatSupportCaseNumber(ticket.caseSequence)}
+                    </p>
+                    <p className="line-clamp-2 text-sm font-semibold text-slate-900">{ticket.subject}</p>
+                  </div>
                   <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${priorityTone[ticket.priority]}`}>
                     {ticket.priority}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">{requester}</p>
                 <p className="text-[11px] text-slate-400">
-                  {category} · {ticket.status}
+                  {extractTicketCategory(ticket.subject)} · {ticketStatusLabel(ticket.status)}
                 </p>
                 {lastMessage ? (
                   <p className="mt-2 line-clamp-2 text-xs text-slate-500">{lastMessage.body}</p>
@@ -179,11 +213,14 @@ export function SupportInbox({ tickets }: { tickets: TicketRow[] }) {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {extractCategory(selectedTicket.subject)}
+                {extractTicketCategory(selectedTicket.subject)}
               </p>
               <h2 className="mt-1 text-xl font-semibold text-slate-900">{selectedTicket.subject}</h2>
               <p className="mt-1 text-sm text-slate-500">
                 {selectedTicket.createdBy.profile?.name || selectedTicket.createdBy.email}
+              </p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">
+                {formatSupportCaseNumber(selectedTicket.caseSequence)}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -191,7 +228,7 @@ export function SupportInbox({ tickets }: { tickets: TicketRow[] }) {
                 {selectedTicket.priority}
               </span>
               <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
-                {selectedTicket.status}
+                {ticketStatusLabel(selectedTicket.status)}
               </span>
             </div>
           </div>
@@ -217,7 +254,13 @@ export function SupportInbox({ tickets }: { tickets: TicketRow[] }) {
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-[220px_minmax(0,1fr)_140px]">
+          {selectedTicket.summary ? (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              Resumen final: {selectedTicket.summary}
+            </div>
+          ) : null}
+
+          <div className="mt-5 grid gap-3 md:grid-cols-[260px_minmax(0,1fr)_140px]">
             <select
               className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm"
               value={statusMap[selectedTicket.id] || selectedTicket.status}
@@ -228,9 +271,9 @@ export function SupportInbox({ tickets }: { tickets: TicketRow[] }) {
                 }))
               }
             >
-              {(['OPEN', 'PENDING', 'RESOLVED', 'CLOSED'] as const).map((status) => (
+              {statusOptions.map((status) => (
                 <option key={status} value={status}>
-                  {status}
+                  {ticketStatusLabel(status)}
                 </option>
               ))}
             </select>

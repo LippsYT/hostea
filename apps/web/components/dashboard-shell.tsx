@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { signOut } from 'next-auth/react';
+import { NotificationsCenter } from '@/components/notifications-center';
 
 type NavItem = { key: string; href: string; label: string };
 
@@ -113,6 +114,7 @@ export const DashboardShell = ({
               </div>
             </div>
             <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+              <NotificationsCenter />
               <Link
                 href="/"
                 className="flex-1 rounded-full border border-slate-200/70 px-4 py-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 sm:flex-none"

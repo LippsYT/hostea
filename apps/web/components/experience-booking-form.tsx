@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { calculateExperienceCheckoutQuote } from '@/lib/experience-checkout-pricing';
 import type { SmartPricingParams } from '@/lib/intelligent-pricing';
+import { buildAgeRulesSummary, buildHumanAgeRules } from '@/lib/occupancy';
 
 type ExperienceBookingFormProps = {
   experienceId: string;
@@ -103,6 +104,14 @@ export function ExperienceBookingForm({
       total: quote.total
     };
   }, [adultPrice, childPrice, infantPrice, guests, pricingParams]);
+  const ageLabels = buildHumanAgeRules({
+    infantMaxAge,
+    childMaxAge,
+    adultMinAge,
+    minimumAge,
+    childrenLabelFallback: 'Ninos segun reglas de la actividad',
+    infantsAllowed: minimumAge <= infantMaxAge
+  });
 
   const updateGuest = (key: keyof GuestCounts, delta: number) => {
     setGuests((prev) => {
@@ -234,18 +243,42 @@ export function ExperienceBookingForm({
       <div className="rounded-2xl border border-slate-200 bg-white p-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Viajeros</p>
         <p className="mt-1 text-xs text-slate-500">
-          Configuracion actual: infantes hasta {infantMaxAge}, ninos hasta {childMaxAge}, adultos desde {adultMinAge}.
+          {buildAgeRulesSummary({
+            infantMaxAge,
+            childMaxAge,
+            adultMinAge,
+            minimumAge,
+            childrenLabelFallback: 'Ninos segun reglas de la actividad',
+            infantsAllowed: minimumAge <= infantMaxAge
+          })}
         </p>
         <div className="mt-2 space-y-2">
           {[
-            { key: 'adults' as const, label: 'Adultos', price: totals.safeAdult },
-            { key: 'children' as const, label: 'Ninos', price: totals.safeChild },
-            { key: 'infants' as const, label: 'Infantes', price: totals.safeInfant }
+            {
+              key: 'adults' as const,
+              label: 'Adultos',
+              price: totals.safeAdult,
+              description: ageLabels.adults.replace('Adultos: ', '')
+            },
+            {
+              key: 'children' as const,
+              label: 'Ninos',
+              price: totals.safeChild,
+              description: ageLabels.children.replace('Ninos: ', '')
+            },
+            {
+              key: 'infants' as const,
+              label: 'Infantes',
+              price: totals.safeInfant,
+              description: ageLabels.infants.replace('Infantes: ', '')
+            }
           ].map((item) => (
             <div key={item.key} className="flex items-center justify-between text-sm">
               <div>
                 <p className="font-medium text-slate-800">{item.label}</p>
-                <p className="text-xs text-slate-500">USD {item.price.toFixed(2)}</p>
+                <p className="text-xs text-slate-500">
+                  {item.description} · USD {item.price.toFixed(2)}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <button

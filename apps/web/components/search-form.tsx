@@ -6,7 +6,7 @@ import { Calendar, Compass, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { OccupancySelector } from '@/components/occupancy-selector';
-import { buildOccupancySummary } from '@/lib/occupancy';
+import { buildAgeRulesSummary, buildOccupancySummary } from '@/lib/occupancy';
 
 type SearchMode = 'lodging' | 'activity';
 
@@ -281,7 +281,7 @@ export function SearchForm({
             <OccupancySelector
               value={guests}
               onChange={setGuests}
-              helperText="Cada publicacion define sus propias edades de infantes, ninos y adultos."
+              helperText={buildAgeRulesSummary()}
               className="shadow-2xl"
               summaryClassName="font-semibold"
             />

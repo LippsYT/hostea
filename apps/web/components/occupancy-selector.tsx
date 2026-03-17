@@ -1,6 +1,11 @@
 'use client';
 
-import { buildOccupancySummary, type OccupancyValue } from '@/lib/occupancy';
+import {
+  buildHumanAgeRules,
+  buildOccupancySummary,
+  type AgeRules,
+  type OccupancyValue
+} from '@/lib/occupancy';
 
 type OccupancySelectorProps = {
   value: OccupancyValue;
@@ -9,6 +14,7 @@ type OccupancySelectorProps = {
   helperText?: string;
   className?: string;
   summaryClassName?: string;
+  ageRules?: AgeRules;
 };
 
 const clampCount = (value: number) => Math.max(0, Math.floor(value));
@@ -17,19 +23,21 @@ export function OccupancySelector({
   value,
   onChange,
   label = 'Personas',
-  helperText = 'Las reglas de edad pueden variar segun cada publicacion.',
+  helperText,
   className = '',
-  summaryClassName = ''
+  summaryClassName = '',
+  ageRules
 }: OccupancySelectorProps) {
+  const ageLabels = buildHumanAgeRules(ageRules);
   const rows: Array<{
     key: keyof OccupancyValue;
     label: string;
     description: string;
     min: number;
   }> = [
-    { key: 'adults', label: 'Adultos', description: '13+ anos', min: 1 },
-    { key: 'children', label: 'Ninos', description: 'Edad configurable', min: 0 },
-    { key: 'infants', label: 'Infantes', description: 'Edad configurable', min: 0 }
+    { key: 'adults', label: 'Adultos', description: ageLabels.adults.replace('Adultos: ', ''), min: 1 },
+    { key: 'children', label: 'Ninos', description: ageLabels.children.replace('Ninos: ', ''), min: 0 },
+    { key: 'infants', label: 'Infantes', description: ageLabels.infants.replace('Infantes: ', ''), min: 0 }
   ];
 
   const updateCount = (key: keyof OccupancyValue, delta: number) => {
@@ -52,9 +60,6 @@ export function OccupancySelector({
             {buildOccupancySummary(value)}
           </p>
         </div>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-500">
-          Configurable
-        </span>
       </div>
 
       <div className="mt-4 space-y-3">
@@ -88,7 +93,9 @@ export function OccupancySelector({
         ))}
       </div>
 
-      <p className="mt-4 text-xs text-slate-500">{helperText}</p>
+      <p className="mt-4 text-xs text-slate-500">
+        {helperText || `${ageLabels.adults}. ${ageLabels.children}. ${ageLabels.infants}.`}
+      </p>
     </div>
   );
 }

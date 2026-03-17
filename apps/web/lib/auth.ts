@@ -6,6 +6,7 @@ import { rateLimit } from './rate-limit';
 import { getSupabasePublicServerClient } from './supabase-public';
 import { markEmailAsVerified } from './email-verification';
 import { RoleName } from '@prisma/client';
+import { recordLoginAccess } from './access-logs';
 
 const authenticateWithSupabase = async (email: string, password: string) => {
   try {
@@ -146,11 +147,22 @@ export const authOptions: NextAuthOptions = {
           valid = true;
         }
         if (!valid) return null;
+        const resolvedRoles = user.roles.map((r) => r.role.name);
+        await recordLoginAccess({
+          userId: user.id,
+          roles: resolvedRoles,
+          name: user.profile?.name || null,
+          email: user.email,
+          ip,
+          userAgent: Array.isArray(req?.headers?.['user-agent'])
+            ? req?.headers?.['user-agent']?.[0]
+            : req?.headers?.['user-agent'] || null
+        }).catch(() => undefined);
         return {
           id: user.id,
           email: user.email,
           name: user.profile?.name || user.email,
-          roles: user.roles.map((r) => r.role.name)
+          roles: resolvedRoles
         } as any;
       }
     })

@@ -45,6 +45,16 @@ export default async function AdminPage() {
     orderBy: { createdAt: 'desc' },
     take: 200
   });
+  const accessLogs = await prisma.accessLog.findMany({
+    include: { user: { include: { profile: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: 20
+  });
+  const notifications = await prisma.notification.findMany({
+    where: { userId: (session?.user as any)?.id as string },
+    orderBy: { createdAt: 'desc' },
+    take: 20
+  });
 
   let authIndex = buildSupabaseAuthIndex([]);
   if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -116,6 +126,53 @@ export default async function AdminPage() {
         reservations={safeReservations}
         audit={safeAudit}
       />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section className="surface-card space-y-4">
+          <div>
+            <p className="section-subtitle">Accesos recientes</p>
+            <h2 className="text-xl font-semibold text-slate-900">Actividad de login</h2>
+          </div>
+          <div className="space-y-3">
+            {accessLogs.map((access) => {
+              const displayName = access.user.profile?.name || access.user.email;
+              return (
+                <div key={access.id} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                  <p className="text-sm font-semibold text-slate-900">
+                    Ingreso {displayName} - {access.role} - {new Date(access.createdAt).toLocaleString('es-AR')}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {access.ip || 'IP no disponible'} · {access.userAgent || 'User-Agent no disponible'}
+                  </p>
+                </div>
+              );
+            })}
+            {accessLogs.length === 0 ? (
+              <p className="text-sm text-slate-500">Sin accesos recientes.</p>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="surface-card space-y-4">
+          <div>
+            <p className="section-subtitle">Notificaciones</p>
+            <h2 className="text-xl font-semibold text-slate-900">Actividad reciente</h2>
+          </div>
+          <div className="space-y-3">
+            {notifications.map((notification) => (
+              <div key={notification.id} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                <p className="text-sm font-semibold text-slate-900">{notification.title}</p>
+                <p className="mt-1 text-sm text-slate-600">{notification.body}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {new Date(notification.createdAt).toLocaleString('es-AR')}
+                </p>
+              </div>
+            ))}
+            {notifications.length === 0 ? (
+              <p className="text-sm text-slate-500">Sin actividad reciente.</p>
+            ) : null}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

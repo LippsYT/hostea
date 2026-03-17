@@ -159,9 +159,10 @@ export function NotificationsCenter() {
 
           <div className="mt-4 max-h-[420px] space-y-2 overflow-y-auto">
             {notifications.map((notification) => (
-              <button
+              <div
                 key={notification.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={async () => {
                   if (!notification.readAt) {
                     await markRead(notification.id);
@@ -170,7 +171,17 @@ export function NotificationsCenter() {
                     window.location.href = notification.link;
                   }
                 }}
-                className={`w-full rounded-2xl border p-3 text-left transition ${
+                onKeyDown={async (event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  if (!notification.readAt) {
+                    await markRead(notification.id);
+                  }
+                  if (notification.link) {
+                    window.location.href = notification.link;
+                  }
+                }}
+                className={`w-full cursor-pointer rounded-2xl border p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-slate-300 ${
                   notification.readAt ? 'border-slate-200 bg-slate-50/70' : 'border-slate-300 bg-white'
                 }`}
               >
@@ -184,7 +195,7 @@ export function NotificationsCenter() {
                 </div>
                 <p className="mt-2 text-sm font-semibold text-slate-900">{notification.title}</p>
                 <p className="mt-1 text-sm text-slate-600">{notification.body}</p>
-              </button>
+              </div>
             ))}
             {notifications.length === 0 ? (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">

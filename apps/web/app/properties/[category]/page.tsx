@@ -1,17 +1,11 @@
 import { notFound } from 'next/navigation';
 import { ListingCard } from '@/components/listing-card';
-import {
-  getCategoryDirectoryEntries,
-  getCategoryPageData
-} from '@/lib/public-catalog';
+import { getCategoryPageData } from '@/lib/public-catalog';
 import { buildCategoryMetadata, buildPageMetadata } from '@/lib/seo';
 import { buildBreadcrumbJsonLd } from '@/lib/structured-data';
 import { StructuredDataScript } from '@/components/structured-data-script';
 
-export async function generateStaticParams() {
-  const categories = await getCategoryDirectoryEntries();
-  return categories.map((category) => ({ category: category.slug }));
-}
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: { category: string } }) {
   const data = await getCategoryPageData(params.category);

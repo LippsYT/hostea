@@ -1,15 +1,12 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ListingCard } from '@/components/listing-card';
-import { getCityDirectoryEntries, getCityPageData } from '@/lib/public-catalog';
+import { getCityPageData } from '@/lib/public-catalog';
 import { buildCityMetadata, buildPageMetadata } from '@/lib/seo';
 import { buildBreadcrumbJsonLd } from '@/lib/structured-data';
 import { StructuredDataScript } from '@/components/structured-data-script';
 
-export async function generateStaticParams() {
-  const cities = await getCityDirectoryEntries();
-  return cities.map((city) => ({ slug: city.slug }));
-}
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const data = await getCityPageData(params.slug);

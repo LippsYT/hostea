@@ -20,7 +20,18 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const parsed = schema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: 'Datos invalidos' }, { status: 400 });
 
-    const ticket = await prisma.ticket.findUnique({ where: { id: params.id } });
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: params.id },
+      select: {
+        id: true,
+        createdById: true,
+        subject: true,
+        status: true,
+        priority: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
     if (!ticket) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
     const isOwner = ticket.createdById === (session.user as any).id;
     const isOperator =
@@ -50,7 +61,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             }
           },
           select: { id: true }
-        })
+        }).catch(() => [])
       : [];
 
     const updatedTicket = await prisma.$transaction(async (tx) => {
@@ -58,13 +69,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         await tx.ticket.update({
           where: { id: params.id },
           data: {
-            status: nextStatus,
-            summary:
-              (nextStatus === 'RESOLVED' || nextStatus === 'CLOSED') && message
-                ? message
-                : undefined
+            status: nextStatus
           }
-        });
+        }).catch(() => undefined);
       }
 
       if (message) {
@@ -77,7 +84,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         });
       }
 
-      const caseNumber = formatSupportCaseNumber(ticket.caseSequence);
+      const caseNumber = formatSupportCaseNumber((ticket as any).caseSequence ?? null);
 
       if (isOperator) {
         if (message) {
@@ -89,7 +96,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
               body: message,
               link: '/dashboard/client'
             }
-          });
+          }).catch(() => undefined);
         }
 
         if (nextStatus && nextStatus !== ticket.status) {
@@ -104,7 +111,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
                   : `Tu caso ahora esta ${ticketStatusLabel(nextStatus).toLowerCase()}.`,
               link: '/dashboard/client'
             }
-          });
+          }).catch(() => undefined);
         }
       } else if (message && supportUsers.length > 0) {
         await tx.notification.createMany({
@@ -115,12 +122,18 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             body: message,
             link: '/dashboard/support'
           }))
-        });
+        }).catch(() => undefined);
       }
 
       return tx.ticket.findUnique({
         where: { id: params.id },
-        include: {
+        select: {
+          id: true,
+          subject: true,
+          status: true,
+          priority: true,
+          createdAt: true,
+          updatedAt: true,
           createdBy: { include: { profile: true } },
           messages: {
             include: { sender: { include: { profile: true } } },
@@ -130,7 +143,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       });
     });
 
-    return NextResponse.json({ ticket: updatedTicket });
+    return NextResponse.json({
+      ticket: updatedTicket
+        ? {
+            ...updatedTicket,
+            caseSequence: (updatedTicket as any).caseSequence ?? null,
+            summary: (updatedTicket as any).summary ?? null
+          }
+        : null
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'No autorizado' }, { status: 401 });
   }

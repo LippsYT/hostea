@@ -31,7 +31,7 @@ type TicketMessageRow = {
 
 type TicketRow = {
   id: string;
-  caseSequence: number;
+  caseSequence: number | null;
   subject: string;
   status: TicketStatus;
   priority: TicketPriority;

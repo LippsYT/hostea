@@ -6,6 +6,7 @@ export const normalizeRoles = (roles: unknown): string[] =>
 
 export async function getEffectiveRoles(userId?: string | null, sessionRoles?: unknown) {
   const currentRoles = normalizeRoles(sessionRoles);
+  if (currentRoles.length > 0) return currentRoles;
   if (!userId) return currentRoles;
 
   try {

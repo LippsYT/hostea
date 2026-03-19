@@ -20,39 +20,61 @@ export default async function AdminPage() {
     redirect('/dashboard');
   }
 
-  const settled = await Promise.allSettled([
-    prisma.settings.findMany(),
-    prisma.legalPage.findMany({ orderBy: { slug: 'asc' } }),
-    prisma.user.findMany({
-      include: { profile: true, roles: { include: { role: true } } },
-      orderBy: { createdAt: 'desc' }
-    }),
-    prisma.listing.findMany({
-      include: { host: true },
-      orderBy: { createdAt: 'desc' }
-    }),
-    prisma.kycSubmission.findMany({
-      include: { user: true },
-      orderBy: { createdAt: 'desc' }
-    }),
-    prisma.reservation.findMany({
-      include: { listing: true, user: true },
-      orderBy: { createdAt: 'desc' }
-    }),
-    prisma.auditLog.findMany({
-      include: { actor: true },
-      orderBy: { createdAt: 'desc' },
-      take: 200
-    })
-  ]);
+  const safeQuery = async <T,>(query: () => Promise<T>, fallback: T): Promise<T> => {
+    try {
+      return await query();
+    } catch {
+      return fallback;
+    }
+  };
 
-  const settings = settled[0].status === 'fulfilled' ? settled[0].value : [];
-  const legalPages = settled[1].status === 'fulfilled' ? settled[1].value : [];
-  const users = settled[2].status === 'fulfilled' ? settled[2].value : [];
-  const listings = settled[3].status === 'fulfilled' ? settled[3].value : [];
-  const kycs = settled[4].status === 'fulfilled' ? settled[4].value : [];
-  const reservations = settled[5].status === 'fulfilled' ? settled[5].value : [];
-  const audit = settled[6].status === 'fulfilled' ? settled[6].value : [];
+  const settings = await safeQuery(() => prisma.settings.findMany(), []);
+  const legalPages = await safeQuery(() => prisma.legalPage.findMany({ orderBy: { slug: 'asc' } }), []);
+  const users = await safeQuery(
+    () =>
+      prisma.user.findMany({
+        include: { profile: true, roles: { include: { role: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 200
+      }),
+    []
+  );
+  const listings = await safeQuery(
+    () =>
+      prisma.listing.findMany({
+        include: { host: true },
+        orderBy: { createdAt: 'desc' },
+        take: 200
+      }),
+    []
+  );
+  const kycs = await safeQuery(
+    () =>
+      prisma.kycSubmission.findMany({
+        include: { user: true },
+        orderBy: { createdAt: 'desc' },
+        take: 200
+      }),
+    []
+  );
+  const reservations = await safeQuery(
+    () =>
+      prisma.reservation.findMany({
+        include: { listing: true, user: true },
+        orderBy: { createdAt: 'desc' },
+        take: 200
+      }),
+    []
+  );
+  const audit = await safeQuery(
+    () =>
+      prisma.auditLog.findMany({
+        include: { actor: true },
+        orderBy: { createdAt: 'desc' },
+        take: 200
+      }),
+    []
+  );
 
   const settingsMap = settings.reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {} as Record<string, any>);
   let accessLogs: Array<{

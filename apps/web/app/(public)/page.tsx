@@ -30,6 +30,54 @@ type DestinationCard = {
   cover: string | null;
 };
 
+const normalizeStringArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string');
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed)
+        ? parsed.filter((item): item is string => typeof item === 'string')
+        : [];
+    } catch {
+      return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+
+  return [];
+};
+
+const normalizeCurationSettings = (value: unknown): CurationSettings => {
+  if (!value) return {};
+
+  const parsed =
+    typeof value === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(value);
+          } catch {
+            return {};
+          }
+        })()
+      : value;
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return {};
+  }
+
+  const record = parsed as Record<string, unknown>;
+  return {
+    listingIds: normalizeStringArray(record.listingIds),
+    experienceIds: normalizeStringArray(record.experienceIds),
+    destinations: normalizeStringArray(record.destinations)
+  };
+};
+
 const fallbackImage =
   'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=1200&auto=format&fit=crop';
 
@@ -44,28 +92,32 @@ export default async function HomePage() {
   const { prisma } = await import('@/lib/db');
 
   const [listings, experiences, settingsRow] = await Promise.all([
-    prisma.listing.findMany({
-      where: { status: 'ACTIVE' },
-      take: 24,
-      include: {
-        photos: { orderBy: { sortOrder: 'asc' } },
-        _count: { select: { reservations: true } }
-      },
-      orderBy: { updatedAt: 'desc' }
-    }),
-    prisma.experience.findMany({
-      where: { status: 'ACTIVE' },
-      take: 24,
-      include: {
-        photos: { orderBy: { sortOrder: 'asc' } },
-        _count: { select: { bookings: true } }
-      },
-      orderBy: { updatedAt: 'desc' }
-    }),
+    prisma.listing
+      .findMany({
+        where: { status: 'ACTIVE' },
+        take: 24,
+        include: {
+          photos: { orderBy: { sortOrder: 'asc' } },
+          _count: { select: { reservations: true } }
+        },
+        orderBy: { updatedAt: 'desc' }
+      })
+      .catch(() => []),
+    prisma.experience
+      .findMany({
+        where: { status: 'ACTIVE' },
+        take: 24,
+        include: {
+          photos: { orderBy: { sortOrder: 'asc' } },
+          _count: { select: { bookings: true } }
+        },
+        orderBy: { updatedAt: 'desc' }
+      })
+      .catch(() => []),
     prisma.settings.findUnique({ where: { key: 'homepage_curated' } }).catch(() => null)
   ]);
 
-  const curation = (settingsRow?.value || {}) as CurationSettings;
+  const curation = normalizeCurationSettings(settingsRow?.value);
 
   const destinationMap = new Map<string, DestinationCard>();
   for (const listing of listings) {
